@@ -7,9 +7,31 @@ export const KATEGORI_OPTIONS = [
 
 export const RISIKO_OPTIONS = ['Low', 'Medium', 'High']
 
-export const STATUS_OPTIONS = ['Open', 'In Progress', 'Closed']
+export const STATUS_OPTIONS = [
+  'Open',
+  'Under Review',
+  'In Progress',
+  'Pending Verification',
+  'Closed',
+  'Rejected',
+]
 
-// Placeholder — sesuaikan dengan daftar PIC/departemen BACT yang sebenarnya.
+export const CAPA_STATUS_OPTIONS = ['Open', 'In Progress', 'Completed', 'Verified']
+
+// IOGP Life Saving Rules (disederhanakan)
+export const LIFE_SAVING_RULES = [
+  'Tidak terkait',
+  'Bypassing Safety Controls',
+  'Confined Space',
+  'Driving',
+  'Energy Isolation',
+  'Hot Work',
+  'Line of Fire',
+  'Safe Mechanical Lifting',
+  'Work Authorization',
+  'Working at Height',
+]
+
 export const PIC_OPTIONS = [
   'HSE',
   'Produksi',
@@ -19,7 +41,6 @@ export const PIC_OPTIONS = [
   'Umum / GA',
 ]
 
-// Sumber: form referensi Microsoft Forms (Departemen.png / nama perusahaan.png)
 export const DEPARTMENT_OPTIONS = [
   'MANAGEMENT',
   'OPERATIONS',
@@ -45,3 +66,18 @@ export const COMPANY_OPTIONS = [
   'PT. BKJ (Mooring etc)',
   'Lainnya',
 ]
+
+export const NEGATIVE_CATEGORIES = ['Unsafe Act', 'Unsafe Condition', 'Near Miss']
+
+export function computeIsHiPo({ kategori, tingkat_risiko, potensi_risiko, stop_work }) {
+  return (
+    tingkat_risiko === 'High' ||
+    potensi_risiko === 'High' ||
+    kategori === 'Near Miss' ||
+    stop_work === true
+  )
+}
+
+export function isOpenStatus(status) {
+  return status !== 'Closed' && status !== 'Rejected'
+}

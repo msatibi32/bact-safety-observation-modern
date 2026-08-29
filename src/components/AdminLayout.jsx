@@ -1,10 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '../lib/auth'
-import { ChartIcon, ClipboardIcon, LogoutIcon, ShieldIcon } from './Icon'
+import { BRANDING } from '../lib/branding'
+import BrandLogo from './BrandLogo'
+import { ChartIcon, ClipboardIcon, LogoutIcon } from './Icon'
 
 const navLinkClass = ({ isActive }) =>
   `inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
-    isActive ? 'bg-violet-600 text-white shadow-sm shadow-violet-600/30' : 'text-slate-500 hover:bg-slate-100'
+    isActive ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30' : 'text-slate-500 hover:bg-slate-100'
   }`
 
 export default function AdminLayout({ children }) {
@@ -20,12 +22,10 @@ export default function AdminLayout({ children }) {
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white">
-              <ShieldIcon className="h-5 w-5" />
-            </div>
+            <BrandLogo size="sm" compact className="rounded-lg" />
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-violet-600">
-                BACT · Safety Observation Card
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-600">
+                {BRANDING.appName}
               </p>
               <p className="text-sm font-semibold text-slate-900">Panel Admin / HSE</p>
             </div>

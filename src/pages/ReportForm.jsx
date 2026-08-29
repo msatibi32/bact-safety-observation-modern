@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { CameraIcon, CheckCircleIcon, PinIcon, ShieldIcon } from '../components/Icon'
-import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, KATEGORI_OPTIONS, RISIKO_OPTIONS } from '../lib/constants'
+import BrandHeader from '../components/BrandHeader'
+import { CameraIcon, CheckCircleIcon, PinIcon } from '../components/Icon'
+import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, KATEGORI_OPTIONS, LIFE_SAVING_RULES, RISIKO_OPTIONS, computeIsHiPo } from '../lib/constants'
 import { addObservation } from '../lib/store'
 
 const RISK_STYLE = {
@@ -31,6 +32,9 @@ const emptyForm = {
   kategori: KATEGORI_OPTIONS[0],
   deskripsi: '',
   tingkat_risiko: 'Low',
+  potensi_risiko: 'Low',
+  life_saving_rule: LIFE_SAVING_RULES[0],
+  stop_work: false,
   tindakan_langsung: '',
   rekomendasi: '',
 }
@@ -73,6 +77,13 @@ export default function ReportForm() {
     )
   }
 
+  const isHiPo = computeIsHiPo({
+    kategori: form.kategori,
+    tingkat_risiko: form.tingkat_risiko,
+    potensi_risiko: form.potensi_risiko,
+    stop_work: form.stop_work,
+  })
+
   async function handleSubmit(e) {
     e.preventDefault()
     setSubmitError('')
@@ -84,6 +95,7 @@ export default function ReportForm() {
           form.nama_perusahaan === 'Lainnya' ? form.nama_perusahaan_lainnya : form.nama_perusahaan,
         lokasi_gps: gps,
         foto: photos.map((p) => p.file),
+        is_hipo: isHiPo,
       })
       setSubmitted(true)
     } catch (err) {
@@ -103,7 +115,7 @@ export default function ReportForm() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-violet-50 via-white to-white px-6">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-brand-50 via-white to-white px-6">
         <div className="card flex w-full max-w-sm flex-col items-center gap-4 p-8 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <CheckCircleIcon className="h-9 w-9" />
@@ -121,20 +133,13 @@ export default function ReportForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-violet-50 via-white to-white pb-16">
+    <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white pb-16">
       <div className="mx-auto max-w-xl px-4 pt-10">
-        <header className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-600/30">
-            <ShieldIcon className="h-7 w-7" />
-          </div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-violet-600">
-            BACT · Safety Observation Card
-          </p>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900">Laporkan Observasi</h1>
-          <p className="mt-1 max-w-sm text-sm text-slate-500">
-            Kondisi tidak aman, tindakan berisiko, near miss, atau observasi positif — laporkan dalam hitungan menit.
-          </p>
-        </header>
+        <BrandHeader
+          className="mb-6"
+          title="Laporkan Observasi"
+          subtitle="Kondisi tidak aman, tindakan berisiko, near miss, atau observasi positif — laporkan dalam hitungan menit."
+        />
 
         <form onSubmit={handleSubmit} className="card space-y-6 p-6">
           <Section title="Informasi Pelapor">
@@ -212,7 +217,7 @@ export default function ReportForm() {
                 <button
                   type="button"
                   onClick={handleGetGps}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                 >
                   <PinIcon className="h-3.5 w-3.5" />
                   Ambil lokasi GPS
@@ -252,7 +257,7 @@ export default function ReportForm() {
               />
             </Field>
 
-            <Field label="Tingkat risiko" required>
+            <Field label="Tingkat risiko (aktual)" required>
               <div className="grid grid-cols-3 gap-2">
                 {RISIKO_OPTIONS.map((opt) => {
                   const style = RISK_STYLE[opt]
@@ -273,11 +278,64 @@ export default function ReportForm() {
                 })}
               </div>
             </Field>
+
+            <Field label="Potensi risiko (jika tidak ditangani)" required>
+              <div className="grid grid-cols-3 gap-2">
+                {RISIKO_OPTIONS.map((opt) => {
+                  const style = RISK_STYLE[opt]
+                  const active = form.potensi_risiko === opt
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => update('potensi_risiko', opt)}
+                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+                        active ? style.active : style.idle
+                      }`}
+                    >
+                      <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+                      {opt}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+            <Field label="IOGP Life Saving Rule">
+              <select
+                value={form.life_saving_rule}
+                onChange={(e) => update('life_saving_rule', e.target.value)}
+                className="input"
+              >
+                {LIFE_SAVING_RULES.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </Field>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3">
+              <input
+                type="checkbox"
+                checked={form.stop_work}
+                onChange={(e) => update('stop_work', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-slate-900">Stop Work / pekerjaan dihentikan</span>
+                <p className="text-xs text-slate-500">Centang jika pekerjaan di area tersebut sudah dihentikan sementara.</p>
+              </div>
+            </label>
+
+            {isHiPo && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <strong>High Potential (HiPo)</strong> — laporan ini akan diprioritaskan dan ditinjau HSE segera.
+              </div>
+            )}
           </Section>
 
           <Section title="Bukti & Tindak Lanjut">
             <Field label="Foto bukti">
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition hover:border-violet-300 hover:bg-violet-50/60">
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition hover:border-brand-300 hover:bg-brand-50/60">
                 <CameraIcon className="h-6 w-6 text-slate-400" />
                 <span className="text-sm font-medium text-slate-600">Tap untuk ambil / pilih foto</span>
                 <span className="text-xs text-slate-400">Bisa lebih dari satu foto</span>
@@ -341,7 +399,7 @@ export default function ReportForm() {
 function Section({ title, children }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-violet-600">{title}</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-brand-600">{title}</h2>
       <div className="space-y-4">{children}</div>
     </div>
   )

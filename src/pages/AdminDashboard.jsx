@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import AdminLayout from '../components/AdminLayout'
-import { RiskBadge, StatusBadge } from '../components/Badge'
-import { BuildingIcon, PinIcon } from '../components/Icon'
-import { PIC_OPTIONS, STATUS_OPTIONS } from '../lib/constants'
+import { HiPoBadge, RiskBadge, StatusBadge } from '../components/Badge'
+import ObservationDetailPanel from '../components/ObservationDetailPanel'
+import { isOpenStatus } from '../lib/constants'
 import { getObservations, updateObservation } from '../lib/store'
 
 function initials(name = '') {
@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('Semua')
+  const [filterHiPo, setFilterHiPo] = useState(false)
 
   async function loadObservations() {
     setLoading(true)
@@ -38,43 +39,71 @@ export default function AdminDashboard() {
 
   const selected = observations.find((o) => o.id === selectedId) || null
 
-  const filtered =
-    filterStatus === 'Semua' ? observations : observations.filter((o) => o.status === filterStatus)
+  const filtered = useMemo(() => {
+    let list = observations
+    if (filterStatus !== 'Semua') list = list.filter((o) => o.status === filterStatus)
+    if (filterHiPo) list = list.filter((o) => o.is_hipo)
+    return list
+  }, [observations, filterStatus, filterHiPo])
 
-  const openCount = observations.filter((o) => o.status === 'Open').length
+  const openCount = observations.filter((o) => isOpenStatus(o.status)).length
+  const hipoCount = observations.filter((o) => o.is_hipo && isOpenStatus(o.status)).length
   const highCount = observations.filter((o) => o.tingkat_risiko === 'High').length
+  const reviewCount = observations.filter((o) => o.status === 'Under Review').length
 
   async function handleSave(id, patch) {
-    const updated = await updateObservation(id, patch)
+    const prev = observations.find((o) => o.id === id)
+    const updated = await updateObservation(id, patch, prev)
     setObservations((prev) => prev.map((o) => (o.id === id ? updated : o)))
   }
 
   return (
     <AdminLayout>
-      <div className="mb-5 grid grid-cols-3 gap-3">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MiniStat label="Total laporan" value={observations.length} accent="text-slate-900" />
-        <MiniStat label="Perlu ditindak (Open)" value={openCount} accent="text-violet-600" />
-        <MiniStat label="Risiko tinggi" value={highCount} accent="text-red-600" />
+        <MiniStat label="Aktif (belum closed)" value={openCount} accent="text-brand-600" />
+        <MiniStat label="HiPo aktif" value={hipoCount} accent="text-red-600" />
+        <MiniStat label="Under Review" value={reviewCount} accent="text-purple-600" />
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold text-slate-900">Daftar Laporan ({filtered.length})</h1>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="input w-auto"
-        >
-          <option>Semua</option>
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={filterHiPo}
+              onChange={(e) => setFilterHiPo(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-brand-600"
+            />
+            HiPo saja
+          </label>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="input w-auto"
+          >
+            <option>Semua</option>
+            <option>Open</option>
+            <option>Under Review</option>
+            <option>In Progress</option>
+            <option>Pending Verification</option>
+            <option>Closed</option>
+            <option>Rejected</option>
+          </select>
+        </div>
       </div>
+
+      {highCount > 0 && (
+        <p className="mb-3 text-xs text-amber-700">
+          {highCount} laporan dengan risiko High — perlu perhatian prioritas.
+        </p>
+      )}
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-        <div className="card overflow-hidden lg:col-span-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <div className="card overflow-hidden xl:col-span-3">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead className="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -89,26 +118,27 @@ export default function AdminDashboard() {
               <tbody className="divide-y divide-slate-50">
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                      Memuat data...
-                    </td>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Memuat data…</td>
                   </tr>
                 )}
                 {!loading && filtered.map((obs) => (
                   <tr
                     key={obs.id}
                     onClick={() => setSelectedId(obs.id)}
-                    className={`cursor-pointer transition hover:bg-violet-50/60 ${
-                      selectedId === obs.id ? 'bg-violet-50' : ''
-                    }`}
+                    className={`cursor-pointer transition hover:bg-brand-50/60 ${
+                      selectedId === obs.id ? 'bg-brand-50' : ''
+                    } ${obs.is_hipo ? 'border-l-2 border-l-red-500' : ''}`}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-700">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
                           {initials(obs.nama_pelapor)}
                         </div>
                         <div>
-                          <div className="font-medium text-slate-900">{obs.nama_pelapor}</div>
+                          <div className="flex items-center gap-1.5 font-medium text-slate-900">
+                            {obs.nama_pelapor}
+                            {obs.is_hipo && <HiPoBadge />}
+                          </div>
                           <div className="text-xs text-slate-400">
                             {new Date(obs.tanggal_waktu).toLocaleString('id-ID', {
                               day: '2-digit',
@@ -122,19 +152,13 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{obs.lokasi_teks}</td>
                     <td className="px-4 py-3 text-slate-600">{obs.kategori}</td>
-                    <td className="px-4 py-3">
-                      <RiskBadge level={obs.tingkat_risiko} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={obs.status} />
-                    </td>
+                    <td className="px-4 py-3"><RiskBadge level={obs.tingkat_risiko} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={obs.status} /></td>
                   </tr>
                 ))}
                 {!loading && filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                      Belum ada laporan.
-                    </td>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Belum ada laporan.</td>
                   </tr>
                 )}
               </tbody>
@@ -142,12 +166,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           {selected ? (
-            <DetailPanel key={selected.id} observation={selected} onSave={handleSave} />
+            <ObservationDetailPanel key={selected.id} observation={selected} onSave={handleSave} />
           ) : (
-            <div className="flex h-full min-h-[200px] items-center justify-center rounded-2xl border border-dashed border-slate-200 text-sm text-slate-400">
-              Pilih salah satu laporan untuk lihat detail & follow-up.
+            <div className="flex h-full min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
+              Pilih laporan untuk detail, investigasi, CAPA & audit trail.
             </div>
           )}
         </div>
@@ -161,126 +185,6 @@ function MiniStat({ label, value, accent }) {
     <div className="card p-4">
       <p className="text-xs font-medium text-slate-500">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${accent}`}>{value}</p>
-    </div>
-  )
-}
-
-function DetailPanel({ observation, onSave }) {
-  const [pic, setPic] = useState(observation.pic_assigned || '')
-  const [status, setStatus] = useState(observation.status)
-  const [catatan, setCatatan] = useState(observation.catatan_penutupan || '')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-    setSaving(true)
-    try {
-      await onSave(observation.id, { pic_assigned: pic, status, catatan_penutupan: catatan })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 1500)
-    } catch (err) {
-      setError(err.message || 'Gagal menyimpan perubahan.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="card space-y-4 p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h2 className="font-semibold text-slate-900">{observation.nama_pelapor}</h2>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
-            <BuildingIcon className="h-3.5 w-3.5" />
-            {observation.departemen}
-            {observation.nama_perusahaan ? ` · ${observation.nama_perusahaan}` : ''}
-          </div>
-        </div>
-        <RiskBadge level={observation.tingkat_risiko} />
-      </div>
-
-      <dl className="space-y-2.5 text-sm">
-        <DetailRow icon={<PinIcon className="h-3.5 w-3.5" />} label="Lokasi" value={observation.lokasi_teks} />
-        {observation.lokasi_gps && (
-          <DetailRow
-            label="Koordinat GPS"
-            value={`${observation.lokasi_gps.lat.toFixed(5)}, ${observation.lokasi_gps.lng.toFixed(5)}`}
-          />
-        )}
-        <DetailRow label="Kategori" value={observation.kategori} />
-        <DetailRow label="Deskripsi" value={observation.deskripsi} />
-        {observation.tindakan_langsung && (
-          <DetailRow label="Tindakan langsung" value={observation.tindakan_langsung} />
-        )}
-        {observation.rekomendasi && <DetailRow label="Rekomendasi" value={observation.rekomendasi} />}
-      </dl>
-
-      {observation.foto?.length > 0 && (
-        <div className="grid grid-cols-3 gap-2">
-          {observation.foto.map((src, i) => (
-            <img key={i} src={src} alt={`Bukti ${i + 1}`} className="aspect-square rounded-lg object-cover" />
-          ))}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-3 border-t border-slate-100 pt-4">
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-700">PIC / Departemen follow-up</span>
-          <select value={pic} onChange={(e) => setPic(e.target.value)} className="input">
-            <option value="">— Belum di-assign —</option>
-            {PIC_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-medium text-slate-700">Status</span>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {status === 'Closed' && (
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-700">Catatan penutupan</span>
-            <textarea
-              rows={2}
-              value={catatan}
-              onChange={(e) => setCatatan(e.target.value)}
-              className="input"
-              placeholder="Tindakan yang sudah dilakukan..."
-            />
-          </label>
-        )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <button type="submit" disabled={saving} className="btn-primary w-full">
-          {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan perubahan'}
-        </button>
-      </form>
-    </div>
-  )
-}
-
-function DetailRow({ icon, label, value }) {
-  return (
-    <div>
-      <dt className="flex items-center gap-1 text-xs font-medium text-slate-400">
-        {icon}
-        {label}
-      </dt>
-      <dd className="text-slate-700">{value}</dd>
     </div>
   )
 }

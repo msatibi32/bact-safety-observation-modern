@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BACT Safety Observation Card — Workflow Diagrams</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --violet: #7c3aed;
+      --slate-900: #0f172a;
+      --slate-600: #475569;
+      --slate-200: #e2e8f0;
+      --slate-50: #f8fafc;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Inter, system-ui, sans-serif;
+      color: var(--slate-900);
+      background: var(--slate-50);
+      line-height: 1.5;
+    }
+
+    .cover {
+      background: linear-gradient(135deg, #5b21b6 0%, #4338ca 100%);
+      color: white;
+      padding: 48px 40px;
+      page-break-after: always;
+    }
+
+    .cover h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+    .cover .subtitle { font-size: 1.1rem; opacity: 0.9; margin-bottom: 24px; }
+    .cover .meta { font-size: 0.9rem; opacity: 0.75; }
+    .cover .badge {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 6px 14px;
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .instructions {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      padding: 16px 20px;
+      margin: 24px 40px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.9rem;
+      color: #78350f;
+    }
+
+    .instructions strong { display: block; margin-bottom: 6px; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 0 40px 32px;
+      padding: 20px;
+      background: white;
+      border: 1px solid var(--slate-200);
+      border-radius: 12px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+    .legend-swatch { width: 28px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+
+    section {
+      background: white;
+      margin: 0 40px 40px;
+      padding: 32px;
+      border: 1px solid var(--slate-200);
+      border-radius: 16px;
+      page-break-inside: avoid;
+    }
+
+    section h2 {
+      font-size: 1.25rem;
+      color: var(--violet);
+      margin-bottom: 6px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--slate-200);
+    }
+
+    section .desc {
+      font-size: 0.9rem;
+      color: var(--slate-600);
+      margin-bottom: 24px;
+    }
+
+    .diagram {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+      padding: 16px 0;
+    }
+
+    .mermaid { width: 100%; }
+
+    .page-num {
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--slate-600);
+      margin-top: 16px;
+    }
+
+    .roadmap-note {
+      background: #f5f3ff;
+      border: 1px dashed var(--violet);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #5b21b6;
+      margin-bottom: 20px;
+    }
+
+    @media print {
+      body { background: white; }
+      .instructions { display: none; }
+      section { box-shadow: none; margin: 0 0 24px; page-break-after: always; }
+      .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cover">
+    <div class="badge">Dokumentasi Workflow</div>
+    <h1>Safety Observation Card</h1>
+    <p class="subtitle">PT. BACT — Alur Kerja Aplikasi Pelaporan Observasi Keselamatan</p>
+    <p class="meta">Versi 1.0 · Untuk keperluan laporan & FigJam/Figma</p>
+    <p class="meta" style="margin-top: 8px;">Tech stack: React + Vite · Vercel · Supabase</p>
+  </div>
+
+  <div class="instructions">
+    <strong>Cara pakai file ini untuk Figma/FigJam:</strong>
+    Buka file ini di browser → scroll ke diagram yang diinginkan → screenshot (Win+Shift+S) atau Print to PDF.
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-swatch" style="background:#dbeafe;border:1px solid #3b82f6"></span> Halaman / UI</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#dcfce7;border:1px solid #22c55e"></span> Aktor / Pengguna</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#fef3c7;border:1px solid #f59e0b"></span> Keputusan / Validasi</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#f3e8ff;border:1px solid #a855f7"></span> Backend / Database</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#fee2e2;border:1px dashed #ef4444"></span> Target / Roadmap (belum diimplementasi)</div>
+  </div>
+
+  <!-- Diagram 1 -->
+  <section>
+    <h2>Diagram 1 — Overview Sistem & Aktor</h2>
+    <p class="desc">Gambaran umum siapa yang menggunakan aplikasi, halaman apa yang diakses, dan hubungan dengan backend Supabase.</p>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TB
+    subgraph AKTOR["Aktor"]
+        P["Pelapor\nKaryawan / Kontraktor / Visitor"]
+        A["Admin / HSE Officer"]
+    end
+
+    subgraph APP["Safety Observation Card"]
+        F["Form Pelaporan\n/"]
+        L["Login Admin\n/admin/login"]
+        D["Dashboard Admin\n/admin"]
+        R["Ringkasan Analitik\n/admin/ringkasan"]
+    end
+
+    subgraph BACKEND["Supabase"]
+        SB["Database + Storage + Auth"]
+    end
+
+    P -->|"Scan QR / buka link"| F
+    F -->|"Submit laporan"| SB
+    A -->|"Email + password"| L
+    L -->|"Auth berhasil"| D
+    D -->|"Baca & update"| SB
+    D --> R
+    R -->|"Query statistik"| SB
+
+    style AKTOR fill:#dcfce7,stroke:#22c55e
+    style APP fill:#dbeafe,stroke:#3b82f6
+    style BACKEND fill:#f3e8ff,stroke:#a855f7
+      </pre>
+    </div>
+    <p class="page-num">Halaman 1 dari 6</p>
+  </section>
+
+  <!-- Diagram 2 -->
+  <section>
+    <h2>Diagram 2 — Alur Pelapor (Form Publik)</h2>
+    <p class="desc">Alur lengkap dari pelapor membuka aplikasi hingga laporan tersimpan dengan status Open.</p>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+    START([Pelapor buka app / scan QR]) --> FORM[Halaman Form Pelaporan]
+
+    FORM --> S1["Info Pelapor\nNama · Departemen · Perusahaan"]
+    S1 --> S2["Lokasi & Waktu\nTanggal · Lokasi teks · GPS opsional"]
+    S2 --> S3["Detail Observasi\nKategori · Deskripsi · Tingkat risiko"]
+    S3 --> S4["Bukti & Tindakan\nFoto · Tindakan langsung · Rekomendasi"]
+
+    S4 --> VALID{Form valid?}
+    VALID -->|Tidak| FORM
+    VALID -->|Ya| UPLOAD[Upload foto ke Storage]
+    UPLOAD --> INSERT["Insert observations\nstatus = Open"]
+    INSERT --> SUCCESS[Laporan terkirim]
+    SUCCESS --> AGAIN{Lapor lagi?}
+    AGAIN -->|Ya| FORM
+    AGAIN -->|Tidak| END([Selesai])
+
+    S2 -.-> GPS{Izin GPS?}
+    GPS -->|Ya| GPS_OK[Simpan koordinat]
+    GPS -->|Tidak| GPS_SKIP[Lanjut tanpa GPS]
+
+    style START fill:#dcfce7,stroke:#22c55e
+    style END fill:#dcfce7,stroke:#22c55e
+    style VALID fill:#fef3c7,stroke:#f59e0b
+    style AGAIN fill:#fef3c7,stroke:#f59e0b
+    style INSERT fill:#f3e8ff,stroke:#a855f7
+      </pre>
+    </div>
+    <p class="page-num">Halaman 2 dari 6</p>
+  </section>
+
+  <!-- Diagram 3 -->
+  <section>
+    <h2>Diagram 3 — Alur Admin / HSE Officer</h2>
+    <p class="desc">Alur login admin, penanganan laporan, assign PIC, update status, dan akses ringkasan analitik.</p>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+    START([Admin buka /admin/login]) --> LOGIN[Input email + password]
+    LOGIN --> AUTH{Auth berhasil?}
+    AUTH -->|Tidak| ERR[Error: email/password salah]
+    ERR --> LOGIN
+    AUTH -->|Ya| DASH[Dashboard /admin]
+
+    DASH --> STATS["Statistik: Total · Open · High risk"]
+    DASH --> FILTER[Filter status]
+    FILTER --> TABLE[Tabel daftar laporan]
+    TABLE --> SELECT[Pilih laporan]
+    SELECT --> DETAIL[Panel detail + foto bukti]
+
+    DETAIL --> ACTION["Follow-up:\nAssign PIC · Ubah status · Catatan penutupan"]
+    ACTION --> SAVE[Simpan ke Supabase]
+    SAVE --> DASH
+
+    DASH --> SUMMARY[Ringkasan /admin/ringkasan]
+    SUMMARY --> CHARTS["Analitik:\nRisiko · Departemen · Perusahaan · Lokasi · Rekomendasi"]
+
+    DASH --> LOGOUT[Logout]
+
+    style START fill:#dcfce7,stroke:#22c55e
+    style AUTH fill:#fef3c7,stroke:#f59e0b
+    style SAVE fill:#f3e8ff,stroke:#a855f7
+      </pre>
+    </div>
+    <p class="page-num">Halaman 3 dari 6</p>
+  </section>
+
+  <!-- Diagram 4 -->
+  <section>
+    <h2>Diagram 4 — State Machine Status Laporan</h2>
+    <p class="desc">Perpindahan status laporan dari Open hingga Closed beserta kondisi transisinya.</p>
+    <div class="diagram">
+      <pre class="mermaid">
+stateDiagram-v2
+    [*] --> Open : Pelapor submit
+
+    Open --> InProgress : Admin assign PIC\n& mulai tindak lanjut
+    Open --> Closed : Tutup langsung\n+ catatan penutupan
+
+    InProgress --> Closed : Tindakan selesai\n+ catatan penutupan
+
+    Closed --> [*] : closed_date tercatat
+
+    note right of Open
+        Laporan baru masuk
+        Belum ada PIC
+    end note
+
+    note right of InProgress
+        PIC sudah di-assign
+        Follow-up berjalan
+    end note
+
+    note right of Closed
+        Wajib catatan penutupan
+        Tanggal close tersimpan
+    end note
+      </pre>
+    </div>
+    <p class="page-num">Halaman 4 dari 6</p>
+  </section>
+
+  <!-- Diagram 5 -->
+  <section>
+    <h2>Diagram 5 — Arsitektur Sistem</h2>
+    <p class="desc">Hubungan antara pengguna, frontend di Vercel, dan layanan Supabase (database, storage, auth).</p>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart LR
+    subgraph CLIENT["Browser / HP"]
+        U1["Pelapor\nTanpa login"]
+        U2["Admin\nDengan login"]
+    end
+
+    subgraph VERCEL["Vercel"]
+        WEB["React + Vite\nSafety Observation Card"]
+    end
+
+    subgraph SUPABASE["Supabase"]
+        DB[("Tabel\nobservations")]
+        STG[("Storage\nfoto bukti")]
+        AUTH["Auth\nadmin only"]
+    end
+
+    U1 -->|HTTPS| WEB
+    U2 -->|HTTPS| WEB
+    WEB -->|INSERT| DB
+    WEB -->|Upload| STG
+    WEB -->|SELECT UPDATE| DB
+    U2 -->|Login| AUTH
+    AUTH -->|Token| WEB
+
+    style CLIENT fill:#dcfce7,stroke:#22c55e
+    style VERCEL fill:#dbeafe,stroke:#3b82f6
+    style SUPABASE fill:#f3e8ff,stroke:#a855f7
+      </pre>
+    </div>
+    <p class="page-num">Halaman 5 dari 6</p>
+  </section>
+
+  <!-- Diagram 6 -->
+  <section>
+    <h2>Diagram 6 — Workflow Target (Standar Migas / Roadmap)</h2>
+    <div class="roadmap-note">
+      Diagram ini menunjukkan alur target mengacu standar ISO 45001 & praktik industri migas.
+      Belum seluruhnya diimplementasi — gunakan sebagai rencana pengembangan.
+    </div>
+    <div class="diagram">
+      <pre class="mermaid">
+flowchart TD
+    SUBMIT([Pelapor Submit]) --> TRIAGE{HSE Triage\nReview severity}
+
+    TRIAGE -->|Low / Medium| ASSIGN[Assign PIC]
+    TRIAGE -->|High / HiPo| ESCALATE[Eskalasi Supervisor\n+ Investigasi wajib]
+
+    ESCALATE --> INVEST[Investigasi\n5 Whys / Root Cause]
+    INVEST --> CAPA[Buat CAPA\nCorrective Action]
+
+    ASSIGN --> PROGRESS[In Progress]
+    CAPA --> PROGRESS
+
+    PROGRESS --> VERIFY{Verifikasi HSE\nTindakan efektif?}
+    VERIFY -->|Belum| PROGRESS
+    VERIFY -->|Ya| CLOSED[Closed]
+
+    CLOSED --> REPORT[Dashboard & Export\nAudit ISO 45001]
+
+  style SUBMIT fill:#dcfce7,stroke:#22c55e
+  style CLOSED fill:#dcfce7,stroke:#22c55e
+  style TRIAGE fill:#fef3c7,stroke:#f59e0b
+  style VERIFY fill:#fef3c7,stroke:#f59e0b
+  style ESCALATE fill:#fee2e2,stroke:#ef4444,stroke-dasharray:5 5
+  style INVEST fill:#fee2e2,stroke:#ef4444,stroke-dasharray:5 5
+  style CAPA fill:#fee2e2,stroke:#ef4444,stroke-dasharray:5 5
+  style REPORT fill:#fee2e2,stroke:#ef4444,stroke-dasharray:5 5
+      </pre>
+    </div>
+    <p class="page-num">Halaman 6 dari 6</p>
+  </section>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#ede9fe',
+        primaryTextColor: '#1e1b4b',
+        primaryBorderColor: '#7c3aed',
+        lineColor: '#64748b',
+        secondaryColor: '#dbeafe',
+        tertiaryColor: '#f8fafc',
+        fontFamily: 'Segoe UI, Inter, system-ui, sans-serif',
+        fontSize: '14px',
+      },
+      flowchart: { curve: 'basis', padding: 20 },
+      stateDiagram: { padding: 20 },
+    });
+  </script>
+</body>
+</html>

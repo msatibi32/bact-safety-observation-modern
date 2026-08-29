@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #f5f3ff;
-  --color-brand-100: #ede9fe;
-  --color-brand-200: #ddd6fe;
-  --color-brand-400: #a78bfa;
-  --color-brand-500: #8b5cf6;
-  --color-brand-600: #7c3aed;
-  --color-brand-700: #6d28d9;
+  /* BACT brand orange — dari branding.js */
+  --color-brand-50: #fff7ed;
+  --color-brand-100: #ffedd5;
+  --color-brand-200: #fed7aa;
+  --color-brand-400: #f5934a;
+  --color-brand-500: #f37021;
+  --color-brand-600: #d95e10;
+  --color-brand-700: #b45309;
 }
 
 @layer components {
@@ -20,7 +21,7 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:shadow-indigo-600/30 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/25 transition hover:shadow-brand-600/35 active:scale-[0.99] disabled:opacity-50 disabled:shadow-none;
   }
 }
 
