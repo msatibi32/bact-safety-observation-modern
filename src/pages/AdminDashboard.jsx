@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import ActivityFeed from '../components/admin/ActivityFeed'
 import AdminNotifications from '../components/admin/AdminNotifications'
 import ReportCard from '../components/admin/ReportCard'
 import { LivePulse, TradingStatCard } from '../components/admin/TradingStatCard'
