@@ -17,7 +17,7 @@ export default function AuditTrail({ observationId }) {
   if (logs.length === 0) {
     return (
       <p className="text-sm text-slate-400">
-        Belum ada riwayat audit. Jalankan migrasi <code className="text-xs">schema-v2.sql</code> di Supabase untuk mengaktifkan fitur ini.
+        Belum ada riwayat audit. Submit laporan baru atau ubah status untuk mencatat riwayat.
       </p>
     )
   }

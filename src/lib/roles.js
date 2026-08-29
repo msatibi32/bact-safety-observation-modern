@@ -36,6 +36,10 @@ export function canManageKpi(user) {
   return hasMinRole(user, ROLES.ADMIN)
 }
 
+export function canManageNotifications(user) {
+  return hasMinRole(user, ROLES.ADMIN)
+}
+
 export function filterObservationsForRole(observations, user) {
   const role = getUserRole(user)
   if (role === ROLES.PIC) {

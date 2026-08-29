@@ -303,6 +303,41 @@ export async function getPendingNotifications() {
   return data || []
 }
 
+export async function getNotificationRecipients() {
+  const { data, error } = await supabase
+    .from('notification_recipients')
+    .select('*')
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
+export async function addNotificationRecipient({ email, label }) {
+  const { data, error } = await supabase
+    .from('notification_recipients')
+    .insert({ email: email.trim().toLowerCase(), label: label?.trim() || null })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function toggleNotificationRecipient(id, active) {
+  const { error } = await supabase.from('notification_recipients').update({ active }).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function removeNotificationRecipient(id) {
+  const { error } = await supabase.from('notification_recipients').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function triggerNotificationProcessing() {
+  const { data, error } = await supabase.functions.invoke('process-notifications')
+  if (error) throw new Error(error.message)
+  return data
+}
+
 export function getObservationsWithGps(observations) {
   return observations.filter((o) => o.lokasi_gps?.lat != null && o.lokasi_gps?.lng != null)
 }

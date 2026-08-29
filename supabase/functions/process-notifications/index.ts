@@ -1,19 +1,17 @@
-// Kirim notifikasi email + WhatsApp dari notification_queue
-// Deploy: supabase functions deploy process-notifications
+// Kirim notifikasi email dari notification_queue
+// Email penerima diambil dari tabel notification_recipients (kelola via dashboard admin)
 //
-// Secrets (Supabase Dashboard → Edge Functions → Secrets):
+// Secrets (Supabase → Edge Functions → Secrets):
 //   RESEND_API_KEY       — dari resend.com
-//   NOTIFY_EMAIL_TO      — email HSE, mis. hse@bact.co.id
-//   FONNTE_TOKEN         — dari fonnte.com (opsional, untuk WA)
-//   NOTIFY_WA_TO         — nomor WA tujuan, format 62812xxx (opsional)
-//   NOTIFY_EMAIL_FROM    — mis. "BACT SOC <noreply@domain.com>"
-//   PUBLIC_APP_URL       — URL dashboard admin
+//   NOTIFY_EMAIL_FROM    — mis. "BACT SOC <onboarding@resend.dev>"
+//   PUBLIC_APP_URL       — URL dashboard (opsional)
+//   FONNTE_TOKEN         — opsional WA
+//   NOTIFY_WA_TO         — opsional WA
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-const NOTIFY_EMAIL_TO = Deno.env.get('NOTIFY_EMAIL_TO') || ''
-const NOTIFY_EMAIL_FROM = Deno.env.get('NOTIFY_EMAIL_FROM') || 'BACT SOC <noreply@bact.local>'
+const NOTIFY_EMAIL_FROM = Deno.env.get('NOTIFY_EMAIL_FROM') || 'BACT SOC <onboarding@resend.dev>'
 const FONNTE_TOKEN = Deno.env.get('FONNTE_TOKEN') || ''
 const NOTIFY_WA_TO = Deno.env.get('NOTIFY_WA_TO') || ''
 const PUBLIC_APP_URL = Deno.env.get('PUBLIC_APP_URL') || ''
@@ -31,7 +29,7 @@ type Payload = {
 }
 
 function buildMessage(type: string, p: Payload) {
-  const label = type === 'hipo_alert' || p.is_hipo ? '⚠️ HiPo Alert' : '📋 Laporan Baru'
+  const label = type === 'hipo_alert' || p.is_hipo ? 'HiPo Alert' : 'Laporan Baru'
   const lines = [
     `${label} — BACT SOC`,
     '',
@@ -46,32 +44,39 @@ function buildMessage(type: string, p: Payload) {
   return lines.join('\n')
 }
 
-async function sendEmail(subject: string, html: string, text: string) {
-  if (!RESEND_API_KEY || !NOTIFY_EMAIL_TO) return { ok: false, skipped: true }
+async function getRecipientEmails(
+  supabase: ReturnType<typeof createClient>,
+  isHiPo: boolean,
+): Promise<string[]> {
+  const { data } = await supabase
+    .from('notification_recipients')
+    .select('email, notify_new_report, notify_hipo')
+    .eq('active', true)
+
+  const emails = (data || [])
+    .filter((r) => (isHiPo ? r.notify_hipo !== false : r.notify_new_report !== false))
+    .map((r) => r.email)
+    .filter(Boolean)
+
+  return [...new Set(emails)]
+}
+
+async function sendEmail(to: string[], subject: string, html: string, text: string) {
+  if (!RESEND_API_KEY || to.length === 0) return { ok: false, skipped: true }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from: NOTIFY_EMAIL_FROM,
-      to: [NOTIFY_EMAIL_TO],
-      subject,
-      html,
-      text,
-    }),
+    body: JSON.stringify({ from: NOTIFY_EMAIL_FROM, to, subject, html, text }),
   })
   return { ok: res.ok, error: res.ok ? null : await res.text() }
 }
 
 async function sendWhatsApp(message: string) {
   if (!FONNTE_TOKEN || !NOTIFY_WA_TO) return { ok: false, skipped: true }
-  const body = new URLSearchParams({
-    target: NOTIFY_WA_TO,
-    message,
-    countryCode: '62',
-  })
+  const body = new URLSearchParams({ target: NOTIFY_WA_TO, message, countryCode: '62' })
   const res = await fetch('https://api.fonnte.com/send', {
     method: 'POST',
     headers: { Authorization: FONNTE_TOKEN },
@@ -100,14 +105,15 @@ Deno.serve(async () => {
 
   for (const row of pending || []) {
     const p = row.payload as Payload
+    const isHiPo = row.type === 'hipo_alert' || !!p.is_hipo
+    const recipients = await getRecipientEmails(supabase, isHiPo)
     const text = buildMessage(row.type, p)
-    const subject =
-      row.type === 'hipo_alert' || p.is_hipo
-        ? `[BACT SOC] HiPo — ${p.category || 'Observasi'}`
-        : `[BACT SOC] Laporan Baru — ${p.category || 'Observasi'}`
+    const subject = isHiPo
+      ? `[BACT SOC] HiPo — ${p.category || 'Observasi'}`
+      : `[BACT SOC] Laporan Baru — ${p.category || 'Observasi'}`
     const html = text.replace(/\n/g, '<br>')
 
-    const emailResult = await sendEmail(subject, `<p>${html}</p>`, text)
+    const emailResult = await sendEmail(recipients, subject, `<p>${html}</p>`, text)
     const waResult = await sendWhatsApp(text)
 
     const emailOk = emailResult.skipped || emailResult.ok
@@ -115,7 +121,7 @@ Deno.serve(async () => {
     const anyChannelConfigured = !emailResult.skipped || !waResult.skipped
 
     if (!anyChannelConfigured) {
-      results.push({ id: row.id, error: 'No email/WA secrets configured' })
+      results.push({ id: row.id, error: 'Tambahkan email di dashboard atau set RESEND_API_KEY' })
       continue
     }
 
@@ -125,7 +131,7 @@ Deno.serve(async () => {
         .update({ status: 'sent', sent_at: new Date().toISOString() })
         .eq('id', row.id)
       processed++
-      results.push({ id: row.id, sent: true })
+      results.push({ id: row.id, sent: true, to: recipients })
     } else {
       const errMsg = [emailResult.error, waResult.error].filter(Boolean).join(' | ')
       await supabase
