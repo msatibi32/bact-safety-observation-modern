@@ -46,12 +46,12 @@ export default function ObservationDetailPanel({ observation, onSave }) {
   const needsInvestigation = observation.is_hipo || observation.tingkat_risiko === 'High'
 
   return (
-    <div className="card flex max-h-[calc(100vh-12rem)] flex-col overflow-hidden">
-      <div className="shrink-0 space-y-3 border-b border-slate-100 p-5 pb-3">
+    <div className="flex max-h-none flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 md:max-h-[calc(100vh-12rem)]">
+      <div className="shrink-0 space-y-3 border-b border-slate-800 p-4 pb-3 md:p-5">
         <div className="flex items-start justify-between gap-2">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-semibold text-slate-900">{observation.nama_pelapor}</h2>
+              <h2 className="font-semibold text-slate-100">{observation.nama_pelapor}</h2>
               {observation.is_hipo && <HiPoBadge />}
               {observation.stop_work && (
                 <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-medium text-white">Stop Work</span>
@@ -76,7 +76,7 @@ export default function ObservationDetailPanel({ observation, onSave }) {
               type="button"
               onClick={() => setTab(t)}
               className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                tab === t ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+                tab === t ? 'bg-brand-600 text-white' : 'text-slate-500 hover:bg-slate-800'
               }`}
             >
               {t}
@@ -120,10 +120,10 @@ export default function ObservationDetailPanel({ observation, onSave }) {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-3 border-t border-slate-100 pt-4">
+            <form onSubmit={handleSubmit} className="space-y-3 border-t border-slate-800 pt-4">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-700">PIC follow-up</span>
-                <select value={pic} onChange={(e) => setPic(e.target.value)} className="input">
+                <span className="mb-1 block text-xs font-medium text-slate-400">PIC follow-up</span>
+                <select value={pic} onChange={(e) => setPic(e.target.value)} className="admin-input">
                   <option value="">— Belum di-assign —</option>
                   {PIC_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
@@ -132,8 +132,8 @@ export default function ObservationDetailPanel({ observation, onSave }) {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-700">Status workflow</span>
-                <select value={status} onChange={(e) => setStatus(e.target.value)} className="input">
+                <span className="mb-1 block text-xs font-medium text-slate-400">Status workflow</span>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className="admin-input">
                   {STATUS_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
@@ -141,25 +141,25 @@ export default function ObservationDetailPanel({ observation, onSave }) {
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-700">Catatan triage HSE</span>
-                <textarea rows={2} value={triageNotes} onChange={(e) => setTriageNotes(e.target.value)} className="input" placeholder="Review awal severity & prioritas…" />
+                <span className="mb-1 block text-xs font-medium text-slate-400">Catatan triage HSE</span>
+                <textarea rows={2} value={triageNotes} onChange={(e) => setTriageNotes(e.target.value)} className="admin-input" placeholder="Review awal severity & prioritas…" />
               </label>
 
               {(status === 'Closed' || status === 'Pending Verification') && (
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-700">Catatan penutupan</span>
-                  <textarea rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)} className="input" placeholder="Tindakan yang sudah dilakukan…" />
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Catatan penutupan</span>
+                  <textarea rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)} className="admin-input" placeholder="Tindakan yang sudah dilakukan…" />
                 </label>
               )}
 
               {status === 'Pending Verification' && (
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-700">Verifikasi efektivitas</span>
-                  <textarea rows={2} value={verificationNotes} onChange={(e) => setVerificationNotes(e.target.value)} className="input" placeholder="Bukti tindakan efektif…" />
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Verifikasi efektivitas</span>
+                  <textarea rows={2} value={verificationNotes} onChange={(e) => setVerificationNotes(e.target.value)} className="admin-input" placeholder="Bukti tindakan efektif…" />
                 </label>
               )}
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="text-sm text-red-400">{error}</p>}
               <button type="submit" disabled={saving} className="btn-primary w-full">
                 {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan perubahan'}
               </button>
@@ -170,17 +170,17 @@ export default function ObservationDetailPanel({ observation, onSave }) {
         {tab === 'Investigasi' && (
           <form onSubmit={handleSubmit} className="space-y-3">
             {needsInvestigation && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
                 Laporan HiPo / High Risk — investigasi wajib (5 Whys / root cause).
               </div>
             )}
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-700">Catatan investigasi</span>
-              <textarea rows={4} value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} className="input" placeholder="Temuan investigasi, saksi, kondisi lapangan…" />
+              <textarea rows={4} value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} className="admin-input" placeholder="Temuan investigasi, saksi, kondisi lapangan…" />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-slate-700">Root cause (5 Whys)</span>
-              <textarea rows={4} value={rootCause} onChange={(e) => setRootCause(e.target.value)} className="input" placeholder="Akar penyebab utama…" />
+              <textarea rows={4} value={rootCause} onChange={(e) => setRootCause(e.target.value)} className="admin-input" placeholder="Akar penyebab utama…" />
             </label>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button type="submit" disabled={saving} className="btn-primary w-full">
@@ -203,7 +203,7 @@ function DetailRow({ icon, label, value }) {
         {icon}
         {label}
       </dt>
-      <dd className="text-slate-700">{value}</dd>
+      <dd className="text-slate-300">{value}</dd>
     </div>
   )
 }

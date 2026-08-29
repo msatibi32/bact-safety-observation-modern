@@ -1,16 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import ActivityFeed from '../components/admin/ActivityFeed'
+import ReportCard from '../components/admin/ReportCard'
+import { LivePulse, TradingStatCard } from '../components/admin/TradingStatCard'
 import AdminLayout from '../components/AdminLayout'
-import { HiPoBadge, RiskBadge, StatusBadge } from '../components/Badge'
+import { RiskBadge, StatusBadge, HiPoBadge } from '../components/Badge'
 import ObservationDetailPanel from '../components/ObservationDetailPanel'
+import { dailyReportCounts, sparklineValues, trendDelta } from '../lib/analytics'
 import { isOpenStatus } from '../lib/constants'
 import { getObservations, updateObservation } from '../lib/store'
 
 function initials(name = '') {
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join('')
+  return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 }
 
 export default function AdminDashboard() {
@@ -38,6 +47,9 @@ export default function AdminDashboard() {
   }, [])
 
   const selected = observations.find((o) => o.id === selectedId) || null
+  const trend = useMemo(() => trendDelta(observations), [observations])
+  const chartData = useMemo(() => dailyReportCounts(observations, 14), [observations])
+  const spark = useMemo(() => sparklineValues(observations, 7), [observations])
 
   const filtered = useMemo(() => {
     let list = observations
@@ -46,67 +58,139 @@ export default function AdminDashboard() {
     return list
   }, [observations, filterStatus, filterHiPo])
 
+  const recentFeed = useMemo(
+    () => [...observations].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8),
+    [observations],
+  )
+
   const openCount = observations.filter((o) => isOpenStatus(o.status)).length
   const hipoCount = observations.filter((o) => o.is_hipo && isOpenStatus(o.status)).length
   const highCount = observations.filter((o) => o.tingkat_risiko === 'High').length
-  const reviewCount = observations.filter((o) => o.status === 'Under Review').length
+  const closedCount = observations.filter((o) => o.status === 'Closed').length
 
   async function handleSave(id, patch) {
     const prev = observations.find((o) => o.id === id)
     const updated = await updateObservation(id, patch, prev)
-    setObservations((prev) => prev.map((o) => (o.id === id ? updated : o)))
+    setObservations((p) => p.map((o) => (o.id === id ? updated : o)))
   }
 
   return (
     <AdminLayout>
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MiniStat label="Total laporan" value={observations.length} accent="text-slate-900" />
-        <MiniStat label="Aktif (belum closed)" value={openCount} accent="text-brand-600" />
-        <MiniStat label="HiPo aktif" value={hipoCount} accent="text-red-600" />
-        <MiniStat label="Under Review" value={reviewCount} accent="text-purple-600" />
+      {/* Trading header */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <LivePulse />
+          <h1 className="text-base font-semibold text-slate-100 md:text-lg">Live Traffic</h1>
+        </div>
+        <span className="font-mono text-[10px] text-slate-500">
+          {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+        </span>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-slate-900">Daftar Laporan ({filtered.length})</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={filterHiPo}
-              onChange={(e) => setFilterHiPo(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-brand-600"
-            />
-            HiPo saja
-          </label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="input w-auto"
-          >
-            <option>Semua</option>
-            <option>Open</option>
-            <option>Under Review</option>
-            <option>In Progress</option>
-            <option>Pending Verification</option>
-            <option>Closed</option>
-            <option>Rejected</option>
-          </select>
+      <div className="-mx-1 mb-5 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none md:grid md:grid-cols-4 md:overflow-visible">
+        <TradingStatCard label="Total" value={observations.length} sparkData={spark} delta={trend.pct} up={trend.up} />
+        <TradingStatCard label="Aktif" value={openCount} accent="text-brand-400" sparkData={spark} up={openCount > 0} />
+        <TradingStatCard label="HiPo" value={hipoCount} accent="text-red-400" up={false} sparkData={spark} />
+        <TradingStatCard label="Closed" value={closedCount} accent="text-emerald-400" up sparkData={spark} />
+      </div>
+
+      {/* Main chart */}
+      <div className="admin-panel mb-5 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Volume Laporan — 14 Hari</p>
+        <div className="h-44 w-full md:h-52">
+          {loading ? (
+            <div className="flex h-full items-center justify-center text-sm text-slate-500">Memuat chart…</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f37021" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#f37021" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="hipoGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
+                <Area type="monotone" dataKey="count" name="Laporan" stroke="#f37021" strokeWidth={2} fill="url(#volGrad)" />
+                <Area type="monotone" dataKey="hipo" name="HiPo" stroke="#ef4444" strokeWidth={1.5} fill="url(#hipoGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
-      {highCount > 0 && (
-        <p className="mb-3 text-xs text-amber-700">
-          {highCount} laporan dengan risiko High — perlu perhatian prioritas.
-        </p>
-      )}
+      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Aktivitas Terbaru</p>
+          <ActivityFeed items={recentFeed} onSelect={setSelectedId} />
+        </div>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        <div className="admin-panel hidden rounded-2xl border border-slate-800 bg-slate-900/50 p-4 lg:block">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Filter Laporan</p>
+          <div className="flex flex-wrap gap-2">
+            <FilterChip active={filterStatus === 'Semua'} onClick={() => setFilterStatus('Semua')}>Semua</FilterChip>
+            <FilterChip active={filterHiPo} onClick={() => setFilterHiPo((v) => !v)}>HiPo</FilterChip>
+            {['Open', 'Under Review', 'In Progress', 'Closed'].map((s) => (
+              <FilterChip key={s} active={filterStatus === s} onClick={() => setFilterStatus(s)}>{s}</FilterChip>
+            ))}
+          </div>
+          {highCount > 0 && (
+            <p className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+              {highCount} laporan risiko High membutuhkan perhatian segera.
+            </p>
+          )}
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-        <div className="card overflow-hidden xl:col-span-3">
+      {/* Mobile filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
+        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="admin-input flex-1 text-sm">
+          <option>Semua</option>
+          <option>Open</option>
+          <option>Under Review</option>
+          <option>In Progress</option>
+          <option>Pending Verification</option>
+          <option>Closed</option>
+          <option>Rejected</option>
+        </select>
+        <label className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs text-slate-400">
+          <input type="checkbox" checked={filterHiPo} onChange={(e) => setFilterHiPo(e.target.checked)} className="rounded" />
+          HiPo
+        </label>
+      </div>
+
+      <p className="mb-3 text-sm font-medium text-slate-300">
+        Daftar Laporan <span className="font-mono text-brand-400">({filtered.length})</span>
+      </p>
+
+      {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {loading && <p className="text-center text-sm text-slate-500">Memuat…</p>}
+        {!loading && filtered.map((obs) => (
+          <ReportCard key={obs.id} obs={obs} selected={selectedId === obs.id} onClick={() => setSelectedId(obs.id)} />
+        ))}
+        {!loading && filtered.length === 0 && (
+          <p className="py-8 text-center text-sm text-slate-500">Belum ada laporan.</p>
+        )}
+      </div>
+
+      {/* Desktop: table + side panel */}
+      <div className="hidden gap-4 md:grid md:grid-cols-5">
+        <div className="admin-panel col-span-3 overflow-hidden rounded-2xl border border-slate-800">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-100 text-sm">
-              <thead className="bg-slate-50/80 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-900/80 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Pelapor</th>
                   <th className="px-4 py-3">Lokasi</th>
@@ -115,76 +199,81 @@ export default function AdminDashboard() {
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Memuat data…</td>
-                  </tr>
-                )}
+              <tbody className="divide-y divide-slate-800/80">
                 {!loading && filtered.map((obs) => (
                   <tr
                     key={obs.id}
                     onClick={() => setSelectedId(obs.id)}
-                    className={`cursor-pointer transition hover:bg-brand-50/60 ${
-                      selectedId === obs.id ? 'bg-brand-50' : ''
-                    } ${obs.is_hipo ? 'border-l-2 border-l-red-500' : ''}`}
+                    className={`cursor-pointer transition hover:bg-slate-800/50 ${
+                      selectedId === obs.id ? 'bg-brand-500/10' : ''
+                    }`}
                   >
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 font-mono text-xs text-brand-400">
                           {initials(obs.nama_pelapor)}
-                        </div>
+                        </span>
                         <div>
-                          <div className="flex items-center gap-1.5 font-medium text-slate-900">
+                          <div className="flex items-center gap-1 font-medium text-slate-200">
                             {obs.nama_pelapor}
                             {obs.is_hipo && <HiPoBadge />}
-                          </div>
-                          <div className="text-xs text-slate-400">
-                            {new Date(obs.tanggal_waktu).toLocaleString('id-ID', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{obs.lokasi_teks}</td>
-                    <td className="px-4 py-3 text-slate-600">{obs.kategori}</td>
+                    <td className="px-4 py-3 text-slate-400">{obs.lokasi_teks}</td>
+                    <td className="px-4 py-3 text-slate-400">{obs.kategori}</td>
                     <td className="px-4 py-3"><RiskBadge level={obs.tingkat_risiko} /></td>
                     <td className="px-4 py-3"><StatusBadge status={obs.status} /></td>
                   </tr>
                 ))}
-                {!loading && filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400">Belum ada laporan.</td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
         </div>
-
-        <div className="xl:col-span-2">
+        <div className="col-span-2">
           {selected ? (
-            <ObservationDetailPanel key={selected.id} observation={selected} onSave={handleSave} />
+            <ObservationDetailPanel observation={selected} onSave={handleSave} />
           ) : (
-            <div className="flex h-full min-h-[280px] items-center justify-center rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-400">
-              Pilih laporan untuk detail, investigasi, CAPA & audit trail.
+            <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
+              Pilih laporan untuk detail & follow-up.
             </div>
           )}
         </div>
       </div>
+
+      {/* Mobile fullscreen detail sheet */}
+      {selected && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-slate-950 md:hidden">
+          <div className="flex items-center gap-3 border-b border-slate-800 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200"
+            >
+              ← Kembali
+            </button>
+            <span className="truncate text-sm font-semibold text-slate-100">{selected.nama_pelapor}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <ObservationDetailPanel observation={selected} onSave={handleSave} />
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }
 
-function MiniStat({ label, value, accent }) {
+function FilterChip({ active, onClick, children }) {
   return (
-    <div className="card p-4">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${accent}`}>{value}</p>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+        active ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+      }`}
+    >
+      {children}
+    </button>
   )
 }

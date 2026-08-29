@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { LivePulse, TradingStatCard } from '../components/admin/TradingStatCard'
 import AdminLayout from '../components/AdminLayout'
 import { NEGATIVE_CATEGORIES, isOpenStatus } from '../lib/constants'
+import { sparklineValues, trendDelta } from '../lib/analytics'
 import { avgDaysToClose, countOverdueCapa, exportObservationsCsv } from '../lib/export'
 import { getAllCapa, getObservations } from '../lib/store'
 
-const RISK_BAR = {
-  Low: 'bg-emerald-500',
-  Medium: 'bg-amber-500',
-  High: 'bg-red-500',
-}
+const PIE_COLORS = ['#f37021', '#34d399', '#fbbf24', '#ef4444', '#818cf8', '#94a3b8']
 
 function countBy(list, key) {
   const counts = {}
@@ -44,27 +43,26 @@ export default function AdminSummary() {
   const negative = observations.filter((o) => NEGATIVE_CATEGORIES.includes(o.kategori)).length
   const avgClose = avgDaysToClose(observations)
   const overdueCapa = countOverdueCapa(capaList)
+  const trend = useMemo(() => trendDelta(observations), [observations])
+  const spark = useMemo(() => sparklineValues(observations, 7), [observations])
 
-  const byRisiko = useMemo(() => countBy(observations, 'tingkat_risiko'), [observations])
-  const byStatus = useMemo(() => countBy(observations, 'status'), [observations])
-  const byKategori = useMemo(() => countBy(observations, 'kategori'), [observations])
-  const byDepartemen = useMemo(() => countBy(observations, 'departemen'), [observations])
-  const byPerusahaan = useMemo(() => countBy(observations, 'nama_perusahaan'), [observations])
-  const byLokasi = useMemo(() => countBy(observations, 'lokasi_teks'), [observations])
-  const byLsr = useMemo(() => countBy(observations.filter((o) => o.life_saving_rule !== 'Tidak terkait'), 'life_saving_rule'), [observations])
-
-  const rekomendasiList = useMemo(
-    () =>
-      observations
-        .filter((o) => o.rekomendasi?.trim())
-        .map((o) => ({ id: o.id, teks: o.rekomendasi, lokasi: o.lokasi_teks })),
+  const byKategori = useMemo(
+    () => countBy(observations, 'kategori').map(([name, value]) => ({ name, value })),
     [observations],
   )
+  const byRisiko = useMemo(
+    () => countBy(observations, 'tingkat_risiko').map(([name, value]) => ({ name, value })),
+    [observations],
+  )
+  const byDepartemen = useMemo(() => countBy(observations, 'departemen').slice(0, 6), [observations])
 
   return (
     <AdminLayout>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-slate-900">Ringkasan & Analitik HSE</h1>
+        <div className="flex items-center gap-2">
+          <LivePulse />
+          <h1 className="text-base font-semibold text-slate-100 md:text-lg">Analitik HSE</h1>
+        </div>
         <button
           type="button"
           onClick={() => exportObservationsCsv(observations)}
@@ -75,66 +73,80 @@ export default function AdminSummary() {
         </button>
       </div>
 
-      {loading && <p className="text-sm text-slate-400">Memuat data…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {loading && <p className="text-sm text-slate-500">Memuat data…</p>}
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            <StatCard label="Total" value={total} accent="text-slate-900" chip="bg-slate-100" />
-            <StatCard label="Aktif" value={open} accent="text-brand-600" chip="bg-brand-100" />
-            <StatCard label="Closed" value={closed} accent="text-slate-500" chip="bg-slate-100" />
-            <StatCard label="HiPo" value={hipo} accent="text-red-600" chip="bg-red-100" />
-            <StatCard label="High Risk" value={highRisk} accent="text-red-600" chip="bg-red-100" />
-            <StatCard label="Positif" value={positive} accent="text-emerald-600" chip="bg-emerald-100" />
+          <div className="-mx-1 mb-5 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none md:grid md:grid-cols-3 lg:grid-cols-6">
+            <TradingStatCard label="Total" value={total} sparkData={spark} delta={trend.pct} up={trend.up} />
+            <TradingStatCard label="Aktif" value={open} accent="text-brand-400" sparkData={spark} up />
+            <TradingStatCard label="Closed" value={closed} accent="text-emerald-400" sparkData={spark} up />
+            <TradingStatCard label="HiPo" value={hipo} accent="text-red-400" sparkData={spark} up={false} />
+            <TradingStatCard label="High" value={highRisk} accent="text-red-400" sparkData={spark} up={false} />
+            <TradingStatCard label="Positif" value={positive} accent="text-emerald-400" sparkData={spark} up />
           </div>
 
-          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="card p-4">
-              <p className="text-xs font-medium text-slate-500">Leading: rasio positif</p>
-              <p className="mt-1 text-2xl font-bold text-emerald-600">
-                {total ? Math.round((positive / total) * 100) : 0}%
-              </p>
-              <p className="text-xs text-slate-400">{positive} positif / {negative} negatif</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs font-medium text-slate-500">Lagging: rata-rata hari tutup</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{avgClose ?? '—'}</p>
-              <p className="text-xs text-slate-400">hari (laporan closed)</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-xs font-medium text-slate-500">CAPA terlambat</p>
-              <p className={`mt-1 text-2xl font-bold ${overdueCapa > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                {overdueCapa}
-              </p>
-              <p className="text-xs text-slate-400">melewati due date</p>
-            </div>
+          <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <KpiTile label="Rasio Positif" value={`${total ? Math.round((positive / total) * 100) : 0}%`} sub={`${positive} / ${negative} negatif`} accent="text-emerald-400" />
+            <KpiTile label="Avg. Tutup" value={avgClose ?? '—'} sub="hari" accent="text-slate-100" />
+            <KpiTile label="CAPA Overdue" value={overdueCapa} sub="terlambat" accent={overdueCapa > 0 ? 'text-red-400' : 'text-emerald-400'} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <BreakdownCard title="Status Workflow" data={byStatus} total={total} />
-            <BreakdownCard title="Kategori Observasi" data={byKategori} total={total} />
-            <BreakdownCard title="Tingkat Risiko" data={byRisiko} total={total} colorMap={RISK_BAR} />
-            <BreakdownCard title="Life Saving Rules" data={byLsr} total={total || 1} />
-            <BreakdownCard title="Departemen Pelapor" data={byDepartemen} total={total} />
-            <BreakdownCard title="Perusahaan / Kontraktor" data={byPerusahaan} total={total} />
-            <BreakdownCard title="Lokasi Kejadian" data={byLokasi} total={total} />
+            <ChartPanel title="Distribusi Kategori">
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={byKategori} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3}>
+                      {byKategori.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartPanel>
 
-            <div className="card p-4 lg:col-span-2">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Rekomendasi dari Lapangan</h2>
-              {rekomendasiList.length === 0 ? (
-                <p className="text-sm text-slate-400">Belum ada rekomendasi.</p>
-              ) : (
-                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {rekomendasiList.map((r) => (
-                    <li key={r.id} className="rounded-xl bg-slate-50 px-3 py-2.5">
-                      <p className="text-sm text-slate-700">{r.teks}</p>
-                      <p className="mt-0.5 text-xs text-slate-400">{r.lokasi}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <ChartPanel title="Tingkat Risiko">
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={byRisiko} layout="vertical">
+                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} width={48} />
+                    <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }} />
+                    <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                      {byRisiko.map((entry) => (
+                        <Cell
+                          key={entry.name}
+                          fill={entry.name === 'High' ? '#ef4444' : entry.name === 'Medium' ? '#fbbf24' : '#34d399'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartPanel>
+
+            <ChartPanel title="Top Departemen" className="lg:col-span-2">
+              <ul className="space-y-3">
+                {byDepartemen.map(([label, count]) => (
+                  <li key={label}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="truncate text-slate-400">{label}</span>
+                      <span className="font-mono font-medium text-slate-200">{count}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400"
+                        style={{ width: `${total ? (count / total) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </ChartPanel>
           </div>
         </>
       )}
@@ -142,39 +154,21 @@ export default function AdminSummary() {
   )
 }
 
-function StatCard({ label, value, accent = 'text-slate-900', chip }) {
+function KpiTile({ label, value, sub, accent }) {
   return (
-    <div className="card p-4">
-      <span className={`inline-block rounded-lg ${chip} px-2 py-1 text-xs font-medium text-slate-500`}>{label}</span>
-      <p className={`mt-2 text-2xl font-bold ${accent}`}>{value}</p>
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
+      <p className={`mt-1 font-mono text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
+      <p className="text-xs text-slate-600">{sub}</p>
     </div>
   )
 }
 
-function BreakdownCard({ title, data, total, colorMap }) {
+function ChartPanel({ title, children, className = '' }) {
   return (
-    <div className="card p-4">
-      <h2 className="mb-3 text-sm font-semibold text-slate-900">{title}</h2>
-      {data.length === 0 ? (
-        <p className="text-sm text-slate-400">Belum ada data.</p>
-      ) : (
-        <ul className="space-y-2.5">
-          {data.map(([label, count]) => (
-            <li key={label} className="text-sm">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="truncate text-slate-600">{label}</span>
-                <span className="shrink-0 font-medium text-slate-900">{count}</span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className={`h-full rounded-full ${colorMap?.[label] ?? 'bg-gradient-to-r from-brand-500 to-brand-600'}`}
-                  style={{ width: `${total ? (count / total) * 100 : 0}%` }}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className={`rounded-2xl border border-slate-800 bg-slate-900/50 p-4 ${className}`}>
+      <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">{title}</p>
+      {children}
     </div>
   )
 }
