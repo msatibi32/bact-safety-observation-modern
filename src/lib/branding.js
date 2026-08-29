@@ -16,6 +16,15 @@ export const BRANDING = {
 
   faviconSrc: '/logo/favicon.png',
 
+  // URL publik form pelapor — untuk QR code (permanent selama URL ini tidak berubah)
+  publicUrl:
+    import.meta.env.VITE_PUBLIC_APP_URL?.replace(/\/$/, '') ||
+    (typeof window !== 'undefined' ? window.location.origin : 'https://bact-safety-observation-modern.vercel.app'),
+
+  // File QR statis (hasil npm run generate:qr)
+  staticQrPng: '/qr/bact-soc-qr.png',
+  staticQrSvg: '/qr/bact-soc-qr.svg',
+
   // Warna brand BACT (orange ICTSI)
   colors: {
     orange: '#F37021',

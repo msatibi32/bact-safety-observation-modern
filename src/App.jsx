@@ -3,12 +3,14 @@ import RequireAdmin from './components/RequireAdmin'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminLogin from './pages/AdminLogin'
 import AdminSummary from './pages/AdminSummary'
+import QrPoster from './pages/QrPoster'
 import ReportForm from './pages/ReportForm'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<ReportForm />} />
+      <Route path="/qr" element={<QrPoster />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route
         path="/admin"
