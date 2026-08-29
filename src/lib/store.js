@@ -31,6 +31,9 @@ function toAppShape(row) {
     created_at: row.created_at,
     updated_at: row.updated_at,
     closed_date: row.closed_date,
+    is_anonymous: row.is_anonymous ?? false,
+    escalated: row.escalated ?? false,
+    escalation_due_at: row.escalation_due_at,
   }
 }
 
@@ -110,9 +113,10 @@ export async function addObservation(data) {
 
   const row = {
     id,
-    reporter_name: data.nama_pelapor,
+    reporter_name: data.is_anonymous ? 'Anonim' : data.nama_pelapor,
     reporter_position: data.departemen,
     company_name: data.nama_perusahaan,
+    is_anonymous: data.is_anonymous ?? false,
     incident_datetime: new Date(data.tanggal_waktu).toISOString(),
     location_text: data.lokasi_teks,
     latitude: data.lokasi_gps?.lat ?? null,
@@ -278,4 +282,27 @@ export async function getAuditLogs(observationId) {
 
   if (error) throw new Error(error.message)
   return (data || []).map(toAuditShape)
+}
+
+// ─── KPI & Notifications ─────────────────────────────────────────────────────
+
+export async function getKpiTargets() {
+  const { data, error } = await supabase.from('kpi_targets').select('*')
+  if (error) return null
+  return data || []
+}
+
+export async function getPendingNotifications() {
+  const { data, error } = await supabase
+    .from('notification_queue')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(20)
+  if (error) return []
+  return data || []
+}
+
+export function getObservationsWithGps(observations) {
+  return observations.filter((o) => o.lokasi_gps?.lat != null && o.lokasi_gps?.lng != null)
 }

@@ -4,10 +4,15 @@ import { HiPoBadge, RiskBadge, StatusBadge } from './Badge'
 import CapaPanel from './CapaPanel'
 import { BuildingIcon, PinIcon } from './Icon'
 import { PIC_OPTIONS, STATUS_OPTIONS } from '../lib/constants'
+import { exportObservationPdf } from '../lib/pdf'
+import { canEditObservations } from '../lib/roles'
+import { useUser } from './RequireRole'
 
 const TABS = ['Detail', 'Investigasi', 'CAPA', 'Audit']
 
 export default function ObservationDetailPanel({ observation, onSave }) {
+  const user = useUser()
+  const canEdit = canEditObservations(user)
   const [tab, setTab] = useState('Detail')
   const [pic, setPic] = useState(observation.pic_assigned || '')
   const [status, setStatus] = useState(observation.status)
@@ -64,6 +69,13 @@ export default function ObservationDetailPanel({ observation, onSave }) {
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">
+            <button
+              type="button"
+              onClick={() => exportObservationPdf(observation)}
+              className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-400 hover:border-brand-500 hover:text-brand-400"
+            >
+              Export PDF
+            </button>
             <RiskBadge level={observation.tingkat_risiko} />
             <StatusBadge status={observation.status} />
           </div>
@@ -121,6 +133,10 @@ export default function ObservationDetailPanel({ observation, onSave }) {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-3 border-t border-slate-800 pt-4">
+              {!canEdit && (
+                <p className="text-xs text-amber-400">Mode viewer — tidak bisa mengubah laporan.</p>
+              )}
+              <fieldset disabled={!canEdit} className="space-y-3 disabled:opacity-60">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-400">PIC follow-up</span>
                 <select value={pic} onChange={(e) => setPic(e.target.value)} className="admin-input">
@@ -160,9 +176,10 @@ export default function ObservationDetailPanel({ observation, onSave }) {
               )}
 
               {error && <p className="text-sm text-red-400">{error}</p>}
-              <button type="submit" disabled={saving} className="btn-primary w-full">
+              <button type="submit" disabled={saving || !canEdit} className="btn-primary w-full">
                 {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan perubahan'}
               </button>
+              </fieldset>
             </form>
           </div>
         )}

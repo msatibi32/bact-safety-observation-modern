@@ -56,3 +56,34 @@ export function trendDelta(observations) {
 export function sparklineValues(observations, days = 7) {
   return dailyReportCounts(observations, days).map((d) => d.count)
 }
+
+export function contractorScorecard(observations) {
+  const companies = {}
+  for (const o of observations) {
+    const name = o.nama_perusahaan || '—'
+    if (!companies[name]) companies[name] = { name, total: 0, hipo: 0, open: 0, positive: 0 }
+    companies[name].total++
+    if (o.is_hipo) companies[name].hipo++
+    if (o.status !== 'Closed' && o.status !== 'Rejected') companies[name].open++
+    if (o.kategori === 'Positive Observation') companies[name].positive++
+  }
+  return Object.values(companies).sort((a, b) => b.total - a.total)
+}
+
+export function overdueEscalations(observations) {
+  const now = Date.now()
+  return observations.filter(
+    (o) =>
+      o.is_hipo &&
+      o.status !== 'Closed' &&
+      o.status !== 'Rejected' &&
+      o.escalation_due_at &&
+      new Date(o.escalation_due_at).getTime() < now,
+  )
+}
+
+export function monthlyReportCount(observations) {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  return observations.filter((o) => new Date(o.created_at || o.tanggal_waktu) >= start).length
+}

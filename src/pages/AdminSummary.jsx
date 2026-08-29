@@ -3,9 +3,9 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import { LivePulse, TradingStatCard } from '../components/admin/TradingStatCard'
 import AdminLayout from '../components/AdminLayout'
 import { NEGATIVE_CATEGORIES, isOpenStatus } from '../lib/constants'
-import { sparklineValues, trendDelta } from '../lib/analytics'
+import { contractorScorecard, monthlyReportCount, sparklineValues, trendDelta } from '../lib/analytics'
 import { avgDaysToClose, countOverdueCapa, exportObservationsCsv } from '../lib/export'
-import { getAllCapa, getObservations } from '../lib/store'
+import { getAllCapa, getKpiTargets, getObservations } from '../lib/store'
 
 const PIE_COLORS = ['#f37021', '#34d399', '#fbbf24', '#ef4444', '#818cf8', '#94a3b8']
 
@@ -21,14 +21,16 @@ function countBy(list, key) {
 export default function AdminSummary() {
   const [observations, setObservations] = useState([])
   const [capaList, setCapaList] = useState([])
+  const [kpiTargets, setKpiTargets] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([getObservations(), getAllCapa().catch(() => [])])
-      .then(([obs, capa]) => {
+    Promise.all([getObservations(), getAllCapa().catch(() => []), getKpiTargets()])
+      .then(([obs, capa, kpi]) => {
         setObservations(obs)
         setCapaList(capa)
+        setKpiTargets(kpi || [])
       })
       .catch((err) => setError(err.message || 'Gagal memuat data.'))
       .finally(() => setLoading(false))
@@ -55,6 +57,18 @@ export default function AdminSummary() {
     [observations],
   )
   const byDepartemen = useMemo(() => countBy(observations, 'departemen').slice(0, 6), [observations])
+  const contractors = useMemo(() => contractorScorecard(observations).slice(0, 8), [observations])
+
+  const kpiActuals = useMemo(() => {
+    const monthly = monthlyReportCount(observations)
+    const posRatio = total ? Math.round((positive / total) * 100) : 0
+    const avgDays = avgClose ? parseFloat(avgClose) : null
+    return {
+      monthly_reports: monthly,
+      positive_ratio: posRatio,
+      avg_close_days: avgDays,
+    }
+  }, [observations, total, positive, avgClose])
 
   return (
     <AdminLayout>
@@ -92,6 +106,61 @@ export default function AdminSummary() {
             <KpiTile label="Avg. Tutup" value={avgClose ?? '—'} sub="hari" accent="text-slate-100" />
             <KpiTile label="CAPA Overdue" value={overdueCapa} sub="terlambat" accent={overdueCapa > 0 ? 'text-red-400' : 'text-emerald-400'} />
           </div>
+
+          {kpiTargets.length > 0 && (
+            <ChartPanel title="Target KPI vs Aktual (Bulan Ini)" className="mb-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {kpiTargets
+                  .filter((t) => t.metric !== 'hipo_response_hours')
+                  .map((target) => {
+                    const actual = kpiActuals[target.metric]
+                    const isLowerBetter = target.metric === 'avg_close_days'
+                    const ok = actual != null && (isLowerBetter ? actual <= target.target_value : actual >= target.target_value)
+                    return (
+                      <div key={target.metric} className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+                        <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{target.label}</p>
+                        <p className="mt-1 font-mono text-lg font-bold text-slate-100">
+                          {actual ?? '—'}
+                          <span className="text-sm font-normal text-slate-500"> / {target.target_value}</span>
+                        </p>
+                        <p className={`mt-1 text-xs ${ok ? 'text-emerald-400' : actual != null ? 'text-amber-400' : 'text-slate-600'}`}>
+                          {actual == null ? 'Belum ada data' : ok ? 'On target' : 'Di bawah target'}
+                        </p>
+                      </div>
+                    )
+                  })}
+              </div>
+            </ChartPanel>
+          )}
+
+          {contractors.length > 0 && (
+            <ChartPanel title="Scorecard Kontraktor" className="mb-5">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+                      <th className="pb-2 pr-3">Perusahaan</th>
+                      <th className="pb-2 pr-3 text-right">Total</th>
+                      <th className="pb-2 pr-3 text-right">HiPo</th>
+                      <th className="pb-2 pr-3 text-right">Aktif</th>
+                      <th className="pb-2 text-right">Positif</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contractors.map((c) => (
+                      <tr key={c.name} className="border-b border-slate-800/50">
+                        <td className="py-2 pr-3 text-slate-300">{c.name}</td>
+                        <td className="py-2 pr-3 text-right font-mono text-slate-200">{c.total}</td>
+                        <td className={`py-2 pr-3 text-right font-mono ${c.hipo > 0 ? 'text-red-400' : 'text-slate-500'}`}>{c.hipo}</td>
+                        <td className="py-2 pr-3 text-right font-mono text-amber-400">{c.open}</td>
+                        <td className="py-2 text-right font-mono text-emerald-400">{c.positive}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </ChartPanel>
+          )}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ChartPanel title="Distribusi Kategori">

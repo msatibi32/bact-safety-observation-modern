@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import BrandHeader from '../components/BrandHeader'
 import { CameraIcon, CheckCircleIcon, PinIcon } from '../components/Icon'
 import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, KATEGORI_OPTIONS, LIFE_SAVING_RULES, RISIKO_OPTIONS, computeIsHiPo } from '../lib/constants'
 import { addObservation } from '../lib/store'
+import { flushOfflineQueue, isOnline, saveOfflineReport } from '../lib/offlineQueue'
 
 const RISK_STYLE = {
   Low: {
@@ -35,6 +36,7 @@ const emptyForm = {
   potensi_risiko: 'Low',
   life_saving_rule: LIFE_SAVING_RULES[0],
   stop_work: false,
+  is_anonymous: false,
   tindakan_langsung: '',
   rekomendasi: '',
 }
@@ -47,6 +49,17 @@ export default function ReportForm() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitted, setSubmitted] = useState(false)
+
+  const [offlineQueued, setOfflineQueued] = useState(false)
+
+  useEffect(() => {
+    function sync() {
+      flushOfflineQueue(addObservation).catch(() => {})
+    }
+    sync()
+    window.addEventListener('online', sync)
+    return () => window.removeEventListener('online', sync)
+  }, [])
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -89,14 +102,23 @@ export default function ReportForm() {
     setSubmitError('')
     setSubmitting(true)
     try {
-      await addObservation({
+      const payload = {
         ...form,
         nama_perusahaan:
           form.nama_perusahaan === 'Lainnya' ? form.nama_perusahaan_lainnya : form.nama_perusahaan,
         lokasi_gps: gps,
         foto: photos.map((p) => p.file),
         is_hipo: isHiPo,
-      })
+      }
+
+      if (!isOnline()) {
+        saveOfflineReport({ ...payload, foto: [] })
+        setOfflineQueued(true)
+        setSubmitted(true)
+        return
+      }
+
+      await addObservation(payload)
       setSubmitted(true)
     } catch (err) {
       setSubmitError(err.message || 'Gagal mengirim laporan, coba lagi.')
@@ -111,6 +133,7 @@ export default function ReportForm() {
     setGps(null)
     setGpsStatus('idle')
     setSubmitted(false)
+    setOfflineQueued(false)
   }
 
   if (submitted) {
@@ -122,7 +145,9 @@ export default function ReportForm() {
           </div>
           <h1 className="text-xl font-semibold text-slate-900">Laporan terkirim</h1>
           <p className="text-sm text-slate-500">
-            Terima kasih, laporan observasi keselamatan kamu sudah masuk dan akan ditindaklanjuti tim HSE.
+            {offlineQueued
+              ? 'Laporan disimpan offline. Akan terkirim otomatis saat koneksi kembali (buka app lagi).'
+              : 'Terima kasih, laporan observasi keselamatan kamu sudah masuk dan akan ditindaklanjuti tim HSE.'}
           </p>
           <button onClick={handleReportAnother} className="btn-primary mt-2 w-full">
             Buat laporan lain
@@ -143,6 +168,20 @@ export default function ReportForm() {
 
         <form onSubmit={handleSubmit} className="card space-y-6 p-6">
           <Section title="Informasi Pelapor">
+            <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3">
+              <input
+                type="checkbox"
+                checked={form.is_anonymous}
+                onChange={(e) => update('is_anonymous', e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600"
+              />
+              <div>
+                <span className="text-sm font-medium text-slate-900">Laporan anonim</span>
+                <p className="text-xs text-slate-500">Nama tidak ditampilkan ke admin (identitas departemen tetap tercatat).</p>
+              </div>
+            </label>
+
+            {!form.is_anonymous && (
             <Field label="Nama pelapor" required>
               <input
                 type="text"
@@ -153,6 +192,7 @@ export default function ReportForm() {
                 placeholder="Nama lengkap"
               />
             </Field>
+            )}
 
             <Field label="Departemen" required>
               <select

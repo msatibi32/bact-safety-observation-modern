@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '../lib/auth'
 import { BRANDING } from '../lib/branding'
 import BrandLogo from './BrandLogo'
-import { ChartIcon, ClipboardIcon, LogoutIcon } from './Icon'
+import { ChartIcon, ClipboardIcon, LogoutIcon, PinIcon } from './Icon'
 
 const navLinkClass = ({ isActive }) =>
   `flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium transition md:inline-flex md:flex-none md:flex-row md:gap-1.5 md:rounded-lg md:px-3 md:py-2 md:text-sm ${
@@ -46,6 +46,10 @@ export default function AdminLayout({ children }) {
               <ChartIcon className="h-4 w-4" />
               Analitik
             </NavLink>
+            <NavLink to="/admin/peta" className={desktopNavClass}>
+              <PinIcon className="h-4 w-4" />
+              Peta
+            </NavLink>
             <button
               type="button"
               onClick={handleLogout}
@@ -69,6 +73,10 @@ export default function AdminLayout({ children }) {
           <NavLink to="/admin/ringkasan" className={navLinkClass}>
             <ChartIcon className="h-5 w-5" />
             Analitik
+          </NavLink>
+          <NavLink to="/admin/peta" className={navLinkClass}>
+            <PinIcon className="h-5 w-5" />
+            Peta
           </NavLink>
           <button type="button" onClick={handleLogout} className="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium text-slate-500">
             <LogoutIcon className="h-5 w-5" />

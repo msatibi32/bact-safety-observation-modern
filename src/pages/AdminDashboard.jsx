@@ -8,33 +8,39 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import ActivityFeed from '../components/admin/ActivityFeed'
+import AdminNotifications from '../components/admin/AdminNotifications'
 import ReportCard from '../components/admin/ReportCard'
 import { LivePulse, TradingStatCard } from '../components/admin/TradingStatCard'
 import AdminLayout from '../components/AdminLayout'
 import { RiskBadge, StatusBadge, HiPoBadge } from '../components/Badge'
 import ObservationDetailPanel from '../components/ObservationDetailPanel'
-import { dailyReportCounts, sparklineValues, trendDelta } from '../lib/analytics'
+import { dailyReportCounts, overdueEscalations, sparklineValues, trendDelta } from '../lib/analytics'
 import { isOpenStatus } from '../lib/constants'
-import { getObservations, updateObservation } from '../lib/store'
+import { filterObservationsForRole } from '../lib/roles'
+import { useUser } from '../components/RequireRole'
+import { getObservations, getPendingNotifications, updateObservation } from '../lib/store'
 
 function initials(name = '') {
   return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 }
 
 export default function AdminDashboard() {
+  const user = useUser()
   const [observations, setObservations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('Semua')
   const [filterHiPo, setFilterHiPo] = useState(false)
+  const [notifications, setNotifications] = useState([])
 
   async function loadObservations() {
     setLoading(true)
     setError('')
     try {
-      setObservations(await getObservations())
+      const [obs, queue] = await Promise.all([getObservations(), getPendingNotifications()])
+      setObservations(obs)
+      setNotifications(queue)
     } catch (err) {
       setError(err.message || 'Gagal memuat data.')
     } finally {
@@ -51,12 +57,19 @@ export default function AdminDashboard() {
   const chartData = useMemo(() => dailyReportCounts(observations, 14), [observations])
   const spark = useMemo(() => sparklineValues(observations, 7), [observations])
 
+  const roleFiltered = useMemo(
+    () => filterObservationsForRole(observations, user),
+    [observations, user],
+  )
+
   const filtered = useMemo(() => {
-    let list = observations
+    let list = roleFiltered
     if (filterStatus !== 'Semua') list = list.filter((o) => o.status === filterStatus)
     if (filterHiPo) list = list.filter((o) => o.is_hipo)
     return list
-  }, [observations, filterStatus, filterHiPo])
+  }, [roleFiltered, filterStatus, filterHiPo])
+
+  const escalations = useMemo(() => overdueEscalations(roleFiltered), [roleFiltered])
 
   const recentFeed = useMemo(
     () => [...observations].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 8),
@@ -86,6 +99,21 @@ export default function AdminDashboard() {
           {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
+
+      <AdminNotifications
+        observations={roleFiltered}
+        queueItems={notifications}
+        onSelect={setSelectedId}
+      />
+
+      {escalations.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3">
+          <p className="text-sm font-semibold text-red-300">
+            Eskalasi: {escalations.length} HiPo melewati deadline 24 jam
+          </p>
+          <p className="mt-1 text-xs text-red-400/80">Segera tindak lanjuti atau eskalasi ke supervisor.</p>
+        </div>
+      )}
 
       <div className="-mx-1 mb-5 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none md:grid md:grid-cols-4 md:overflow-visible">
         <TradingStatCard label="Total" value={observations.length} sparkData={spark} delta={trend.pct} up={trend.up} />
