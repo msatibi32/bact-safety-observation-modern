@@ -71,7 +71,7 @@ export default function ObservationDetailPanel({ observation, onSave }) {
           <div className="flex flex-col items-end gap-1">
             <button
               type="button"
-              onClick={() => exportObservationPdf(observation)}
+              onClick={() => exportObservationPdf(observation).catch(() => {})}
               className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-400 hover:border-brand-500 hover:text-brand-400"
             >
               Export PDF

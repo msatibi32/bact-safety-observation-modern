@@ -1,0 +1,141 @@
+================================================================================
+  BACT SAFETY OBSERVATION CARD — PANDUAN SETUP NOTIFIKASI EMAIL
+  Simpan file ini di folder supabase. Ikuti step berurutan. Centang [ ] tiap selesai.
+================================================================================
+
+PRASYARAT (sudah kamu lakukan):
+  [x] Step 1 — SQL v4 sudah dijalankan di Supabase
+  [x] Step 2 — API Key Resend sudah didapat
+
+PENTING KEAMANAN:
+  - JANGAN simpan API Key Resend di GitHub atau file yang di-commit
+  - Hanya paste di Supabase → Edge Functions → Secrets
+  - Kalau key pernah bocor di chat, hapus & buat key baru di Resend
+
+================================================================================
+STEP 3 — DEPLOY EDGE FUNCTION DI SUPABASE
+================================================================================
+
+[ ] 3.1  Buka https://supabase.com → login
+[ ] 3.2  Pilih project Safety Observation Card kamu
+[ ] 3.3  Menu kiri → klik "Edge Functions"
+[ ] 3.4  Klik "Deploy a new function" / "New function"
+[ ] 3.5  Nama function: ketik PERSIS → process-notifications
+[ ] 3.6  Klik Create / Deploy
+[ ] 3.7  Hapus SEMUA kode default di editor
+[ ] 3.8  Buka file di PC:
+         C:\Users\pc\Projects\safety-observation-card\supabase\functions\process-notifications\index.ts
+[ ] 3.9  Ctrl+A → Ctrl+C (copy semua isi file)
+[ ] 3.10 Paste ke editor Supabase
+[ ] 3.11 Klik Deploy / Save
+[ ] 3.12 Tunggu status "Deployed" (hijau)
+
+================================================================================
+STEP 4 — MASUKKAN SECRETS (API KEY RESEND)
+================================================================================
+
+[ ] 4.1  Supabase → Project Settings (ikon gear kiri bawah)
+[ ] 4.2  Klik submenu "Edge Functions"
+[ ] 4.3  Scroll ke bagian "Secrets"
+[ ] 4.4  Tambah secret #1:
+         Name:  RESEND_API_KEY
+         Value: (paste API key dari Resend — mulai dengan re_)
+[ ] 4.5  Tambah secret #2:
+         Name:  NOTIFY_EMAIL_FROM
+         Value: BACT SOC <onboarding@resend.dev>
+[ ] 4.6  Tambah secret #3:
+         Name:  PUBLIC_APP_URL
+         Value: https://bact-safety-observation-modern.vercel.app
+[ ] 4.7  Klik Save untuk setiap secret
+
+Catatan: SUPABASE_URL dan SERVICE_ROLE_KEY biasanya otomatis — tidak perlu ditambah.
+
+================================================================================
+STEP 5 — BUAT WEBHOOK (OTOMATIS KIRIM EMAIL SAAT ADA LAPORAN)
+================================================================================
+
+[ ] 5.1  Supabase → Database → Webhooks
+[ ] 5.2  Klik "Create a new hook" / "Enable webhooks"
+[ ] 5.3  Isi form:
+         Name:     kirim-notifikasi-email
+         Table:    notification_queue
+         Events:   centang INSERT saja
+         Type:     HTTP Request
+         Method:   POST
+
+[ ] 5.4  Dapatkan PROJECT URL:
+         → Project Settings → API → copy "Project URL"
+         Contoh: https://abcdefghijk.supabase.co
+
+[ ] 5.5  URL webhook (ganti abcdefghijk dengan project ID kamu):
+         https://abcdefghijk.supabase.co/functions/v1/process-notifications
+
+[ ] 5.6  Tambah HTTP Header:
+         Name:  Authorization
+         Value: Bearer <SERVICE_ROLE_KEY>
+         (SERVICE_ROLE_KEY dari Project Settings → API → service_role → Reveal)
+         PENTING: ada kata "Bearer" + spasi + key panjang
+
+[ ] 5.7  Klik Create webhook / Confirm
+
+================================================================================
+STEP 6 — ATUR EMAIL PENERIMA DI DASHBOARD APP
+================================================================================
+
+[ ] 6.1  Tunggu Vercel deploy selesai (2–5 menit setelah git push)
+[ ] 6.2  Buka: https://bact-safety-observation-modern.vercel.app/admin/login
+[ ] 6.3  Login akun admin
+
+[ ] 6.4  Pastikan role admin di Supabase:
+         Authentication → Users → klik user kamu
+         User Metadata: { "role": "admin" }
+
+[ ] 6.5  Di app admin → klik menu "Notifikasi"
+[ ] 6.6  Pastikan email chibiajjh12@gmail.com ada & status AKTIF
+         (Kalau belum → tambah manual → klik Tambah email)
+
+================================================================================
+STEP 7 — TEST KIRIM EMAIL
+================================================================================
+
+[ ] 7.1  Buka tab baru: https://bact-safety-observation-modern.vercel.app/
+[ ] 7.2  Isi form laporan singkat (data dummy boleh) → Kirim Laporan
+[ ] 7.3  Kembali ke admin → menu Notifikasi
+[ ] 7.4  Klik tombol "Kirim antrian sekarang"
+[ ] 7.5  Harus muncul pesan hijau: "Antrian diproses. Terkirim: 1 notifikasi."
+[ ] 7.6  Cek inbox chibiajjh12@gmail.com (cek juga folder Spam)
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Masalah: Menu "Notifikasi" tidak muncul
+Solusi:  Hard refresh Ctrl+Shift+R, tunggu deploy Vercel
+
+Masalah: "Akses ditolak" di halaman Notifikasi
+Solusi:  Set user metadata { "role": "admin" } di Supabase Auth
+
+Masalah: Tombol kirim antrian error
+Solusi:  Edge Function belum deploy atau nama salah (harus process-notifications)
+
+Masalah: Email tidak masuk
+Solusi:  Supabase → Table Editor → notification_queue
+         Lihat kolom status: pending = belum diproses, failed = lihat error_message
+
+Masalah: Resend error domain
+Solusi:  NOTIFY_EMAIL_FROM harus: BACT SOC <onboarding@resend.dev>
+         (Tanpa domain sendiri, hanya bisa kirim ke email akun Resend)
+
+================================================================================
+SETELAH SEMUA BERHASIL
+================================================================================
+
+  Laporan baru  →  Banner di dashboard admin  +  Email ke daftar penerima
+  HiPo          →  Banner merah + email prioritas
+  Kelola email  →  Admin → menu Notifikasi (tambah/hapus kapan saja)
+
+  Rotasi API Key Resend (disarankan): Resend → API Keys → revoke key lama → buat baru
+
+================================================================================
+SELESAI — Semua centang [x] = setup notifikasi email lengkap!
+================================================================================
