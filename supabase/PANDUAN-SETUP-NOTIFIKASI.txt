@@ -1,6 +1,9 @@
 ================================================================================
   BACT SAFETY OBSERVATION CARD — PANDUAN SETUP NOTIFIKASI EMAIL
   Simpan file ini di folder supabase. Ikuti step berurutan. Centang [ ] tiap selesai.
+
+  >>> UNTUK PEMAKAIAN HARIAN (tambah/hapus email penerima): baca
+      PANDUAN-EMAIL-NOTIFIKASI.txt — panduan langkah demi langkah, tanpa jargon.
 ================================================================================
 
 PRASYARAT (sudah kamu lakukan):
@@ -142,6 +145,7 @@ SETELAH SEMUA BERHASIL
   Laporan baru  →  Banner di dashboard admin  +  Email ke daftar penerima
   HiPo          →  Banner merah + email prioritas
   Kelola email  →  Admin → menu Notifikasi (tambah/hapus kapan saja)
+                  Lihat PANDUAN-EMAIL-NOTIFIKASI.txt untuk langkah detail.
 
   Rotasi API Key Resend (disarankan): Resend → API Keys → revoke key lama → buat baru
 

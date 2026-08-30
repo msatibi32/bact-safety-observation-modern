@@ -37,7 +37,7 @@ export function canManageKpi(user) {
 }
 
 export function canManageNotifications(user) {
-  return hasMinRole(user, ROLES.ADMIN)
+  return hasMinRole(user, ROLES.HSE)
 }
 
 export function filterObservationsForRole(observations, user) {

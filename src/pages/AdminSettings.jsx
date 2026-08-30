@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { useUser } from '../components/RequireRole'
-import { canManageKpi } from '../lib/roles'
+import { canManageNotifications } from '../lib/roles'
 import {
   addNotificationRecipient,
   getNotificationRecipients,
@@ -12,7 +12,7 @@ import {
 
 export default function AdminSettings() {
   const user = useUser()
-  const canManage = canManageKpi(user)
+  const canManage = canManageNotifications(user)
 
   const [recipients, setRecipients] = useState([])
   const [email, setEmail] = useState('')

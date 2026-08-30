@@ -1116,7 +1116,108 @@ sectionDivider('Alur Sistem', 'Flow diagram — dari pelapor sampai closed')
   })
 }
 
-// 22 — URL Table
+// 22 — Cara Pakai Aplikasi (step-by-step)
+{
+  const slide = contentSlide('Cara Pakai Aplikasi', 'Panduan singkat untuk pelapor & tim HSE')
+  const steps = [
+    {
+      n: '1',
+      title: 'Buka Form',
+      body: `Scan QR poster di area kerja\natau buka:\n${APP_URL}`,
+      c: C.blue,
+    },
+    {
+      n: '2',
+      title: 'Isi & Kirim',
+      body: 'Lengkapi data pelapor, lokasi + GPS, kategori, risiko, foto bukti → Kirim Laporan.',
+      c: C.orange,
+    },
+    {
+      n: '3',
+      title: 'Login Admin',
+      body: `Tim HSE buka:\n${APP_URL}/admin/login\nMasuk dengan akun Supabase.`,
+      c: C.indigo,
+    },
+    {
+      n: '4',
+      title: 'Dashboard HSE',
+      body: 'Review laporan, assign PIC, ubah status, investigasi, CAPA, export PDF, kelola notifikasi email.',
+      c: C.green,
+    },
+  ]
+  steps.forEach((s, i) => {
+    const x = 0.35 + i * 2.35
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x,
+      y: 1.1,
+      w: 2.2,
+      h: 3.85,
+      fill: { color: C.white },
+      line: { color: 'E2E8F0', width: 1 },
+      rectRadius: 0.1,
+    })
+    slide.addShape(pptx.ShapeType.ellipse, {
+      x: x + 0.15,
+      y: 1.25,
+      w: 0.45,
+      h: 0.45,
+      fill: { color: s.c },
+    })
+    slide.addText(s.n, {
+      x: x + 0.15,
+      y: 1.28,
+      w: 0.45,
+      h: 0.4,
+      fontSize: 14,
+      bold: true,
+      color: C.white,
+      align: 'center',
+      fontFace: FONT,
+    })
+    slide.addText(s.title, {
+      x: x + 0.15,
+      y: 1.85,
+      w: 1.9,
+      h: 0.35,
+      fontSize: 13,
+      bold: true,
+      color: C.dark,
+      fontFace: FONT,
+    })
+    slide.addText(s.body, {
+      x: x + 0.15,
+      y: 2.3,
+      w: 1.9,
+      h: 2.5,
+      fontSize: 10,
+      color: C.slate,
+      fontFace: FONT,
+      valign: 'top',
+    })
+  })
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.35,
+    y: 4.55,
+    w: 9.05,
+    h: 0.45,
+    fill: { color: C.dark },
+    rectRadius: 0.06,
+  })
+  slide.addText('Pelapor: tanpa login  ·  Admin/HSE: login di /admin/login  ·  PWA: bisa install di HP',
+    {
+      x: 0.5,
+      y: 4.62,
+      w: 8.75,
+      h: 0.3,
+      fontSize: 10,
+      color: C.orange,
+      align: 'center',
+      fontFace: FONT,
+    },
+  )
+}
+
+// 23 — URL Table
 {
   const slide = contentSlide('Ringkasan URL Aplikasi', 'Akses cepat — ' + APP_URL)
   slide.addTable(
@@ -1147,7 +1248,7 @@ sectionDivider('Alur Sistem', 'Flow diagram — dari pelapor sampai closed')
   )
 }
 
-// 23 — Closing Q&A
+// 24 — Closing Q&A
 {
   const slide = pptx.addSlide()
   slide.background = { color: C.dark }

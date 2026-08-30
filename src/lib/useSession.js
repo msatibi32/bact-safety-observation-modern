@@ -5,7 +5,18 @@ export function useSession() {
   const [session, setSession] = useState(undefined)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    async function initSession() {
+      const { data } = await supabase.auth.getSession()
+      if (data.session) {
+        // Refresh JWT agar perubahan user_metadata (role) dari Supabase langsung terbaca
+        const { data: refreshed } = await supabase.auth.refreshSession()
+        setSession(refreshed.session ?? data.session)
+      } else {
+        setSession(null)
+      }
+    }
+
+    initSession()
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession)

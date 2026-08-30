@@ -1,0 +1,159 @@
+================================================================================
+  BACT SAFETY OBSERVATION CARD — PANDUAN EMAIL NOTIFIKASI
+  Untuk tim HSE & admin — cara menambah penerima email & troubleshooting singkat
+================================================================================
+
+File ini untuk PEMAKAIAN SEHARI-HARI setelah setup awal selesai.
+Setup satu kali (Resend, Edge Function, secrets, webhook) sudah dilakukan —
+lihat PANDUAN-SETUP-NOTIFIKASI.txt jika perlu mengulang instalasi dari nol.
+
+URL aplikasi: https://bact-safety-observation-modern.vercel.app
+
+================================================================================
+BAGIAN A — SETUP AWAL (SUDAH SELESAI — BACA SAJA)
+================================================================================
+
+Yang sudah dikonfigurasi (tidak perlu diulang kecuali pindah project):
+
+  1. API Key Resend → disimpan di Supabase Edge Functions → Secrets
+  2. Edge Function "process-notifications" → sudah di-deploy
+  3. Secrets: RESEND_API_KEY, NOTIFY_EMAIL_FROM, PUBLIC_APP_URL
+  4. Webhook database → tabel notification_queue, event INSERT → memanggil
+     Edge Function process-notifications
+
+Kalau semua di atas sudah jalan, lanjut ke Bagian B untuk menambah email baru.
+
+================================================================================
+BAGIAN B — CARA MENAMBAH EMAIL PENERIMA BARU (LANGKAH UTAMA)
+================================================================================
+
+Ikuti langkah ini SETIAP KALI ada anggota HSE baru yang harus menerima email
+laporan. Tidak perlu ubah kode, tidak perlu Supabase, tidak perlu Resend.
+
+--- Langkah 1: Login sebagai Admin ---
+
+  1. Buka browser (HP atau laptop).
+  2. Buka: https://bact-safety-observation-modern.vercel.app/admin/login
+  3. Masuk dengan email & password akun admin.
+  4. Pastikan akun punya role "admin" di Supabase Auth (lihat catatan di bawah
+     jika menu Notifikasi tidak muncul).
+
+--- Langkah 2: Buka menu Notifikasi ---
+
+  5. Setelah masuk dashboard, klik menu "Notifikasi" di sidebar kiri
+     (atau ikon di bottom navigation jika pakai HP).
+  6. Halaman yang terbuka: "Pengaturan Notifikasi".
+
+--- Langkah 3: Tambah email baru ---
+
+  7. Di kolom "Email notifikasi", ketik alamat email lengkap penerima baru.
+     Contoh: hse.officer@perusahaan.com
+  8. (Opsional) Isi "Label" — nama atau jabatan, misalnya "Pak Budi HSE".
+  9. Klik tombol "Tambah email".
+  10. Harus muncul pesan hijau: "Email notifikasi ditambahkan."
+  11. Email baru muncul di daftar "Daftar penerima email".
+
+--- Langkah 4: Pastikan status AKTIF ---
+
+  12. Di baris email yang baru ditambahkan, lihat tombol status.
+  13. Status harus "Aktif" (hijau). Jika "Nonaktif", klik untuk mengaktifkan.
+  14. Hanya email berstatus Aktif yang menerima notifikasi.
+
+--- Langkah 5: Verifikasi (opsional tapi disarankan) ---
+
+  15. Minta rekan HSE submit 1 laporan uji dari form publik
+      (https://bact-safety-observation-modern.vercel.app/)
+      — data dummy boleh.
+  16. Tunggu 1–2 menit, cek inbox email penerima baru.
+  17. Cek juga folder Spam / Promosi jika belum masuk inbox.
+  18. Jika belum masuk, lanjut Bagian C (troubleshooting).
+
+SELESAI. Email baru akan otomatis menerima SEMUA laporan berikutnya —
+termasuk laporan HiPo (prioritas) — selama statusnya Aktif.
+
+================================================================================
+BAGIAN C — BAGAIMANA EMAIL OTOMATIS TERKIRIM
+================================================================================
+
+Supaya Anda paham alurnya (tidak perlu setting ulang):
+
+  Laporan baru dikirim dari form
+       ↓
+  Data masuk database + trigger SQL menambah baris di notification_queue
+       ↓
+  Webhook Supabase memanggil Edge Function process-notifications
+       ↓
+  Edge Function membaca daftar email Aktif dari database
+       ↓
+  Email dikirim via Resend ke semua penerima Aktif
+
+Cadangan (fallback): aplikasi juga memanggil Edge Function setelah submit
+laporan. Jadi meski webhook lambat, email tetap berusaha terkirim.
+
+Anda HANYA perlu mengelola daftar email di menu Notifikasi — sisanya otomatis.
+
+================================================================================
+BAGIAN D — MENGHAPUS ATAU MENONAKTIFKAN EMAIL
+================================================================================
+
+  • Nonaktifkan sementara: klik tombol status → jadi "Nonaktif"
+    (email tidak dihapus, bisa diaktifkan lagi kapan saja)
+  • Hapus permanen: klik "Hapus" di baris email → konfirmasi
+
+================================================================================
+BAGIAN E — TROUBLESHOOTING SINGKAT
+================================================================================
+
+--- Masalah: Menu "Notifikasi" tidak terlihat ---
+
+  • Hard refresh: Ctrl + Shift + R (atau clear cache browser)
+  • Pastikan login sebagai admin (bukan viewer/pic saja)
+  • Cek role di Supabase → Authentication → Users → user Anda
+    → User Metadata harus berisi: { "role": "admin" }
+
+--- Masalah: Email baru sudah Aktif tapi tidak menerima email ---
+
+  Langkah 1 — Cek antrian di dashboard:
+    • Admin → Notifikasi → klik "Kirim antrian sekarang"
+    • Pesan hijau contoh: "Antrian diproses. Terkirim: 1 notifikasi."
+    • Jika angka Terkirim = 0, mungkin tidak ada laporan pending
+
+  Langkah 2 — Cek tabel notification_queue di Supabase:
+    • Supabase → Table Editor → notification_queue
+    • Lihat baris terbaru, kolom "status":
+        pending  = belum diproses (klik "Kirim antrian sekarang")
+        sent     = sudah terkirim (cek spam inbox penerima)
+        failed   = gagal — baca kolom error_message
+
+  Langkah 3 — Cek Resend (hanya jika status failed):
+    • Pengirim default: BACT SOC <onboarding@resend.dev>
+    • Tanpa domain khusus, Resend hanya bisa kirim ke email yang
+      terdaftar di akun Resend. Pastikan email penerima diizinkan.
+
+--- Masalah: Laporan baru tidak trigger email, tapi "Kirim antrian sekarang" berhasil ---
+
+  • Trigger SQL mungkin jalan (ada baris pending di notification_queue)
+    tapi webhook belum memanggil function → gunakan "Kirim antrian sekarang"
+    sebagai solusi sementara
+  • Untuk perbaikan permanen: lihat PANDUAN-SETUP-NOTIFIKASI.txt Step 5 (webhook)
+
+--- Masalah: Tombol "Kirim antrian sekarang" error ---
+
+  • Edge Function process-notifications belum deploy atau nama salah
+  • Lihat PANDUAN-SETUP-NOTIFIKASI.txt Step 3 & 4
+
+================================================================================
+RINGKASAN CEPAT — TAMBAH EMAIL BARU
+================================================================================
+
+  1. Login admin → /admin/login
+  2. Klik menu "Notifikasi"
+  3. Ketik email → Tambah email
+  4. Pastikan status Aktif
+  5. Test dengan laporan dummy → cek inbox
+
+Tidak perlu: ubah kode, deploy ulang, buka Resend, buka Supabase webhook.
+
+================================================================================
+SELESAI
+================================================================================
