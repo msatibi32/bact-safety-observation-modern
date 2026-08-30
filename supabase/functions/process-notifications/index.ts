@@ -18,6 +18,19 @@ const PUBLIC_APP_URL = Deno.env.get('PUBLIC_APP_URL') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 type Payload = {
   observation_id?: string
   category?: string
@@ -86,7 +99,11 @@ async function sendWhatsApp(message: string) {
   return { ok: res.ok && data?.status !== false, error: data?.reason || null }
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   const { data: pending, error } = await supabase
     .from('notification_queue')
@@ -97,7 +114,7 @@ Deno.serve(async () => {
     .limit(20)
 
   if (error) {
-    return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 500 })
+    return jsonResponse({ ok: false, error: error.message }, 500)
   }
 
   let processed = 0
@@ -142,7 +159,5 @@ Deno.serve(async () => {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, processed, results }), {
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse({ ok: true, processed, results })
 })

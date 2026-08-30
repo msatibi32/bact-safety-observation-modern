@@ -333,8 +333,33 @@ export async function removeNotificationRecipient(id) {
 }
 
 export async function triggerNotificationProcessing() {
-  const { data, error } = await supabase.functions.invoke('process-notifications')
-  if (error) throw new Error(error.message)
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('Sesi login habis. Silakan login ulang.')
+  }
+
+  const { data, error } = await supabase.functions.invoke('process-notifications', {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  })
+
+  if (error) {
+    const msg = error.message || 'Gagal memanggil Edge Function'
+    if (msg.includes('Failed to send a request')) {
+      throw new Error(
+        'Gagal menghubungi Edge Function. Pastikan process-notifications sudah di-deploy di Supabase.',
+      )
+    }
+    throw new Error(msg)
+  }
+
+  if (data?.ok === false) {
+    throw new Error(data.error || 'Proses notifikasi gagal')
+  }
+
   return data
 }
 
