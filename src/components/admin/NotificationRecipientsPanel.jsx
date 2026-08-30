@@ -101,8 +101,11 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
     setError('')
     setMessage('')
     try {
-      await sendTestNotification(recipient.email)
-      setMessage(`Tes terkirim ke ${recipient.email}. Cek inbox (dan folder Spam).`)
+      const result = await sendTestNotification(recipient.email)
+      const idNote = result?.resend_id ? ` ID Resend: ${result.resend_id}.` : ''
+      setMessage(
+        `Resend menerima tes ke ${recipient.email}.${idNote} Cek inbox, folder Spam, dan resend.com/emails.`,
+      )
     } catch (err) {
       setError(err.message || 'Gagal mengirim tes.')
     } finally {
@@ -135,6 +138,12 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
           </Link>
         )}
       </div>
+
+      <p className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+        Pengirim masih <code className="text-amber-100">onboarding@resend.dev</code>. Resend hanya mengirim ke email
+        pemilik akun Resend. Email lain bisa ditambah di daftar, tapi tes/laporan ke alamat itu akan ditolak sampai
+        domain diverifikasi di resend.com/domains.
+      </p>
 
       {canManage && (
         <form onSubmit={handleAdd} className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">

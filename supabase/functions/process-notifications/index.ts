@@ -98,8 +98,14 @@ async function sendEmailToOne(to: string, subject: string, html: string, text: s
     },
     body: JSON.stringify({ from: NOTIFY_EMAIL_FROM, to: [to], subject, html, text }),
   })
-  if (res.ok) return { ok: true, skipped: false }
   const raw = await res.text()
+  let parsed: { id?: string } = {}
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    parsed = {}
+  }
+  if (res.ok) return { ok: true, skipped: false, id: parsed.id || null }
   return { ok: false, skipped: false, error: humanizeResendError(raw, to) }
 }
 
@@ -158,8 +164,11 @@ Deno.serve(async (req) => {
       `<p>${text.replace(/\n/g, '<br>')}</p>`,
       text,
     )
-    if (result.ok) return jsonResponse({ ok: true, sent: true, to: email })
-    return jsonResponse({ ok: false, error: result.error || 'Gagal kirim tes' }, 400)
+    if (result.ok) {
+      return jsonResponse({ ok: true, sent: true, to: email, resend_id: result.id || null })
+    }
+    // 200 + ok:false supaya dashboard bisa menampilkan pesan Resend, bukan "non-2xx"
+    return jsonResponse({ ok: false, error: result.error || 'Gagal kirim tes' })
   }
 
   const { data: pending, error } = await supabase

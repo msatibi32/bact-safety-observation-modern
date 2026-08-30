@@ -363,6 +363,31 @@ export async function getNotificationLog() {
   return data || []
 }
 
+async function readFunctionError(error, data) {
+  if (data?.error) return data.error
+  const ctx = error?.context
+  if (ctx) {
+    try {
+      if (typeof ctx.json === 'function') {
+        const json = await ctx.json()
+        if (json?.error) return json.error
+      } else if (ctx.error) {
+        return ctx.error
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const msg = error?.message || ''
+  if (msg.includes('Failed to send a request')) {
+    return 'Gagal menghubungi Edge Function. Pastikan process-notifications sudah di-deploy ulang di Supabase.'
+  }
+  if (msg.includes('non-2xx')) {
+    return 'Resend menolak email ini. Tanpa domain terverifikasi, hanya email pemilik akun Resend yang bisa menerima tes.'
+  }
+  return msg || 'Tes email gagal'
+}
+
 export async function sendTestNotification(email) {
   const {
     data: { session },
@@ -374,17 +399,8 @@ export async function sendTestNotification(email) {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
 
-  if (error) {
-    const msg = error.message || 'Gagal memanggil Edge Function'
-    if (msg.includes('Failed to send a request')) {
-      throw new Error(
-        'Gagal menghubungi Edge Function. Pastikan process-notifications sudah di-deploy ulang di Supabase.',
-      )
-    }
-    throw new Error(msg)
-  }
-  if (data?.ok === false) {
-    throw new Error(data.error || 'Tes email gagal')
+  if (error || data?.ok === false) {
+    throw new Error(await readFunctionError(error, data))
   }
   return data
 }
