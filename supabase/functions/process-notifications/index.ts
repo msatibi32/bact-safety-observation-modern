@@ -2,7 +2,9 @@
 // Email penerima diambil dari tabel notification_recipients (kelola via dashboard admin)
 //
 // Secrets (Supabase → Edge Functions → Secrets):
-//   RESEND_API_KEY       — dari resend.com
+//   BREVO_API_KEY        — dari brevo.com (disarankan jika TIDAK punya domain)
+//   BREVO_SENDER_EMAIL   — email pengirim yang sudah diverifikasi di Brevo
+//   RESEND_API_KEY       — dari resend.com (butuh domain untuk kirim ke semua alamat)
 //   NOTIFY_EMAIL_FROM    — mis. "BACT SOC <onboarding@resend.dev>"
 //   PUBLIC_APP_URL       — URL dashboard (opsional)
 //   FONNTE_TOKEN         — opsional WA
@@ -10,6 +12,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
+const BREVO_SENDER_EMAIL = Deno.env.get('BREVO_SENDER_EMAIL') || ''
+const BREVO_SENDER_NAME = Deno.env.get('BREVO_SENDER_NAME') || 'BACT SOC'
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const NOTIFY_EMAIL_FROM = Deno.env.get('NOTIFY_EMAIL_FROM') || 'BACT SOC <onboarding@resend.dev>'
 const FONNTE_TOKEN = Deno.env.get('FONNTE_TOKEN') || ''
@@ -42,6 +47,18 @@ type Payload = {
   last_send?: unknown
 }
 
+function parseFromAddress() {
+  const match = NOTIFY_EMAIL_FROM.match(/<([^>]+)>/)
+  return (match ? match[1] : NOTIFY_EMAIL_FROM).trim()
+}
+
+function brevoSenderEmail() {
+  if (BREVO_SENDER_EMAIL) return BREVO_SENDER_EMAIL.trim()
+  const from = parseFromAddress()
+  if (from && !from.endsWith('resend.dev')) return from
+  return 'chibiajjh12@gmail.com'
+}
+
 function humanizeResendError(raw: string, email: string) {
   const text = raw || ''
   if (
@@ -50,9 +67,17 @@ function humanizeResendError(raw: string, email: string) {
     text.includes('not allowed') ||
     text.includes('You can only send testing emails')
   ) {
-    return `${email}: Resend menolak (403). Domain pengirim belum diverifikasi — hanya email pemilik akun Resend yang bisa menerima. Verifikasi domain di resend.com/domains supaya semua alamat bisa dikirimi.`
+    return `${email}: Resend menolak (403). Tanpa domain, Resend hanya kirim ke pemilik akun. Set BREVO_API_KEY (gratis, tanpa domain) atau verifikasi domain di resend.com/domains.`
   }
   return `${email}: ${text.slice(0, 280)}`
+}
+
+function humanizeBrevoError(raw: string, email: string) {
+  const text = raw || ''
+  if (text.includes('not verified') || text.includes('unrecognised') || text.includes('sender')) {
+    return `${email}: Brevo menolak pengirim. Verifikasi ${brevoSenderEmail()} di Brevo → Senders.`
+  }
+  return `${email}: Brevo: ${text.slice(0, 280)}`
 }
 
 function buildMessage(type: string, p: Payload) {
@@ -88,8 +113,34 @@ async function getRecipientEmails(
   return [...new Set(emails)]
 }
 
-async function sendEmailToOne(to: string, subject: string, html: string, text: string) {
-  if (!RESEND_API_KEY) return { ok: false, skipped: true, error: 'RESEND_API_KEY belum diset' }
+async function sendViaBrevo(to: string, subject: string, html: string, text: string) {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'api-key': BREVO_API_KEY,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: BREVO_SENDER_NAME, email: brevoSenderEmail() },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
+  })
+  const raw = await res.text()
+  let parsed: { messageId?: string } = {}
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    parsed = {}
+  }
+  if (res.ok) return { ok: true, skipped: false, id: parsed.messageId || null }
+  return { ok: false, skipped: false, error: humanizeBrevoError(raw, to) }
+}
+
+async function sendViaResend(to: string, subject: string, html: string, text: string) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -109,8 +160,16 @@ async function sendEmailToOne(to: string, subject: string, html: string, text: s
   return { ok: false, skipped: false, error: humanizeResendError(raw, to) }
 }
 
+async function sendEmailToOne(to: string, subject: string, html: string, text: string) {
+  if (BREVO_API_KEY) return sendViaBrevo(to, subject, html, text)
+  if (RESEND_API_KEY) return sendViaResend(to, subject, html, text)
+  return { ok: false, skipped: true, error: 'Set BREVO_API_KEY (tanpa domain) atau RESEND_API_KEY' }
+}
+
 async function sendEmailToAll(to: string[], subject: string, html: string, text: string) {
-  if (!RESEND_API_KEY) return { skipped: true, sentTo: [] as string[], failed: [] as { email: string; error: string }[] }
+  if (!BREVO_API_KEY && !RESEND_API_KEY) {
+    return { skipped: true, sentTo: [] as string[], failed: [] as { email: string; error: string }[] }
+  }
   const sentTo: string[] = []
   const failed: { email: string; error: string }[] = []
   for (const email of to) {

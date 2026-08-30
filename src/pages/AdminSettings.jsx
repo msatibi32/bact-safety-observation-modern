@@ -131,29 +131,43 @@ export default function AdminSettings() {
         )}
       </div>
 
-      <details className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-400">
+      <details className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-400" open>
         <summary className="cursor-pointer text-xs font-medium uppercase tracking-wider text-slate-500">
-          Setup teknis Resend (sekali)
+          Kirim ke semua email tanpa beli domain (Brevo, sekali)
         </summary>
-        <ol className="mt-3 list-inside list-decimal space-y-1">
+        <ol className="mt-3 list-inside list-decimal space-y-2">
           <li>
-            Supabase → Edge Functions → deploy / update kode <code className="text-brand-400">process-notifications</code>
+            Daftar gratis di{' '}
+            <a href="https://www.brevo.com" className="text-brand-400 underline" target="_blank" rel="noreferrer">
+              brevo.com
+            </a>{' '}
+            (boleh pakai <code className="text-slate-300">chibiajjh12@gmail.com</code>)
           </li>
           <li>
-            Secret <code className="text-brand-400">RESEND_API_KEY</code> dari dashboard Resend
+            Menu <code className="text-brand-400">Senders, Domains & Dedicated IPs</code> → <strong>Senders</strong> →
+            Add sender → email <code className="text-slate-300">chibiajjh12@gmail.com</code> → buka inbox, klik link
+            verifikasi
           </li>
           <li>
-            Secret <code className="text-brand-400">NOTIFY_EMAIL_FROM</code> ={' '}
-            <code className="text-slate-300">BACT SOC &lt;onboarding@resend.dev&gt;</code>
+            Menu <code className="text-brand-400">SMTP & API</code> → API Keys → buat key → copy
           </li>
           <li>
-            Database → Webhooks → insert ke <code className="text-brand-400">notification_queue</code> → panggil function
+            Supabase → Project Settings → Edge Functions → Secrets, tambah:
+            <ul className="mt-1 list-inside list-disc pl-4">
+              <li>
+                <code className="text-brand-400">BREVO_API_KEY</code> = key dari Brevo
+              </li>
+              <li>
+                <code className="text-brand-400">BREVO_SENDER_EMAIL</code> ={' '}
+                <code className="text-slate-300">chibiajjh12@gmail.com</code>
+              </li>
+            </ul>
           </li>
+          <li>
+            Edge Functions → <code className="text-brand-400">process-notifications</code> → paste kode terbaru → Deploy
+          </li>
+          <li>Kembali ke halaman ini → Kirim tes ke email lain. Seharusnya tidak 403 lagi.</li>
         </ol>
-        <p className="mt-3 text-xs text-amber-300/90">
-          Tanpa domain terverifikasi di Resend, hanya email pemilik akun Resend yang benar-benar menerima. Email lain
-          tetap bisa ditambah di daftar, tapi Resend akan menolak (403) sampai domain diverifikasi di resend.com/domains.
-        </p>
       </details>
     </AdminLayout>
   )

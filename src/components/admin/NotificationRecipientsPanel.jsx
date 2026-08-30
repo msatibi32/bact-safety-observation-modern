@@ -140,9 +140,9 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
       </div>
 
       <p className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
-        Pengirim masih <code className="text-amber-100">onboarding@resend.dev</code>. Resend hanya mengirim ke email
-        pemilik akun Resend. Email lain bisa ditambah di daftar, tapi tes/laporan ke alamat itu akan ditolak sampai
-        domain diverifikasi di resend.com/domains.
+        Tanpa domain, Resend hanya mengirim ke pemilik akun. Supaya semua email di daftar ini menerima: daftar gratis di
+        brevo.com, verifikasi pengirim, lalu set secret <code className="text-amber-100">BREVO_API_KEY</code> di
+        Supabase. Langkah lengkap ada di halaman Notifikasi → Setup teknis.
       </p>
 
       {canManage && (
