@@ -131,7 +131,7 @@ export default function AdminSettings() {
         )}
       </div>
 
-      <details className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-400" open>
+      <details className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-400">
         <summary className="cursor-pointer text-xs font-medium uppercase tracking-wider text-slate-500">
           Kirim ke semua email tanpa beli domain (Brevo, sekali)
         </summary>

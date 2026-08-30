@@ -139,12 +139,6 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
         )}
       </div>
 
-      <p className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
-        Tanpa domain, Resend hanya mengirim ke pemilik akun. Supaya semua email di daftar ini menerima: daftar gratis di
-        brevo.com, verifikasi pengirim, lalu set secret <code className="text-amber-100">BREVO_API_KEY</code> di
-        Supabase. Langkah lengkap ada di halaman Notifikasi → Setup teknis.
-      </p>
-
       {canManage && (
         <form onSubmit={handleAdd} className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="flex-1">
