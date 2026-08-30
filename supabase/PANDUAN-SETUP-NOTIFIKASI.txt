@@ -122,6 +122,15 @@ Masalah: Email tidak masuk
 Solusi:  Supabase → Table Editor → notification_queue
          Lihat kolom status: pending = belum diproses, failed = lihat error_message
 
+Masalah: Laporan baru tidak kirim email otomatis, tapi "Kirim antrian sekarang" berhasil
+Solusi:  1) Cek notification_queue — ada baris baru dengan status "pending"?
+           Ya → trigger SQL jalan, tapi webhook belum memanggil Edge Function.
+           Tidak → jalankan ulang SQL trigger (schema-complete.sql bagian trg_observation_notify)
+         2) Supabase → Database → Webhooks — pastikan hook "kirim-notifikasi-email"
+            aktif pada tabel notification_queue, event INSERT, URL process-notifications
+         3) App sudah memanggil process-notifications otomatis setelah submit laporan
+            (fallback). Jika masih pending, cek Edge Function logs di Supabase.
+
 Masalah: Resend error domain
 Solusi:  NOTIFY_EMAIL_FROM harus: BACT SOC <onboarding@resend.dev>
          (Tanpa domain sendiri, hanya bisa kirim ke email akun Resend)

@@ -148,6 +148,8 @@ export async function addObservation(data) {
     // audit_logs mungkin belum ada jika migrasi v2 belum dijalankan
   }
 
+  triggerNotificationProcessingInBackground()
+
   return id
 }
 
@@ -332,6 +334,23 @@ export async function removeNotificationRecipient(id) {
   if (error) throw new Error(error.message)
 }
 
+/** Fire-and-forget: proses antrian notifikasi tanpa menunggu (fallback jika webhook gagal). */
+export function triggerNotificationProcessingInBackground() {
+  void invokeProcessNotifications().catch(() => {})
+}
+
+async function invokeProcessNotifications() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  return supabase.functions.invoke('process-notifications', {
+    ...(session && {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    }),
+  })
+}
+
 export async function triggerNotificationProcessing() {
   const {
     data: { session },
@@ -340,11 +359,7 @@ export async function triggerNotificationProcessing() {
     throw new Error('Sesi login habis. Silakan login ulang.')
   }
 
-  const { data, error } = await supabase.functions.invoke('process-notifications', {
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  })
+  const { data, error } = await invokeProcessNotifications()
 
   if (error) {
     const msg = error.message || 'Gagal memanggil Edge Function'
