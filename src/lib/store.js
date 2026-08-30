@@ -310,8 +310,22 @@ export async function getNotificationRecipients() {
     .from('notification_recipients')
     .select('*')
     .order('created_at', { ascending: true })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(recipientError(error))
   return data || []
+}
+
+function recipientError(error) {
+  const msg = error?.message || 'Gagal menyimpan email.'
+  if (error?.code === '23505' || /duplicate|unique/i.test(msg)) {
+    return 'Email ini sudah ada di daftar penerima.'
+  }
+  if (/permission|rls|row-level/i.test(msg)) {
+    return 'Tidak punya izin mengubah daftar email. Login sebagai admin/HSE.'
+  }
+  if (/relation .* does not exist|schema cache/i.test(msg)) {
+    return 'Tabel penerima email belum ada. Jalankan schema-v4-notification-emails.sql di Supabase.'
+  }
+  return msg
 }
 
 export async function addNotificationRecipient({ email, label }) {
@@ -320,18 +334,59 @@ export async function addNotificationRecipient({ email, label }) {
     .insert({ email: email.trim().toLowerCase(), label: label?.trim() || null })
     .select()
     .single()
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(recipientError(error))
   return data
 }
 
 export async function toggleNotificationRecipient(id, active) {
   const { error } = await supabase.from('notification_recipients').update({ active }).eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(recipientError(error))
+}
+
+export async function updateNotificationRecipient(id, patch) {
+  const { error } = await supabase.from('notification_recipients').update(patch).eq('id', id)
+  if (error) throw new Error(recipientError(error))
 }
 
 export async function removeNotificationRecipient(id) {
   const { error } = await supabase.from('notification_recipients').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(recipientError(error))
+}
+
+export async function getNotificationLog() {
+  const { data, error } = await supabase
+    .from('notification_queue')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(12)
+  if (error) return []
+  return data || []
+}
+
+export async function sendTestNotification(email) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session) throw new Error('Sesi login habis. Silakan login ulang.')
+
+  const { data, error } = await supabase.functions.invoke('process-notifications', {
+    body: { action: 'test', email: email.trim().toLowerCase() },
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  })
+
+  if (error) {
+    const msg = error.message || 'Gagal memanggil Edge Function'
+    if (msg.includes('Failed to send a request')) {
+      throw new Error(
+        'Gagal menghubungi Edge Function. Pastikan process-notifications sudah di-deploy ulang di Supabase.',
+      )
+    }
+    throw new Error(msg)
+  }
+  if (data?.ok === false) {
+    throw new Error(data.error || 'Tes email gagal')
+  }
+  return data
 }
 
 /** Fire-and-forget: proses antrian notifikasi tanpa menunggu (fallback jika webhook gagal). */

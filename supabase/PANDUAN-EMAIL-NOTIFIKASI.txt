@@ -40,9 +40,10 @@ laporan. Tidak perlu ubah kode, tidak perlu Supabase, tidak perlu Resend.
 
 --- Langkah 2: Buka menu Notifikasi ---
 
-  5. Setelah masuk dashboard, klik menu "Notifikasi" di sidebar kiri
-     (atau ikon di bottom navigation jika pakai HP).
-  6. Halaman yang terbuka: "Pengaturan Notifikasi".
+  5. Setelah masuk dashboard, daftar email penerima tampil di kartu
+     "Tujuan email notifikasi" (langsung di halaman Dashboard).
+     Atau klik menu "Notifikasi" untuk halaman lengkap (riwayat + tes).
+  6. Halaman lengkap: "Pengaturan Notifikasi".
 
 --- Langkah 3: Tambah email baru ---
 
@@ -125,10 +126,15 @@ BAGIAN E — TROUBLESHOOTING SINGKAT
         sent     = sudah terkirim (cek spam inbox penerima)
         failed   = gagal — baca kolom error_message
 
-  Langkah 3 — Cek Resend (hanya jika status failed):
+  Langkah 3 — Cek Resend (hanya jika status failed / error 403):
     • Pengirim default: BACT SOC <onboarding@resend.dev>
-    • Tanpa domain khusus, Resend hanya bisa kirim ke email yang
-      terdaftar di akun Resend. Pastikan email penerima diizinkan.
+    • Tanpa domain khusus, Resend HANYA bisa kirim ke email pemilik akun Resend.
+    • Email lain tetap bisa ditambah di dashboard, tapi Resend menolak (403).
+    • Perbaikan permanen: verifikasi domain di https://resend.com/domains
+      lalu ubah secret NOTIFY_EMAIL_FROM jadi misalnya:
+      BACT SOC <noreply@bact.co.id>
+    • Kode sekarang mengirim SATU PER SATU — email yang valid tetap terkirim
+      meski ada alamat lain yang ditolak.
 
 --- Masalah: Laporan baru tidak trigger email, tapi "Kirim antrian sekarang" berhasil ---
 
@@ -147,10 +153,11 @@ RINGKASAN CEPAT — TAMBAH EMAIL BARU
 ================================================================================
 
   1. Login admin → /admin/login
-  2. Klik menu "Notifikasi"
+  2. Di Dashboard, kartu "Tujuan email notifikasi" — atau menu Notifikasi
   3. Ketik email → Tambah email
   4. Pastikan status Aktif
-  5. Test dengan laporan dummy → cek inbox
+  5. (Opsional) di halaman Notifikasi klik "Kirim tes" pada email itu
+  6. Test dengan laporan dummy → cek inbox
 
 Tidak perlu: ubah kode, deploy ulang, buka Resend, buka Supabase webhook.
 

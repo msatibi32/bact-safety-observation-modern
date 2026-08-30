@@ -6,15 +6,28 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const NOTIFY_EMAIL_TO = Deno.env.get('NOTIFY_EMAIL_TO') || ''
+const NOTIFY_EMAIL_FROM = Deno.env.get('NOTIFY_EMAIL_FROM') || 'BACT SOC <onboarding@resend.dev>'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 Deno.serve(async () => {
-  if (!RESEND_API_KEY || !NOTIFY_EMAIL_TO) {
-    return new Response(JSON.stringify({ ok: false, error: 'Missing secrets' }), { status: 500 })
+  if (!RESEND_API_KEY) {
+    return new Response(JSON.stringify({ ok: false, error: 'Missing RESEND_API_KEY' }), { status: 500 })
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  const { data: recipientRows } = await supabase
+    .from('notification_recipients')
+    .select('email')
+    .eq('active', true)
+
+  const recipients = [...new Set((recipientRows || []).map((r) => r.email).filter(Boolean))]
+  if (NOTIFY_EMAIL_TO && !recipients.includes(NOTIFY_EMAIL_TO)) recipients.push(NOTIFY_EMAIL_TO)
+
+  if (recipients.length === 0) {
+    return new Response(JSON.stringify({ ok: false, error: 'Tidak ada email penerima aktif' }), { status: 400 })
+  }
   const weekAgo = new Date()
   weekAgo.setDate(weekAgo.getDate() - 7)
 
@@ -41,22 +54,28 @@ Deno.serve(async () => {
     <p>Dashboard: ${Deno.env.get('PUBLIC_APP_URL') || 'https://bact-safety-observation-modern.vercel.app/admin'}</p>
   `
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'BACT SOC <noreply@yourdomain.com>',
-      to: [NOTIFY_EMAIL_TO],
-      subject: `[BACT SOC] Ringkasan Mingguan — ${total} laporan`,
-      html,
-    }),
-  })
+  const sentTo = []
+  const failed = []
+  for (const email of recipients) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: NOTIFY_EMAIL_FROM,
+        to: [email],
+        subject: `[BACT SOC] Ringkasan Mingguan — ${total} laporan`,
+        html,
+      }),
+    })
+    if (res.ok) sentTo.push(email)
+    else failed.push({ email, error: await res.text() })
+  }
 
-  const ok = res.ok
-  return new Response(JSON.stringify({ ok, total, hipo, open }), {
+  const ok = sentTo.length > 0
+  return new Response(JSON.stringify({ ok, total, hipo, open, sentTo, failed }), {
     status: ok ? 200 : 500,
     headers: { 'Content-Type': 'application/json' },
   })

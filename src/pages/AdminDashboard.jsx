@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import ActivityFeed from '../components/admin/ActivityFeed'
 import AdminNotifications from '../components/admin/AdminNotifications'
+import NotificationRecipientsPanel from '../components/admin/NotificationRecipientsPanel'
 import ReportCard from '../components/admin/ReportCard'
 import { LivePulse, TradingStatCard } from '../components/admin/TradingStatCard'
 import AdminLayout from '../components/AdminLayout'
@@ -106,6 +107,10 @@ export default function AdminDashboard() {
         queueItems={notifications}
         onSelect={setSelectedId}
       />
+
+      <div className="mb-5">
+        <NotificationRecipientsPanel variant="compact" />
+      </div>
 
       {escalations.length > 0 && (
         <div className="mb-4 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3">

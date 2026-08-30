@@ -39,6 +39,20 @@ type Payload = {
   reporter?: string
   is_hipo?: boolean
   company?: string
+  last_send?: unknown
+}
+
+function humanizeResendError(raw: string, email: string) {
+  const text = raw || ''
+  if (
+    text.includes('403') ||
+    text.includes('validation_error') ||
+    text.includes('not allowed') ||
+    text.includes('You can only send testing emails')
+  ) {
+    return `${email}: Resend menolak (403). Domain pengirim belum diverifikasi — hanya email pemilik akun Resend yang bisa menerima. Verifikasi domain di resend.com/domains supaya semua alamat bisa dikirimi.`
+  }
+  return `${email}: ${text.slice(0, 280)}`
 }
 
 function buildMessage(type: string, p: Payload) {
@@ -74,17 +88,31 @@ async function getRecipientEmails(
   return [...new Set(emails)]
 }
 
-async function sendEmail(to: string[], subject: string, html: string, text: string) {
-  if (!RESEND_API_KEY || to.length === 0) return { ok: false, skipped: true }
+async function sendEmailToOne(to: string, subject: string, html: string, text: string) {
+  if (!RESEND_API_KEY) return { ok: false, skipped: true, error: 'RESEND_API_KEY belum diset' }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: NOTIFY_EMAIL_FROM, to, subject, html, text }),
+    body: JSON.stringify({ from: NOTIFY_EMAIL_FROM, to: [to], subject, html, text }),
   })
-  return { ok: res.ok, error: res.ok ? null : await res.text() }
+  if (res.ok) return { ok: true, skipped: false }
+  const raw = await res.text()
+  return { ok: false, skipped: false, error: humanizeResendError(raw, to) }
+}
+
+async function sendEmailToAll(to: string[], subject: string, html: string, text: string) {
+  if (!RESEND_API_KEY) return { skipped: true, sentTo: [] as string[], failed: [] as { email: string; error: string }[] }
+  const sentTo: string[] = []
+  const failed: { email: string; error: string }[] = []
+  for (const email of to) {
+    const result = await sendEmailToOne(email, subject, html, text)
+    if (result.ok) sentTo.push(email)
+    else failed.push({ email, error: result.error || 'Gagal kirim' })
+  }
+  return { skipped: false, sentTo, failed }
 }
 
 async function sendWhatsApp(message: string) {
@@ -104,7 +132,36 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  let body: Record<string, unknown> = {}
+  try {
+    body = await req.json()
+  } catch {
+    body = {}
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  if (body.action === 'test' && typeof body.email === 'string') {
+    const email = body.email.trim().toLowerCase()
+    if (!email) return jsonResponse({ ok: false, error: 'Email tes kosong' }, 400)
+    const text = [
+      'Tes notifikasi — BACT SOC',
+      '',
+      'Email ini dikirim dari dashboard untuk memastikan alamat penerima bisa menerima notifikasi laporan.',
+      PUBLIC_APP_URL ? `Dashboard: ${PUBLIC_APP_URL}/admin` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+    const result = await sendEmailToOne(
+      email,
+      '[BACT SOC] Tes notifikasi',
+      `<p>${text.replace(/\n/g, '<br>')}</p>`,
+      text,
+    )
+    if (result.ok) return jsonResponse({ ok: true, sent: true, to: email })
+    return jsonResponse({ ok: false, error: result.error || 'Gagal kirim tes' }, 400)
+  }
+
   const { data: pending, error } = await supabase
     .from('notification_queue')
     .select('*')
@@ -128,12 +185,17 @@ Deno.serve(async (req) => {
     const subject = isHiPo
       ? `[BACT SOC] HiPo — ${p.category || 'Observasi'}`
       : `[BACT SOC] Laporan Baru — ${p.category || 'Observasi'}`
-    const html = text.replace(/\n/g, '<br>')
+    const html = `<p>${text.replace(/\n/g, '<br>')}</p>`
 
-    const emailResult = await sendEmail(recipients, subject, `<p>${html}</p>`, text)
+    if (recipients.length === 0 && !FONNTE_TOKEN) {
+      results.push({ id: row.id, error: 'Tidak ada email penerima aktif. Tambahkan di dashboard.' })
+      continue
+    }
+
+    const emailResult = await sendEmailToAll(recipients, subject, html, text)
     const waResult = await sendWhatsApp(text)
 
-    const emailOk = emailResult.skipped || emailResult.ok
+    const emailOk = emailResult.skipped || emailResult.sentTo.length > 0 || recipients.length === 0
     const waOk = waResult.skipped || waResult.ok
     const anyChannelConfigured = !emailResult.skipped || !waResult.skipped
 
@@ -142,20 +204,47 @@ Deno.serve(async (req) => {
       continue
     }
 
-    if (emailOk && waOk) {
+    const lastSend = {
+      sent_to: emailResult.sentTo,
+      failed: emailResult.failed,
+      at: new Date().toISOString(),
+    }
+
+    if (emailOk && waOk && (emailResult.sentTo.length > 0 || waResult.ok)) {
       await supabase
         .from('notification_queue')
-        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .update({
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          error_message: emailResult.failed.length
+            ? emailResult.failed.map((f) => f.error).join(' | ')
+            : null,
+          payload: { ...p, last_send: lastSend },
+        })
         .eq('id', row.id)
       processed++
-      results.push({ id: row.id, sent: true, to: recipients })
-    } else {
-      const errMsg = [emailResult.error, waResult.error].filter(Boolean).join(' | ')
+      results.push({ id: row.id, sent: true, to: emailResult.sentTo, failed: emailResult.failed })
+    } else if (emailResult.sentTo.length === 0 && recipients.length > 0) {
+      const errMsg = [
+        ...emailResult.failed.map((f) => f.error),
+        waResult.error,
+      ]
+        .filter(Boolean)
+        .join(' | ')
       await supabase
         .from('notification_queue')
-        .update({ status: 'failed', error_message: errMsg || 'Send failed' })
+        .update({
+          status: 'failed',
+          error_message: errMsg || 'Send failed',
+          payload: { ...p, last_send: lastSend },
+        })
         .eq('id', row.id)
       results.push({ id: row.id, sent: false, error: errMsg })
+    } else {
+      const errMsg = [emailResult.failed.map((f) => f.error).join(' | '), waResult.error]
+        .filter(Boolean)
+        .join(' | ')
+      results.push({ id: row.id, error: errMsg || 'Tidak terkirim' })
     }
   }
 
