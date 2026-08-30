@@ -11,6 +11,7 @@ import PptxGenJS from 'pptxgenjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.join(__dirname, '..')
 const outPath = path.join(root, 'supabase', 'BACT-SOC-Presentasi-HSE.pptx')
+const outPathAlt = path.join(root, 'supabase', 'BACT-SOC-Presentasi-HSE-flow.pptx')
 const logoOrange = path.join(root, 'public', 'logo', 'BACT Logo_Orange.png')
 const logoWhiteBg = path.join(root, 'public', 'logo', 'bact-logo.png')
 
@@ -76,6 +77,61 @@ function bulletSlide(title, subtitle, bullets, note = '') {
       color: '64748B',
     })
   }
+  return slide
+}
+
+/** Kotak flowchart */
+function flowBox(slide, { x, y, w, h, text, fill = ORANGE, color = WHITE, fontSize = 11, rounded = true }) {
+  slide.addShape(rounded ? pptx.ShapeType.roundRect : pptx.ShapeType.rect, {
+    x,
+    y,
+    w,
+    h,
+    fill: { color: fill },
+    line: { color: DARK, width: 0.75 },
+    rectRadius: rounded ? 0.08 : 0,
+  })
+  slide.addText(text, {
+    x,
+    y,
+    w,
+    h,
+    fontSize,
+    bold: true,
+    color,
+    align: 'center',
+    valign: 'mid',
+    fontFace: 'Arial',
+  })
+}
+
+/** Panah horizontal → */
+function arrowRight(slide, x, y, w = 0.45) {
+  slide.addShape(pptx.ShapeType.rightArrow, {
+    x,
+    y,
+    w,
+    h: 0.22,
+    fill: { color: '64748B' },
+    line: { color: '64748B', width: 0 },
+  })
+}
+
+/** Panah vertikal ↓ */
+function arrowDown(slide, x, y, h = 0.35) {
+  slide.addShape(pptx.ShapeType.downArrow, {
+    x,
+    y,
+    w: 0.22,
+    h,
+    fill: { color: '64748B' },
+    line: { color: '64748B', width: 0 },
+  })
+}
+
+function flowSlide(title, subtitle) {
+  const slide = pptx.addSlide()
+  addHeader(slide, title, subtitle)
   return slide
 }
 
@@ -229,6 +285,281 @@ bulletSlide(
   ],
 )
 
+// ─── FLOW DIAGRAM 1: Overview Sistem ─────────────────────────────────────────
+{
+  const slide = flowSlide('Flow Diagram — Gambaran Umum Sistem', 'Dari pelapor sampai laporan ditutup')
+  const y = 2.0
+  const bw = 1.55
+  const bh = 0.65
+  const gap = 0.55
+  let x = 0.45
+
+  const nodes = [
+    { t: 'Pelapor\n(Karyawan /\nKontraktor)', c: '3B82F6' },
+    { t: 'Form SOC\n+ Foto + GPS', c: ORANGE },
+    { t: 'Supabase\nDB + Storage', c: '6366F1' },
+    { t: 'Notifikasi\nDashboard +\nEmail', c: 'F59E0B' },
+    { t: 'HSE Review\nAssign PIC', c: ORANGE },
+    { t: 'Closed\n✓ Selesai', c: '10B981' },
+  ]
+
+  nodes.forEach((n, i) => {
+    flowBox(slide, { x, y, w: bw, h: bh, text: n.t, fill: n.c, fontSize: 9 })
+    if (i < nodes.length - 1) arrowRight(slide, x + bw + 0.05, y + bh / 2 - 0.11, 0.4)
+    x += bw + gap
+  })
+
+  slide.addText('Aktor: Pelapor (publik, tanpa login)  →  Sistem cloud  →  Tim HSE (login admin)', {
+    x: 0.5,
+    y: 3.1,
+    w: 9,
+    h: 0.35,
+    fontSize: 10,
+    color: '64748B',
+    align: 'center',
+  })
+}
+
+// ─── FLOW DIAGRAM 2: Alur Pelapor ────────────────────────────────────────────
+{
+  const slide = flowSlide('Flow Diagram — Alur Pelapor', 'Langkah-langkah submit laporan dari lapangan')
+  const cx = 4.75
+  const bw = 3.2
+  const bh = 0.55
+  let y = 1.25
+  const steps = [
+    { t: '1. Buka App / Scan QR Code', c: '3B82F6' },
+    { t: '2. Isi Data Pelapor & Perusahaan', c: ORANGE },
+    { t: '3. Isi Lokasi + Ambil GPS', c: ORANGE },
+    { t: '4. Pilih Kategori & Tingkat Risiko', c: ORANGE },
+    { t: '5. Upload Foto Bukti', c: ORANGE },
+    { t: '6. Sistem Deteksi HiPo Otomatis', c: 'EF4444' },
+    { t: '7. Submit → Upload Storage + Simpan DB', c: '6366F1' },
+    { t: '8. Notifikasi ke Tim HSE', c: 'F59E0B' },
+    { t: '9. Konfirmasi Sukses ke Pelapor', c: '10B981' },
+  ]
+
+  steps.forEach((s, i) => {
+    flowBox(slide, { x: cx - bw / 2, y, w: bw, h: bh, text: s.t, fill: s.c, fontSize: 10 })
+    if (i < steps.length - 1) arrowDown(slide, cx - 0.11, y + bh + 0.02, 0.28)
+    y += bh + 0.38
+  })
+
+  // Branch offline
+  flowBox(slide, {
+    x: 0.5,
+    y: 3.8,
+    w: 2.2,
+    h: 0.7,
+    text: 'Offline?\nSimpan lokal\ndulu',
+    fill: '94A3B8',
+    color: DARK,
+    fontSize: 9,
+  })
+  slide.addShape(pptx.ShapeType.line, {
+    x: 2.7,
+    y: 4.1,
+    w: 1.3,
+    h: 0,
+    line: { color: '94A3B8', width: 1, dashType: 'dash' },
+  })
+  slide.addText('Auto-sync saat online', {
+    x: 0.5,
+    y: 4.65,
+    w: 2.2,
+    h: 0.3,
+    fontSize: 8,
+    color: '64748B',
+    align: 'center',
+  })
+}
+
+// ─── FLOW DIAGRAM 3: Alur HSE Admin ──────────────────────────────────────────
+{
+  const slide = flowSlide('Flow Diagram — Alur HSE / Admin', 'Penanganan laporan dari notifikasi sampai closed')
+  const y0 = 1.3
+  const bw = 2.0
+  const bh = 0.6
+
+  // Row 1
+  flowBox(slide, { x: 0.5, y: y0, w: bw, h: bh, text: 'Terima\nNotifikasi', fill: 'F59E0B', fontSize: 10 })
+  arrowRight(slide, 2.55, y0 + 0.2)
+  flowBox(slide, { x: 3.05, y: y0, w: bw, h: bh, text: 'Login\nDashboard', fill: ORANGE, fontSize: 10 })
+  arrowRight(slide, 5.1, y0 + 0.2)
+  flowBox(slide, { x: 5.6, y: y0, w: bw, h: bh, text: 'Buka Detail\nLaporan', fill: ORANGE, fontSize: 10 })
+  arrowRight(slide, 7.65, y0 + 0.2)
+  flowBox(slide, { x: 8.15, y: y0, w: 1.5, h: bh, text: 'Triage\nHSE', fill: ORANGE, fontSize: 10 })
+
+  arrowDown(slide, 4.0, y0 + bh + 0.05, 0.35)
+
+  // Row 2 - decision HiPo
+  flowBox(slide, { x: 2.8, y: y0 + bh + 0.55, w: 2.4, h: 0.55, text: 'HiPo / High Risk?', fill: 'EF4444', fontSize: 10 })
+  arrowRight(slide, 5.25, y0 + bh + 0.72)
+  flowBox(slide, {
+    x: 5.75,
+    y: y0 + bh + 0.45,
+    w: 2.6,
+    h: 0.75,
+    text: 'Ya → Investigasi\n+ Root Cause (5 Whys)',
+    fill: 'DC2626',
+    fontSize: 9,
+  })
+
+  arrowDown(slide, 3.9, y0 + bh + 1.15, 0.3)
+  flowBox(slide, { x: 2.8, y: y0 + bh + 1.55, w: 2.4, h: 0.55, text: 'Assign PIC', fill: ORANGE, fontSize: 10 })
+  arrowRight(slide, 5.25, y0 + bh + 1.72)
+  flowBox(slide, { x: 5.75, y: y0 + bh + 1.55, w: 2.6, h: 0.55, text: 'Buat CAPA\n(jika perlu)', fill: '8B5CF6', fontSize: 10 })
+
+  arrowDown(slide, 3.9, y0 + bh + 2.15, 0.3)
+  flowBox(slide, { x: 2.5, y: y0 + bh + 2.55, w: 2.0, h: 0.55, text: 'In Progress\n(PIC tindak)', fill: ORANGE, fontSize: 10 })
+  arrowRight(slide, 4.55, y0 + bh + 2.72)
+  flowBox(slide, { x: 5.05, y: y0 + bh + 2.55, w: 2.2, h: 0.55, text: 'Pending\nVerification', fill: 'F59E0B', fontSize: 10 })
+  arrowRight(slide, 7.3, y0 + bh + 2.72)
+  flowBox(slide, { x: 7.8, y: y0 + bh + 2.55, w: 1.6, h: 0.55, text: 'Closed\n✓', fill: '10B981', fontSize: 10 })
+
+  slide.addText('Semua perubahan tercatat otomatis di tab Audit Trail', {
+    x: 0.5,
+    y: 5.05,
+    w: 9,
+    h: 0.3,
+    fontSize: 10,
+    italic: true,
+    color: '64748B',
+    align: 'center',
+  })
+}
+
+// ─── FLOW DIAGRAM 4: Status Workflow ────────────────────────────────────────
+{
+  const slide = flowSlide('Flow Diagram — Status Workflow', '6 tahap penanganan laporan HSE')
+  const y = 2.35
+  const bw = 1.35
+  const bh = 0.7
+  const gap = 0.38
+  let x = 0.35
+
+  const statuses = [
+    { t: 'Open', c: '3B82F6' },
+    { t: 'Under\nReview', c: ORANGE },
+    { t: 'In\nProgress', c: 'F59E0B' },
+    { t: 'Pending\nVerification', c: '8B5CF6' },
+    { t: 'Closed', c: '10B981' },
+  ]
+
+  statuses.forEach((s, i) => {
+    flowBox(slide, { x, y, w: bw, h: bh, text: s.t, fill: s.c, fontSize: 10 })
+    if (i < statuses.length - 1) arrowRight(slide, x + bw + 0.04, y + bh / 2 - 0.11, 0.32)
+    x += bw + gap
+  })
+
+  // Rejected branch
+  flowBox(slide, { x: 3.5, y: 3.55, w: 1.5, h: 0.55, text: 'Rejected', fill: '64748B', fontSize: 10 })
+  slide.addShape(pptx.ShapeType.line, {
+    x: 4.25,
+    y: y + bh,
+    w: 0,
+    h: 0.55,
+    line: { color: '64748B', width: 1, dashType: 'dash' },
+  })
+  slide.addText('(dari Under Review jika tidak valid)', {
+    x: 2.8,
+    y: 4.2,
+    w: 3.5,
+    h: 0.3,
+    fontSize: 8,
+    color: '64748B',
+    align: 'center',
+  })
+
+  // Legend
+  const legends = [
+    { c: '3B82F6', l: 'Baru masuk' },
+    { c: ORANGE, l: 'HSE aktif' },
+    { c: 'F59E0B', l: 'PIC tindak' },
+    { c: '8B5CF6', l: 'Verifikasi' },
+    { c: '10B981', l: 'Selesai' },
+  ]
+  legends.forEach((lg, i) => {
+    slide.addShape(pptx.ShapeType.rect, { x: 0.5 + i * 1.85, y: 4.55, w: 0.25, h: 0.2, fill: { color: lg.c } })
+    slide.addText(lg.l, { x: 0.8 + i * 1.85, y: 4.52, w: 1.5, h: 0.25, fontSize: 8, color: SLATE })
+  })
+}
+
+// ─── FLOW DIAGRAM 5: Notifikasi & Email ──────────────────────────────────────
+{
+  const slide = flowSlide('Flow Diagram — Notifikasi Email', 'Otomatis saat ada laporan baru')
+  const y = 2.1
+  const bw = 1.7
+  const bh = 0.65
+
+  flowBox(slide, { x: 0.4, y, w: bw, h: bh, text: 'Laporan\nBaru Submit', fill: ORANGE, fontSize: 10 })
+  arrowRight(slide, 2.15, y + 0.22)
+  flowBox(slide, { x: 2.65, y, w: bw, h: bh, text: 'Trigger SQL\nnotification_queue', fill: '6366F1', fontSize: 9 })
+  arrowRight(slide, 4.4, y + 0.22)
+  flowBox(slide, { x: 4.9, y, w: bw, h: bh, text: 'Webhook\nSupabase', fill: '6366F1', fontSize: 10 })
+  arrowRight(slide, 6.65, y + 0.22)
+  flowBox(slide, { x: 7.15, y, w: bw, h: bh, text: 'Edge Function\n+ Resend', fill: 'F59E0B', fontSize: 10 })
+
+  arrowDown(slide, 1.15, y + bh + 0.05, 0.35)
+  flowBox(slide, { x: 0.4, y: y + bh + 0.55, w: bw, h: bh, text: 'Banner\nDashboard Admin', fill: '3B82F6', fontSize: 10 })
+
+  arrowDown(slide, 5.55, y + bh + 0.05, 0.35)
+  flowBox(slide, { x: 4.9, y: y + bh + 0.55, w: bw, h: bh, text: 'Email ke\nDaftar HSE', fill: '10B981', fontSize: 10 })
+
+  slide.addText('Email penerima dikelola di Admin → Notifikasi (tanpa ubah kode)', {
+    x: 0.5,
+    y: 4.0,
+    w: 9,
+    h: 0.35,
+    fontSize: 10,
+    color: '64748B',
+    align: 'center',
+  })
+}
+
+// ─── FLOW DIAGRAM 6: Arsitektur ────────────────────────────────────────────
+{
+  const slide = flowSlide('Flow Diagram — Arsitektur Sistem', 'Komponen teknis & alur data')
+  // Layers
+  const layers = [
+    { y: 1.2, label: 'Pengguna', items: ['Pelapor (Browser/HP)', 'Admin HSE (Browser)'], c: '3B82F6' },
+    { y: 2.15, label: 'Frontend', items: ['React + Vite + Tailwind', 'Vercel CDN'], c: ORANGE },
+    { y: 3.1, label: 'Backend', items: ['Supabase PostgreSQL', 'Storage (Foto)', 'Auth', 'Edge Functions'], c: '6366F1' },
+    { y: 4.05, label: 'Eksternal', items: ['Resend (Email)', 'OpenStreetMap (Peta)'], c: '10B981' },
+  ]
+
+  layers.forEach((layer) => {
+    slide.addText(layer.label, {
+      x: 0.4,
+      y: layer.y + 0.15,
+      w: 1.2,
+      h: 0.4,
+      fontSize: 9,
+      bold: true,
+      color: SLATE,
+      align: 'right',
+    })
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 1.7,
+      y: layer.y,
+      w: 7.8,
+      h: 0.75,
+      fill: { color: layer.c, transparency: 85 },
+      line: { color: layer.c, width: 1 },
+    })
+    slide.addText(layer.items.join('   ·   '), {
+      x: 1.85,
+      y: layer.y + 0.1,
+      w: 7.5,
+      h: 0.55,
+      fontSize: 10,
+      color: DARK,
+      valign: 'mid',
+    })
+    if (layer.y < 4.05) arrowDown(slide, 5.45, layer.y + 0.78, 0.22)
+  })
+}
+
 bulletSlide(
   'Tab Detail Laporan',
   'Investigasi · CAPA · Audit',
@@ -299,6 +630,7 @@ bulletSlide(
   ],
 )
 
+// Alur kerja — detail teks (pelengkap diagram)
 bulletSlide(
   'Alur Kerja Pelapor',
   'Dari lapangan sampai terkirim',
@@ -400,5 +732,14 @@ bulletSlide(
   })
 }
 
-await pptx.writeFile({ fileName: outPath })
-console.log('Presentasi dibuat:', outPath)
+try {
+  await pptx.writeFile({ fileName: outPath })
+  console.log('Presentasi dibuat:', outPath)
+} catch (err) {
+  if (err.code === 'EBUSY') {
+    await pptx.writeFile({ fileName: outPathAlt })
+    console.log('File utama sedang dibuka — disimpan ke:', outPathAlt)
+  } else {
+    throw err
+  }
+}
