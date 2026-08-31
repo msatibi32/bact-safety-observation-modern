@@ -157,49 +157,29 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Aktivitas Terbaru</p>
-          <ActivityFeed items={recentFeed} onSelect={setSelectedId} />
-        </div>
-
-        <div className="admin-panel hidden rounded-2xl border border-slate-800 bg-slate-900/50 p-4 lg:block">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Filter Laporan</p>
-          <div className="flex flex-wrap gap-2">
-            <FilterChip active={filterStatus === 'Semua'} onClick={() => setFilterStatus('Semua')}>Semua</FilterChip>
-            <FilterChip active={filterHiPo} onClick={() => setFilterHiPo((v) => !v)}>HiPo</FilterChip>
-            {['Open', 'Under Review', 'In Progress', 'Closed'].map((s) => (
-              <FilterChip key={s} active={filterStatus === s} onClick={() => setFilterStatus(s)}>{s}</FilterChip>
-            ))}
-          </div>
-          {highCount > 0 && (
-            <p className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-              {highCount} laporan risiko High membutuhkan perhatian segera.
-            </p>
-          )}
-        </div>
+      <div className="admin-panel mb-5 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Aktivitas Terbaru</p>
+        <ActivityFeed items={recentFeed} onSelect={setSelectedId} />
       </div>
 
-      {/* Mobile filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 lg:hidden">
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="admin-input flex-1 text-sm">
-          <option>Semua</option>
-          <option>Open</option>
-          <option>Under Review</option>
-          <option>In Progress</option>
-          <option>Pending Verification</option>
-          <option>Closed</option>
-          <option>Rejected</option>
-        </select>
-        <label className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs text-slate-400">
-          <input type="checkbox" checked={filterHiPo} onChange={(e) => setFilterHiPo(e.target.checked)} className="rounded" />
-          HiPo
-        </label>
-      </div>
+      {highCount > 0 && (
+        <p className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+          {highCount} laporan risiko High membutuhkan perhatian segera.
+        </p>
+      )}
 
-      <p className="mb-3 text-sm font-medium text-slate-300">
-        Daftar Laporan <span className="font-mono text-brand-400">({filtered.length})</span>
-      </p>
+      <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <p className="text-sm font-medium text-slate-300">
+          Daftar Laporan <span className="font-mono text-brand-400">({filtered.length})</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterChip active={filterStatus === 'Semua'} onClick={() => setFilterStatus('Semua')}>Semua</FilterChip>
+          <FilterChip active={filterHiPo} onClick={() => setFilterHiPo((v) => !v)}>HiPo</FilterChip>
+          {['Open', 'Under Review', 'In Progress', 'Closed'].map((s) => (
+            <FilterChip key={s} active={filterStatus === s} onClick={() => setFilterStatus(s)}>{s}</FilterChip>
+          ))}
+        </div>
+      </div>
 
       {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
