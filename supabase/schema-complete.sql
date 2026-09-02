@@ -53,6 +53,7 @@ alter table public.observations add column if not exists verified_by text;
 
 -- Kolom v3 (anonim, eskalasi)
 alter table public.observations add column if not exists is_anonymous boolean not null default false;
+alter table public.observations add column if not exists reporter_employee_id text;
 alter table public.observations add column if not exists escalated boolean not null default false;
 alter table public.observations add column if not exists escalation_due_at timestamptz;
 

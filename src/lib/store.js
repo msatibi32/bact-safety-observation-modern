@@ -1,10 +1,21 @@
 import { PHOTO_BUCKET, supabase } from './supabase'
 
+function parseReporterPosition(raw) {
+  const text = raw || ''
+  const match = text.match(/^(.*?)\s*·\s*(BACT-\S+)\s*$/i)
+  if (match) {
+    return { departemen: match[1].trim(), employee_id: match[2].toUpperCase() }
+  }
+  return { departemen: text, employee_id: '' }
+}
+
 function toAppShape(row) {
+  const parsed = parseReporterPosition(row.reporter_position)
   return {
     id: row.id,
     nama_pelapor: row.reporter_name,
-    departemen: row.reporter_position,
+    departemen: parsed.departemen,
+    employee_id: row.reporter_employee_id || parsed.employee_id || '',
     nama_perusahaan: row.company_name,
     tanggal_waktu: row.incident_datetime,
     lokasi_teks: row.location_text,
@@ -111,20 +122,22 @@ export async function addObservation(data) {
   const photoUrls = await uploadPhotos(data.foto || [])
   const id = crypto.randomUUID()
 
+  const employeeId = data.employee_id || null
   const row = {
     id,
-    reporter_name: data.is_anonymous ? 'Anonim' : data.nama_pelapor,
-    reporter_position: data.departemen,
+    reporter_name: data.nama_pelapor,
+    reporter_position: employeeId ? `${data.departemen} · ${employeeId}` : data.departemen,
+    reporter_employee_id: employeeId,
     company_name: data.nama_perusahaan,
-    is_anonymous: data.is_anonymous ?? false,
+    is_anonymous: false,
     incident_datetime: new Date(data.tanggal_waktu).toISOString(),
     location_text: data.lokasi_teks,
     latitude: data.lokasi_gps?.lat ?? null,
     longitude: data.lokasi_gps?.lng ?? null,
-    category: data.kategori,
+    category: data.kategori || 'Observasi',
     description: data.deskripsi,
-    risk_level: data.tingkat_risiko,
-    potential_risk_level: data.potensi_risiko || data.tingkat_risiko,
+    risk_level: data.tingkat_risiko || 'Low',
+    potential_risk_level: data.potensi_risiko || data.tingkat_risiko || 'Low',
     is_hipo: data.is_hipo ?? false,
     life_saving_rule: data.life_saving_rule || 'Tidak terkait',
     stop_work: data.stop_work ?? false,
@@ -134,14 +147,19 @@ export async function addObservation(data) {
     status: data.is_hipo ? 'Under Review' : 'Open',
   }
 
-  const { error } = await supabase.from('observations').insert(row)
+  let { error } = await supabase.from('observations').insert(row)
+  if (error && /reporter_employee_id|schema cache/i.test(error.message || '')) {
+    const { reporter_employee_id: _omit, ...fallback } = row
+    const retry = await supabase.from('observations').insert(fallback)
+    error = retry.error
+  }
   if (error) throw new Error(error.message)
 
   try {
     await supabase.from('audit_logs').insert({
       observation_id: id,
       action: 'Laporan dikirim',
-      details: `Kategori: ${data.kategori}, Risiko: ${data.tingkat_risiko}${data.is_hipo ? ' (HiPo)' : ''}`,
+      details: `Lokasi: ${data.lokasi_teks}${employeeId ? `, ID ${employeeId}` : ''}${data.is_hipo ? ' (HiPo)' : ''}`,
       actor_email: data.nama_pelapor,
     })
   } catch {

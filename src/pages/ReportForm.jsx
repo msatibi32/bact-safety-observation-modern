@@ -1,44 +1,22 @@
 import { useEffect, useState } from 'react'
 import BrandHeader from '../components/BrandHeader'
+import EmployeeNameField from '../components/EmployeeNameField'
 import { CameraIcon, CheckCircleIcon, PinIcon } from '../components/Icon'
-import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, KATEGORI_OPTIONS, LIFE_SAVING_RULES, RISIKO_OPTIONS, computeIsHiPo } from '../lib/constants'
+import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS } from '../lib/constants'
+import { isBactCompany } from '../lib/employees'
 import { addObservation } from '../lib/store'
 import { flushOfflineQueue, isOnline, saveOfflineReport } from '../lib/offlineQueue'
 
-const RISK_STYLE = {
-  Low: {
-    idle: 'border-slate-200 text-slate-500 hover:border-emerald-300 hover:bg-emerald-50/60',
-    active: 'border-emerald-500 bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/20',
-    dot: 'bg-emerald-500',
-  },
-  Medium: {
-    idle: 'border-slate-200 text-slate-500 hover:border-amber-300 hover:bg-amber-50/60',
-    active: 'border-amber-500 bg-amber-50 text-amber-700 ring-2 ring-amber-500/20',
-    dot: 'bg-amber-500',
-  },
-  High: {
-    idle: 'border-slate-200 text-slate-500 hover:border-red-300 hover:bg-red-50/60',
-    active: 'border-red-500 bg-red-50 text-red-700 ring-2 ring-red-500/20',
-    dot: 'bg-red-500',
-  },
-}
-
 const emptyForm = {
   nama_pelapor: '',
-  departemen: DEPARTMENT_OPTIONS[0],
+  departemen: '',
+  employee_id: '',
   nama_perusahaan: COMPANY_OPTIONS[0],
   nama_perusahaan_lainnya: '',
   tanggal_waktu: new Date().toISOString().slice(0, 16),
   lokasi_teks: '',
-  kategori: KATEGORI_OPTIONS[0],
   deskripsi: '',
-  tingkat_risiko: 'Low',
-  potensi_risiko: 'Low',
-  life_saving_rule: LIFE_SAVING_RULES[0],
   stop_work: false,
-  is_anonymous: false,
-  tindakan_langsung: '',
-  rekomendasi: '',
 }
 
 export default function ReportForm() {
@@ -49,8 +27,9 @@ export default function ReportForm() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitted, setSubmitted] = useState(false)
-
   const [offlineQueued, setOfflineQueued] = useState(false)
+
+  const bactEmployee = isBactCompany(form.nama_perusahaan)
 
   useEffect(() => {
     function sync() {
@@ -63,6 +42,34 @@ export default function ReportForm() {
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function handleCompanyChange(value) {
+    setForm((prev) => ({
+      ...prev,
+      nama_perusahaan: value,
+      nama_pelapor: '',
+      employee_id: '',
+      departemen: '',
+      nama_perusahaan_lainnya: value === 'Lainnya' ? prev.nama_perusahaan_lainnya : '',
+    }))
+  }
+
+  function handleSelectEmployee(emp) {
+    setForm((prev) => ({
+      ...prev,
+      nama_pelapor: emp.name,
+      departemen: emp.departemen,
+      employee_id: emp.id,
+    }))
+  }
+
+  function handleChangeEmployeeName(value) {
+    setForm((prev) => ({
+      ...prev,
+      nama_pelapor: value,
+      employee_id: '',
+    }))
   }
 
   function handlePhotoChange(e) {
@@ -90,13 +97,6 @@ export default function ReportForm() {
     )
   }
 
-  const isHiPo = computeIsHiPo({
-    kategori: form.kategori,
-    tingkat_risiko: form.tingkat_risiko,
-    potensi_risiko: form.potensi_risiko,
-    stop_work: form.stop_work,
-  })
-
   async function handleSubmit(e) {
     e.preventDefault()
     setSubmitError('')
@@ -108,7 +108,8 @@ export default function ReportForm() {
           form.nama_perusahaan === 'Lainnya' ? form.nama_perusahaan_lainnya : form.nama_perusahaan,
         lokasi_gps: gps,
         foto: photos.map((p) => p.file),
-        is_hipo: isHiPo,
+        is_anonymous: false,
+        is_hipo: form.stop_work,
       }
 
       if (!isOnline()) {
@@ -163,55 +164,15 @@ export default function ReportForm() {
         <BrandHeader
           className="mb-6"
           title="Laporkan Observasi"
-          subtitle="Kondisi tidak aman, tindakan berisiko, near miss, atau observasi positif — laporkan dalam hitungan menit."
+          subtitle="Laporkan kondisi atau tindakan tidak aman di lapangan dalam hitungan menit."
         />
 
         <form onSubmit={handleSubmit} className="card space-y-6 p-6">
           <Section title="Informasi Pelapor">
-            <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3">
-              <input
-                type="checkbox"
-                checked={form.is_anonymous}
-                onChange={(e) => update('is_anonymous', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600"
-              />
-              <div>
-                <span className="text-sm font-medium text-slate-900">Laporan anonim</span>
-                <p className="text-xs text-slate-500">Nama tidak ditampilkan ke admin (identitas departemen tetap tercatat).</p>
-              </div>
-            </label>
-
-            {!form.is_anonymous && (
-            <Field label="Nama pelapor" required>
-              <input
-                type="text"
-                required
-                value={form.nama_pelapor}
-                onChange={(e) => update('nama_pelapor', e.target.value)}
-                className="input"
-                placeholder="Nama lengkap"
-              />
-            </Field>
-            )}
-
-            <Field label="Departemen" required>
-              <select
-                value={form.departemen}
-                onChange={(e) => update('departemen', e.target.value)}
-                className="input"
-              >
-                {DEPARTMENT_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Nama perusahaan (kontraktor/visitor)" required>
+            <Field label="Nama perusahaan" required>
               <select
                 value={form.nama_perusahaan}
-                onChange={(e) => update('nama_perusahaan', e.target.value)}
+                onChange={(e) => handleCompanyChange(e.target.value)}
                 className="input"
               >
                 {COMPANY_OPTIONS.map((opt) => (
@@ -228,6 +189,65 @@ export default function ReportForm() {
                   onChange={(e) => update('nama_perusahaan_lainnya', e.target.value)}
                   className="input mt-2"
                   placeholder="Tulis nama perusahaan"
+                />
+              )}
+            </Field>
+
+            <Field
+              label="Nama pelapor"
+              required
+              hint={
+                bactEmployee
+                  ? 'Ketik nama, lalu pilih dari daftar karyawan BACT. Data lengkap menyusul dari HR.'
+                  : 'Isi nama lengkap secara manual (vendor / kontraktor / visitor).'
+              }
+            >
+              {bactEmployee ? (
+                <EmployeeNameField
+                  name={form.nama_pelapor}
+                  employeeId={form.employee_id}
+                  onSelectEmployee={handleSelectEmployee}
+                  onChangeName={handleChangeEmployeeName}
+                />
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={form.nama_pelapor}
+                  onChange={(e) => update('nama_pelapor', e.target.value)}
+                  className="input"
+                  placeholder="Nama lengkap"
+                />
+              )}
+            </Field>
+
+            <Field label="Departemen" required>
+              {bactEmployee && form.employee_id ? (
+                <input type="text" readOnly value={form.departemen} className="input bg-slate-50 text-slate-700" />
+              ) : bactEmployee ? (
+                <select
+                  required
+                  value={form.departemen}
+                  onChange={(e) => update('departemen', e.target.value)}
+                  className="input"
+                >
+                  <option value="" disabled>
+                    Pilih departemen
+                  </option>
+                  {DEPARTMENT_OPTIONS.filter((opt) => opt !== 'CONTRACTOR/ TEMPORARY WORKER/ VISITOR').map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={form.departemen}
+                  onChange={(e) => update('departemen', e.target.value)}
+                  className="input"
+                  placeholder="Contoh: Security, Driver, Tally"
                 />
               )}
             </Field>
@@ -272,20 +292,6 @@ export default function ReportForm() {
               </div>
             </Field>
 
-            <Field label="Kategori observasi" required>
-              <select
-                value={form.kategori}
-                onChange={(e) => update('kategori', e.target.value)}
-                className="input"
-              >
-                {KATEGORI_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
             <Field label="Deskripsi kejadian" required>
               <textarea
                 required
@@ -295,62 +301,6 @@ export default function ReportForm() {
                 className="input"
                 placeholder="Ceritakan apa yang terjadi..."
               />
-            </Field>
-
-            <Field label="Tingkat risiko (aktual)" required>
-              <div className="grid grid-cols-3 gap-2">
-                {RISIKO_OPTIONS.map((opt) => {
-                  const style = RISK_STYLE[opt]
-                  const active = form.tingkat_risiko === opt
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => update('tingkat_risiko', opt)}
-                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
-                        active ? style.active : style.idle
-                      }`}
-                    >
-                      <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                      {opt}
-                    </button>
-                  )
-                })}
-              </div>
-            </Field>
-
-            <Field label="Potensi risiko (jika tidak ditangani)" required>
-              <div className="grid grid-cols-3 gap-2">
-                {RISIKO_OPTIONS.map((opt) => {
-                  const style = RISK_STYLE[opt]
-                  const active = form.potensi_risiko === opt
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => update('potensi_risiko', opt)}
-                      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
-                        active ? style.active : style.idle
-                      }`}
-                    >
-                      <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                      {opt}
-                    </button>
-                  )
-                })}
-              </div>
-            </Field>
-
-            <Field label="IOGP Life Saving Rule">
-              <select
-                value={form.life_saving_rule}
-                onChange={(e) => update('life_saving_rule', e.target.value)}
-                className="input"
-              >
-                {LIFE_SAVING_RULES.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
             </Field>
 
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3">
@@ -366,14 +316,14 @@ export default function ReportForm() {
               </div>
             </label>
 
-            {isHiPo && (
+            {form.stop_work && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 <strong>High Potential (HiPo)</strong> — laporan ini akan diprioritaskan dan ditinjau HSE segera.
               </div>
             )}
           </Section>
 
-          <Section title="Bukti & Tindak Lanjut">
+          <Section title="Bukti">
             <Field label="Foto bukti">
               <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition hover:border-brand-300 hover:bg-brand-50/60">
                 <CameraIcon className="h-6 w-6 text-slate-400" />
@@ -405,24 +355,6 @@ export default function ReportForm() {
                 </div>
               )}
             </Field>
-
-            <Field label="Tindakan langsung yang sudah diambil (opsional)">
-              <textarea
-                rows={2}
-                value={form.tindakan_langsung}
-                onChange={(e) => update('tindakan_langsung', e.target.value)}
-                className="input"
-              />
-            </Field>
-
-            <Field label="Rekomendasi / saran perbaikan">
-              <textarea
-                rows={2}
-                value={form.rekomendasi}
-                onChange={(e) => update('rekomendasi', e.target.value)}
-                className="input"
-              />
-            </Field>
           </Section>
 
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
@@ -445,14 +377,15 @@ function Section({ title, children }) {
   )
 }
 
-function Field({ label, required, children }) {
+function Field({ label, required, hint, children }) {
   return (
-    <label className="block">
+    <div className="block">
       <span className="mb-1.5 block text-sm font-medium text-slate-700">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </span>
       {children}
-    </label>
+      {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
+    </div>
   )
 }

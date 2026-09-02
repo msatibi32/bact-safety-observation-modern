@@ -57,6 +57,11 @@ export default function ObservationDetailPanel({ observation, onSave }) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="font-semibold text-slate-100">{observation.nama_pelapor}</h2>
+              {observation.employee_id && (
+                <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-slate-300">
+                  {observation.employee_id}
+                </span>
+              )}
               {observation.is_hipo && <HiPoBadge />}
               {observation.stop_work && (
                 <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-medium text-white">Stop Work</span>
@@ -111,10 +116,19 @@ export default function ObservationDetailPanel({ observation, onSave }) {
                   value={`${observation.lokasi_gps.lat.toFixed(5)}, ${observation.lokasi_gps.lng.toFixed(5)}`}
                 />
               )}
-              <DetailRow label="Kategori" value={observation.kategori} />
-              <DetailRow label="Risiko aktual" value={observation.tingkat_risiko} />
-              <DetailRow label="Potensi risiko" value={observation.potensi_risiko} />
-              <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
+              {observation.employee_id && <DetailRow label="ID karyawan" value={observation.employee_id} />}
+              {observation.kategori && observation.kategori !== 'Observasi' && (
+                <DetailRow label="Kategori" value={observation.kategori} />
+              )}
+              {observation.kategori && observation.kategori !== 'Observasi' && (
+                <>
+                  <DetailRow label="Risiko aktual" value={observation.tingkat_risiko} />
+                  <DetailRow label="Potensi risiko" value={observation.potensi_risiko} />
+                  {observation.life_saving_rule && observation.life_saving_rule !== 'Tidak terkait' && (
+                    <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
+                  )}
+                </>
+              )}
               <DetailRow label="Deskripsi" value={observation.deskripsi} />
               {observation.tindakan_langsung && (
                 <DetailRow label="Tindakan langsung" value={observation.tindakan_langsung} />
