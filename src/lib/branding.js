@@ -8,9 +8,11 @@ export const BRANDING = {
   tagline: 'Pelaporan observasi keselamatan kerja di area terminal',
   subsidiary: 'An ICTSI Group Company',
 
-  // Logo putih (teks putih) — untuk header & form
-  logoSrc: '/logo/bact-logo-white.png',
-  logoCompactSrc: '/logo/bact-logo-white.png',
+  // Logo huruf putih — header web, form, PPT (latar gelap)
+  logoSrc: '/logo/BACT Logo_OG White Text.png',
+  logoCompactSrc: '/logo/BACT Logo_OG White Text.png',
+  // Logo huruf hitam — PDF notice di dashboard (kertas putih)
+  logoPdfSrc: '/logo/BACT Logo_OG Black Text.png',
   logoAlt: 'Logo PT. BACT Batu Ampar Container Terminal',
 
   faviconSrc: '/logo/favicon.png',

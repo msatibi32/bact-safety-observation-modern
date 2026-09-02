@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf'
 import { BRANDING } from './branding'
 import { categoryLabel, isUnclassifiedObservation } from './constants'
 
-const LOGO_PATH = '/logo/BACT Logo_Orange.png'
+const LOGO_PATH = BRANDING.logoPdfSrc || '/logo/BACT Logo_OG Black Text.png'
 let cachedLogoData = null
 
 async function loadLogoDataUrl() {
