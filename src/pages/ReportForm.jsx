@@ -198,7 +198,7 @@ export default function ReportForm() {
               required
               hint={
                 bactEmployee
-                  ? 'Ketik nama, lalu pilih dari daftar karyawan BACT. Data lengkap menyusul dari HR.'
+                  ? 'Ketik nama, lalu pilih dari daftar karyawan BACT. Departemen dan ID terisi otomatis.'
                   : 'Isi nama lengkap secara manual (vendor / kontraktor / visitor).'
               }
             >

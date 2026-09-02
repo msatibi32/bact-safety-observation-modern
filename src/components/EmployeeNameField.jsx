@@ -91,7 +91,7 @@ export default function EmployeeNameField({
             ))
           ) : (
             <li className="px-3.5 py-2.5 text-xs text-slate-500">
-              Nama belum ada di data karyawan. Isi manual dulu — daftar lengkap menyusul.
+              Nama tidak ditemukan di data karyawan BACT. Cek ejaan, atau isi manual.
             </li>
           )}
         </ul>

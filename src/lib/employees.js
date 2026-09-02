@@ -24,10 +24,12 @@ export function searchEmployees(query, limit = 8) {
     const name = normalize(emp.name)
     const id = normalize(emp.id)
     const dept = normalize(emp.departemen)
-    return name.includes(q) || id.includes(q) || dept.includes(q)
+    const jabatan = normalize(emp.jabatan)
+    return name.includes(q) || id.includes(q) || dept.includes(q) || jabatan.includes(q)
   }).slice(0, limit)
 }
 
 export function formatEmployeeOption(emp) {
-  return `${emp.name}, Departemen ${emp.departemen}, ID ${emp.id}`
+  const jabatan = emp.jabatan ? `${emp.jabatan} · ` : ''
+  return `${emp.name}, ${jabatan}Departemen ${emp.departemen}, ID ${emp.id}`
 }
