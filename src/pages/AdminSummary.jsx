@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { LivePulse, TradingStatCard } from '../components/admin/TradingStatCard'
 import AdminLayout from '../components/AdminLayout'
-import { NEGATIVE_CATEGORIES, isOpenStatus } from '../lib/constants'
+import { NEGATIVE_CATEGORIES, categoryLabel, isOpenStatus, isUnclassifiedObservation } from '../lib/constants'
 import { contractorScorecard, monthlyReportCount, sparklineValues, trendDelta } from '../lib/analytics'
 import { avgDaysToClose, countOverdueCapa, exportObservationsCsv } from '../lib/export'
 import { getAllCapa, getKpiTargets, getObservations } from '../lib/store'
@@ -39,21 +39,32 @@ export default function AdminSummary() {
   const total = observations.length
   const closed = observations.filter((o) => o.status === 'Closed').length
   const open = observations.filter((o) => isOpenStatus(o.status)).length
+  const classified = observations.filter((o) => !isUnclassifiedObservation(o))
   const hipo = observations.filter((o) => o.is_hipo).length
-  const highRisk = observations.filter((o) => o.tingkat_risiko === 'High').length
-  const positive = observations.filter((o) => o.kategori === 'Positive Observation').length
-  const negative = observations.filter((o) => NEGATIVE_CATEGORIES.includes(o.kategori)).length
+  const highRisk = classified.filter((o) => o.tingkat_risiko === 'High').length
+  const positive = classified.filter((o) => o.kategori === 'Positive Observation').length
+  const negative = classified.filter((o) => NEGATIVE_CATEGORIES.includes(o.kategori)).length
   const avgClose = avgDaysToClose(observations)
   const overdueCapa = countOverdueCapa(capaList)
   const trend = useMemo(() => trendDelta(observations), [observations])
   const spark = useMemo(() => sparklineValues(observations, 7), [observations])
 
   const byKategori = useMemo(
-    () => countBy(observations, 'kategori').map(([name, value]) => ({ name, value })),
+    () =>
+      countBy(
+        observations.map((o) => ({ ...o, kategori: categoryLabel(o.kategori) })),
+        'kategori',
+      ).map(([name, value]) => ({ name, value })),
     [observations],
   )
   const byRisiko = useMemo(
-    () => countBy(observations, 'tingkat_risiko').map(([name, value]) => ({ name, value })),
+    () =>
+      countBy(
+        observations.map((o) => ({
+          tingkat_risiko: isUnclassifiedObservation(o) ? 'Belum diklasifikasi' : o.tingkat_risiko,
+        })),
+        'tingkat_risiko',
+      ).map(([name, value]) => ({ name, value })),
     [observations],
   )
   const byDepartemen = useMemo(() => countBy(observations, 'departemen').slice(0, 6), [observations])
@@ -61,14 +72,14 @@ export default function AdminSummary() {
 
   const kpiActuals = useMemo(() => {
     const monthly = monthlyReportCount(observations)
-    const posRatio = total ? Math.round((positive / total) * 100) : 0
+    const posRatio = classified.length ? Math.round((positive / classified.length) * 100) : 0
     const avgDays = avgClose ? parseFloat(avgClose) : null
     return {
       monthly_reports: monthly,
       positive_ratio: posRatio,
       avg_close_days: avgDays,
     }
-  }, [observations, total, positive, avgClose])
+  }, [observations, classified.length, positive, avgClose])
 
   return (
     <AdminLayout>
@@ -102,7 +113,7 @@ export default function AdminSummary() {
           </div>
 
           <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <KpiTile label="Rasio Positif" value={`${total ? Math.round((positive / total) * 100) : 0}%`} sub={`${positive} / ${negative} negatif`} accent="text-emerald-400" />
+            <KpiTile label="Rasio Positif" value={`${classified.length ? Math.round((positive / classified.length) * 100) : 0}%`} sub={`${positive} positif / ${negative} negatif (sudah diklasifikasi)`} accent="text-emerald-400" />
             <KpiTile label="Avg. Tutup" value={avgClose ?? '—'} sub="hari" accent="text-slate-100" />
             <KpiTile label="CAPA Overdue" value={overdueCapa} sub="terlambat" accent={overdueCapa > 0 ? 'text-red-400' : 'text-emerald-400'} />
           </div>
@@ -189,7 +200,15 @@ export default function AdminSummary() {
                       {byRisiko.map((entry) => (
                         <Cell
                           key={entry.name}
-                          fill={entry.name === 'High' ? '#ef4444' : entry.name === 'Medium' ? '#fbbf24' : '#34d399'}
+                          fill={
+                            entry.name === 'High'
+                              ? '#ef4444'
+                              : entry.name === 'Medium'
+                                ? '#fbbf24'
+                                : entry.name === 'Low'
+                                  ? '#34d399'
+                                  : '#64748b'
+                          }
                         />
                       ))}
                     </Bar>

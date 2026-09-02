@@ -69,6 +69,25 @@ export const COMPANY_OPTIONS = [
 
 export const NEGATIVE_CATEGORIES = ['Unsafe Act', 'Unsafe Condition', 'Near Miss']
 
+export const UNCLASSIFIED_CATEGORY = 'Belum diklasifikasi'
+export const UNCLASSIFIED_RISK = 'Unclassified'
+
+export function isUnclassifiedCategory(kategori) {
+  return !kategori || kategori === UNCLASSIFIED_CATEGORY || kategori === 'Observasi'
+}
+
+export function isUnclassifiedRisk(level) {
+  return !level || level === UNCLASSIFIED_RISK
+}
+
+export function isUnclassifiedObservation(obs) {
+  return isUnclassifiedCategory(obs?.kategori) || isUnclassifiedRisk(obs?.tingkat_risiko)
+}
+
+export function categoryLabel(kategori) {
+  return isUnclassifiedCategory(kategori) ? UNCLASSIFIED_CATEGORY : kategori
+}
+
 export function computeIsHiPo({ kategori, tingkat_risiko, potensi_risiko, stop_work }) {
   return (
     tingkat_risiko === 'High' ||

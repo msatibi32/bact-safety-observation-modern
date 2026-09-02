@@ -1,3 +1,4 @@
+import { categoryLabel, isUnclassifiedObservation } from '../../lib/constants'
 import { HiPoBadge, RiskBadge, StatusBadge } from '../Badge'
 
 function initials(name = '') {
@@ -29,10 +30,10 @@ export default function ReportCard({ obs, selected, onClick }) {
             {obs.is_hipo && <HiPoBadge />}
           </div>
           <p className="mt-0.5 truncate text-xs text-slate-500">{obs.lokasi_teks}</p>
-          <p className="mt-0.5 text-xs text-slate-600">{obs.kategori}</p>
+          <p className="mt-0.5 text-xs text-slate-600">{categoryLabel(obs.kategori)}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <RiskBadge level={obs.tingkat_risiko} />
+          <RiskBadge level={obs.tingkat_risiko} pending={isUnclassifiedObservation(obs)} />
           <StatusBadge status={obs.status} />
         </div>
       </div>

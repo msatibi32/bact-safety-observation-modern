@@ -134,10 +134,10 @@ export async function addObservation(data) {
     location_text: data.lokasi_teks,
     latitude: data.lokasi_gps?.lat ?? null,
     longitude: data.lokasi_gps?.lng ?? null,
-    category: data.kategori || 'Observasi',
+    category: data.kategori || 'Belum diklasifikasi',
     description: data.deskripsi,
-    risk_level: data.tingkat_risiko || 'Low',
-    potential_risk_level: data.potensi_risiko || data.tingkat_risiko || 'Low',
+    risk_level: data.tingkat_risiko || 'Unclassified',
+    potential_risk_level: data.potensi_risiko || data.tingkat_risiko || null,
     is_hipo: data.is_hipo ?? false,
     life_saving_rule: data.life_saving_rule || 'Tidak terkait',
     stop_work: data.stop_work ?? false,
@@ -147,10 +147,16 @@ export async function addObservation(data) {
     status: data.is_hipo ? 'Under Review' : 'Open',
   }
 
-  let { error } = await supabase.from('observations').insert(row)
+  let insertRow = { ...row }
+  let { error } = await supabase.from('observations').insert(insertRow)
   if (error && /reporter_employee_id|schema cache/i.test(error.message || '')) {
-    const { reporter_employee_id: _omit, ...fallback } = row
-    const retry = await supabase.from('observations').insert(fallback)
+    const { reporter_employee_id: _omit, ...withoutEmployeeCol } = insertRow
+    insertRow = withoutEmployeeCol
+    const retry = await supabase.from('observations').insert(insertRow)
+    error = retry.error
+  }
+  if (error && /risk_level|check constraint/i.test(error.message || '')) {
+    const retry = await supabase.from('observations').insert({ ...insertRow, risk_level: 'Low' })
     error = retry.error
   }
   if (error) throw new Error(error.message)
@@ -181,6 +187,11 @@ export async function updateObservation(id, patch, previous) {
   if ('root_cause' in patch) dbPatch.root_cause = patch.root_cause || null
   if ('verification_notes' in patch) dbPatch.verification_notes = patch.verification_notes || null
   if ('is_hipo' in patch) dbPatch.is_hipo = patch.is_hipo
+  if ('kategori' in patch) dbPatch.category = patch.kategori
+  if ('tingkat_risiko' in patch) {
+    dbPatch.risk_level = patch.tingkat_risiko
+    dbPatch.potential_risk_level = patch.potensi_risiko || patch.tingkat_risiko
+  }
 
   if (patch.status === 'Closed') {
     dbPatch.closed_date = new Date().toISOString().slice(0, 10)
@@ -207,6 +218,12 @@ export async function updateObservation(id, patch, previous) {
   }
   if (previous && patch.pic_assigned !== undefined && previous.pic_assigned !== patch.pic_assigned) {
     changes.push(`PIC: ${previous.pic_assigned || '—'} → ${patch.pic_assigned || '—'}`)
+  }
+  if (previous && patch.kategori && previous.kategori !== patch.kategori) {
+    changes.push(`Kategori: ${previous.kategori || '—'} → ${patch.kategori}`)
+  }
+  if (previous && patch.tingkat_risiko && previous.tingkat_risiko !== patch.tingkat_risiko) {
+    changes.push(`Risiko: ${previous.tingkat_risiko || '—'} → ${patch.tingkat_risiko}`)
   }
   if (changes.length > 0) {
     try {

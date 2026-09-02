@@ -70,7 +70,7 @@ export default function AdminNotifications({ observations = [], queueItems = [],
                     className={`h-1.5 w-1.5 shrink-0 rounded-full ${obs.is_hipo ? 'bg-red-500' : 'bg-brand-500'}`}
                   />
                   <span className="truncate text-slate-300">
-                    {obs.is_anonymous ? 'Anonim' : obs.nama_pelapor} — {obs.kategori}
+                    {obs.is_anonymous ? 'Anonim' : obs.nama_pelapor} — {obs.lokasi_teks}
                   </span>
                   <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-500">
                     {new Date(obs.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}

@@ -3,6 +3,7 @@ import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import AdminLayout from '../components/AdminLayout'
+import { categoryLabel } from '../lib/constants'
 import { getObservations } from '../lib/store'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -57,7 +58,7 @@ export default function AdminMap() {
                   <div className="text-sm">
                     <p className="font-semibold">{obs.is_anonymous ? 'Anonim' : obs.nama_pelapor}</p>
                     <p className="text-xs text-slate-600">{obs.lokasi_teks}</p>
-                    <p className="mt-1 text-xs">{obs.kategori}</p>
+                    <p className="mt-1 text-xs">{categoryLabel(obs.kategori)}</p>
                   </div>
                 </Popup>
               </Marker>

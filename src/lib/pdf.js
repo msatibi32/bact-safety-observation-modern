@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { BRANDING } from './branding'
+import { categoryLabel, isUnclassifiedObservation } from './constants'
 
 const LOGO_PATH = '/logo/BACT Logo_Orange.png'
 let cachedLogoData = null
@@ -56,9 +57,12 @@ function riskLabel(level) {
 
 function buildNarrativeId(obs) {
   const reporter = obs.is_anonymous ? 'Pelapor anonim' : obs.nama_pelapor
+  const unclassified = isUnclassifiedObservation(obs)
   const lines = [
-    `Pada ${fmtDateId(obs.tanggal_waktu)}, di lokasi ${obs.lokasi_teks}, telah dilaporkan observasi keselamatan kategori "${obs.kategori}" oleh ${reporter} (${obs.departemen}, ${obs.nama_perusahaan}).`,
-    `Tingkat risiko aktual: ${riskLabel(obs.tingkat_risiko)}. Potensi risiko: ${riskLabel(obs.potensi_risiko || obs.tingkat_risiko)}.${obs.is_hipo ? ' Laporan diklasifikasikan sebagai HiPo (High Potential).' : ''}`,
+    `Pada ${fmtDateId(obs.tanggal_waktu)}, di lokasi ${obs.lokasi_teks}, telah dilaporkan observasi keselamatan oleh ${reporter} (${obs.departemen}, ${obs.nama_perusahaan}).`,
+    unclassified
+      ? 'Kategori dan tingkat risiko belum diklasifikasi oleh HSE.'
+      : `Kategori: ${obs.kategori}. Tingkat risiko aktual: ${riskLabel(obs.tingkat_risiko)}.${obs.is_hipo ? ' Laporan diklasifikasikan sebagai HiPo (High Potential).' : ''}`,
     obs.life_saving_rule && obs.life_saving_rule !== 'Tidak terkait'
       ? `Terkait IOGP Life Saving Rule: ${obs.life_saving_rule}.`
       : '',
@@ -73,9 +77,12 @@ function buildNarrativeId(obs) {
 
 function buildNarrativeEn(obs) {
   const reporter = obs.is_anonymous ? 'Anonymous reporter' : obs.nama_pelapor
+  const unclassified = isUnclassifiedObservation(obs)
   const lines = [
-    `On ${fmtDateEn(obs.tanggal_waktu)}, at ${obs.lokasi_teks}, a safety observation categorized as "${obs.kategori}" was reported by ${reporter} (${obs.departemen}, ${obs.nama_perusahaan}).`,
-    `Actual risk level: ${obs.tingkat_risiko}. Potential risk: ${obs.potensi_risiko || obs.tingkat_risiko}.${obs.is_hipo ? ' Classified as HiPo (High Potential).' : ''}`,
+    `On ${fmtDateEn(obs.tanggal_waktu)}, at ${obs.lokasi_teks}, a safety observation was reported by ${reporter} (${obs.departemen}, ${obs.nama_perusahaan}).`,
+    unclassified
+      ? 'Category and risk level have not yet been classified by HSE.'
+      : `Category: ${obs.kategori}. Actual risk level: ${obs.tingkat_risiko}.${obs.is_hipo ? ' Classified as HiPo (High Potential).' : ''}`,
     obs.life_saving_rule && obs.life_saving_rule !== 'Tidak terkait'
       ? `Related IOGP Life Saving Rule: ${obs.life_saving_rule}.`
       : '',
@@ -104,7 +111,7 @@ function drawMetaTable(doc, obs, startY) {
     ['Kepada / To', `Management ${obs.nama_perusahaan || 'PT. BACT'} / Tim HSSE`],
     ['Document No.', docNo(obs)],
     ['Tanggal / Date', fmtDateEn(obs.created_at || obs.tanggal_waktu)],
-    ['Perihal / Subject', `Safety Observation — ${obs.kategori} — ${obs.is_anonymous ? 'Anonim' : obs.nama_pelapor}`],
+    ['Perihal / Subject', `Safety Observation — ${categoryLabel(obs.kategori)} — ${obs.is_anonymous ? 'Anonim' : obs.nama_pelapor}`],
     ['Status', obs.status || 'Open'],
     ['PIC / Assigned', obs.pic_assigned || '—'],
   ]

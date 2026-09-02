@@ -32,6 +32,10 @@ export function canEditObservations(user) {
   return hasMinRole(user, ROLES.PIC)
 }
 
+export function canClassifyObservations(user) {
+  return hasMinRole(user, ROLES.HSE)
+}
+
 export function canManageKpi(user) {
   return hasMinRole(user, ROLES.ADMIN)
 }

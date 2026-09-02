@@ -1,11 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import AuditTrail from './AuditTrail'
 import { HiPoBadge, RiskBadge, StatusBadge } from './Badge'
 import CapaPanel from './CapaPanel'
 import { BuildingIcon, PinIcon } from './Icon'
-import { PIC_OPTIONS, STATUS_OPTIONS } from '../lib/constants'
+import {
+  KATEGORI_OPTIONS,
+  PIC_OPTIONS,
+  RISIKO_OPTIONS,
+  STATUS_OPTIONS,
+  computeIsHiPo,
+  isUnclassifiedObservation,
+} from '../lib/constants'
 import { exportObservationPdf } from '../lib/pdf'
-import { canEditObservations } from '../lib/roles'
+import { canClassifyObservations, canEditObservations } from '../lib/roles'
 import { useUser } from './RequireRole'
 
 const TABS = ['Detail', 'Investigasi', 'CAPA', 'Audit']
@@ -13,9 +20,13 @@ const TABS = ['Detail', 'Investigasi', 'CAPA', 'Audit']
 export default function ObservationDetailPanel({ observation, onSave }) {
   const user = useUser()
   const canEdit = canEditObservations(user)
+  const canClassify = canClassifyObservations(user)
+  const pendingClass = isUnclassifiedObservation(observation)
   const [tab, setTab] = useState('Detail')
   const [pic, setPic] = useState(observation.pic_assigned || '')
   const [status, setStatus] = useState(observation.status)
+  const [kategori, setKategori] = useState(pendingClass ? '' : observation.kategori)
+  const [risiko, setRisiko] = useState(pendingClass ? '' : observation.tingkat_risiko)
   const [catatan, setCatatan] = useState(observation.catatan_penutupan || '')
   const [triageNotes, setTriageNotes] = useState(observation.triage_notes || '')
   const [investigationNotes, setInvestigationNotes] = useState(observation.investigation_notes || '')
@@ -25,12 +36,29 @@ export default function ObservationDetailPanel({ observation, onSave }) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const pending = isUnclassifiedObservation(observation)
+    setPic(observation.pic_assigned || '')
+    setStatus(observation.status)
+    setKategori(pending ? '' : observation.kategori)
+    setRisiko(pending ? '' : observation.tingkat_risiko)
+    setCatatan(observation.catatan_penutupan || '')
+    setTriageNotes(observation.triage_notes || '')
+    setInvestigationNotes(observation.investigation_notes || '')
+    setRootCause(observation.root_cause || '')
+    setVerificationNotes(observation.verification_notes || '')
+  }, [observation])
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    if (canClassify && (kategori ? !risiko : Boolean(risiko))) {
+      setError('Isi kategori dan risiko bersama.')
+      return
+    }
     setSaving(true)
     try {
-      await onSave(observation.id, {
+      const patch = {
         pic_assigned: pic,
         status,
         catatan_penutupan: catatan,
@@ -38,7 +66,18 @@ export default function ObservationDetailPanel({ observation, onSave }) {
         investigation_notes: investigationNotes,
         root_cause: rootCause,
         verification_notes: verificationNotes,
-      })
+      }
+      if (canClassify && kategori && risiko) {
+        patch.kategori = kategori
+        patch.tingkat_risiko = risiko
+        patch.is_hipo = computeIsHiPo({
+          kategori,
+          tingkat_risiko: risiko,
+          potensi_risiko: risiko,
+          stop_work: observation.stop_work,
+        })
+      }
+      await onSave(observation.id, patch)
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
     } catch (err) {
@@ -48,7 +87,7 @@ export default function ObservationDetailPanel({ observation, onSave }) {
     }
   }
 
-  const needsInvestigation = observation.is_hipo || observation.tingkat_risiko === 'High'
+  const needsInvestigation = observation.is_hipo || risiko === 'High'
 
   return (
     <div className="flex max-h-none flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 md:max-h-[calc(100vh-12rem)]">
@@ -81,7 +120,7 @@ export default function ObservationDetailPanel({ observation, onSave }) {
             >
               Export PDF
             </button>
-            <RiskBadge level={observation.tingkat_risiko} />
+            <RiskBadge level={observation.tingkat_risiko} pending={pendingClass} />
             <StatusBadge status={observation.status} />
           </div>
         </div>
@@ -117,17 +156,8 @@ export default function ObservationDetailPanel({ observation, onSave }) {
                 />
               )}
               {observation.employee_id && <DetailRow label="ID karyawan" value={observation.employee_id} />}
-              {observation.kategori && observation.kategori !== 'Observasi' && (
-                <DetailRow label="Kategori" value={observation.kategori} />
-              )}
-              {observation.kategori && observation.kategori !== 'Observasi' && (
-                <>
-                  <DetailRow label="Risiko aktual" value={observation.tingkat_risiko} />
-                  <DetailRow label="Potensi risiko" value={observation.potensi_risiko} />
-                  {observation.life_saving_rule && observation.life_saving_rule !== 'Tidak terkait' && (
-                    <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
-                  )}
-                </>
+              {observation.life_saving_rule && observation.life_saving_rule !== 'Tidak terkait' && (
+                <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
               )}
               <DetailRow label="Deskripsi" value={observation.deskripsi} />
               {observation.tindakan_langsung && (
@@ -151,6 +181,42 @@ export default function ObservationDetailPanel({ observation, onSave }) {
                 <p className="text-xs text-amber-400">Mode viewer — tidak bisa mengubah laporan.</p>
               )}
               <fieldset disabled={!canEdit} className="space-y-3 disabled:opacity-60">
+              {pendingClass && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                  Kategori & risiko belum diisi. Tentukan klasifikasi HSE di bawah.
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Kategori (HSE)</span>
+                  <select
+                    value={kategori}
+                    onChange={(e) => setKategori(e.target.value)}
+                    disabled={!canClassify}
+                    className="admin-input"
+                  >
+                    <option value="">— Belum diklasifikasi —</option>
+                    {KATEGORI_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Risiko (HSE)</span>
+                  <select
+                    value={risiko}
+                    onChange={(e) => setRisiko(e.target.value)}
+                    disabled={!canClassify}
+                    className="admin-input"
+                  >
+                    <option value="">— Belum diklasifikasi —</option>
+                    {RISIKO_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-slate-400">PIC follow-up</span>
                 <select value={pic} onChange={(e) => setPic(e.target.value)} className="admin-input">

@@ -1,3 +1,5 @@
+import { categoryLabel, isUnclassifiedObservation } from './constants'
+
 export function exportObservationsCsv(observations, filename = 'laporan-soc-bact.csv') {
   const headers = [
     'ID',
@@ -28,8 +30,8 @@ export function exportObservationsCsv(observations, filename = 'laporan-soc-bact
     o.departemen,
     o.nama_perusahaan,
     o.lokasi_teks,
-    o.kategori,
-    o.tingkat_risiko,
+    categoryLabel(o.kategori),
+    isUnclassifiedObservation(o) ? 'Belum diklasifikasi' : o.tingkat_risiko,
     o.potensi_risiko,
     o.is_hipo ? 'Ya' : 'Tidak',
     o.life_saving_rule,

@@ -1,3 +1,4 @@
+import { categoryLabel, isUnclassifiedObservation } from '../../lib/constants'
 import { LivePulse } from './TradingStatCard'
 import { HiPoBadge, RiskBadge, StatusBadge } from '../Badge'
 
@@ -22,10 +23,10 @@ export default function ActivityFeed({ items, onSelect }) {
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="truncate text-sm font-medium text-slate-100">{obs.nama_pelapor}</span>
                 {obs.is_hipo && <HiPoBadge />}
-                <RiskBadge level={obs.tingkat_risiko} />
+                <RiskBadge level={obs.tingkat_risiko} pending={isUnclassifiedObservation(obs)} />
               </div>
               <p className="mt-0.5 truncate text-xs text-slate-500">
-                {obs.kategori} · {obs.lokasi_teks}
+                {categoryLabel(obs.kategori)} · {obs.lokasi_teks}
               </p>
               <p className="mt-1 font-mono text-[10px] text-slate-600">
                 {new Date(obs.created_at || obs.tanggal_waktu).toLocaleString('id-ID', {

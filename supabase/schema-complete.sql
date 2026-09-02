@@ -71,7 +71,7 @@ alter table public.observations add constraint observations_status_check
 
 alter table public.observations drop constraint if exists observations_risk_level_check;
 alter table public.observations add constraint observations_risk_level_check
-  check (risk_level in ('Low', 'Medium', 'High'));
+  check (risk_level in ('Unclassified', 'Low', 'Medium', 'High'));
 
 create index if not exists observations_created_at_idx on public.observations (created_at desc);
 create index if not exists observations_status_idx on public.observations (status);

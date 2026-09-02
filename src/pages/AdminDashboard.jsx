@@ -16,7 +16,7 @@ import AdminLayout from '../components/AdminLayout'
 import { RiskBadge, StatusBadge, HiPoBadge } from '../components/Badge'
 import ObservationDetailPanel from '../components/ObservationDetailPanel'
 import { dailyReportCounts, overdueEscalations, sparklineValues, trendDelta } from '../lib/analytics'
-import { isOpenStatus } from '../lib/constants'
+import { categoryLabel, isOpenStatus, isUnclassifiedObservation } from '../lib/constants'
 import { filterObservationsForRole } from '../lib/roles'
 import { useUser } from '../components/RequireRole'
 import { getObservations, getPendingNotifications, updateObservation } from '../lib/store'
@@ -33,6 +33,7 @@ export default function AdminDashboard() {
   const [selectedId, setSelectedId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('Semua')
   const [filterHiPo, setFilterHiPo] = useState(false)
+  const [filterUnclassified, setFilterUnclassified] = useState(false)
   const [notifications, setNotifications] = useState([])
 
   async function loadObservations() {
@@ -67,8 +68,9 @@ export default function AdminDashboard() {
     let list = roleFiltered
     if (filterStatus !== 'Semua') list = list.filter((o) => o.status === filterStatus)
     if (filterHiPo) list = list.filter((o) => o.is_hipo)
+    if (filterUnclassified) list = list.filter((o) => isUnclassifiedObservation(o))
     return list
-  }, [roleFiltered, filterStatus, filterHiPo])
+  }, [roleFiltered, filterStatus, filterHiPo, filterUnclassified])
 
   const escalations = useMemo(() => overdueEscalations(roleFiltered), [roleFiltered])
 
@@ -79,7 +81,8 @@ export default function AdminDashboard() {
 
   const openCount = observations.filter((o) => isOpenStatus(o.status)).length
   const hipoCount = observations.filter((o) => o.is_hipo && isOpenStatus(o.status)).length
-  const highCount = observations.filter((o) => o.tingkat_risiko === 'High').length
+  const highCount = observations.filter((o) => !isUnclassifiedObservation(o) && o.tingkat_risiko === 'High').length
+  const unclassifiedCount = observations.filter((o) => isUnclassifiedObservation(o) && isOpenStatus(o.status)).length
   const closedCount = observations.filter((o) => o.status === 'Closed').length
 
   async function handleSave(id, patch) {
@@ -162,6 +165,11 @@ export default function AdminDashboard() {
         <ActivityFeed items={recentFeed} onSelect={setSelectedId} />
       </div>
 
+      {unclassifiedCount > 0 && (
+        <p className="mb-3 rounded-xl border border-slate-600/40 bg-slate-800/60 px-3 py-2 text-xs text-slate-300">
+          {unclassifiedCount} laporan belum diklasifikasi (kategori & risiko). Buka detail, lalu isi sebagai HSE.
+        </p>
+      )}
       {highCount > 0 && (
         <p className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
           {highCount} laporan risiko High membutuhkan perhatian segera.
@@ -175,6 +183,9 @@ export default function AdminDashboard() {
         <div className="flex flex-wrap items-center gap-1.5">
           <FilterChip active={filterStatus === 'Semua'} onClick={() => setFilterStatus('Semua')}>Semua</FilterChip>
           <FilterChip active={filterHiPo} onClick={() => setFilterHiPo((v) => !v)}>HiPo</FilterChip>
+          <FilterChip active={filterUnclassified} onClick={() => setFilterUnclassified((v) => !v)}>
+            Belum diklasifikasi
+          </FilterChip>
           {['Open', 'Under Review', 'In Progress', 'Closed'].map((s) => (
             <FilterChip key={s} active={filterStatus === s} onClick={() => setFilterStatus(s)}>{s}</FilterChip>
           ))}
@@ -231,8 +242,12 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-400">{obs.lokasi_teks}</td>
-                    <td className="px-4 py-3 text-slate-400">{obs.kategori}</td>
-                    <td className="px-4 py-3"><RiskBadge level={obs.tingkat_risiko} /></td>
+                    <td className={`px-4 py-3 ${isUnclassifiedObservation(obs) ? 'text-slate-500 italic' : 'text-slate-400'}`}>
+                      {categoryLabel(obs.kategori)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <RiskBadge level={obs.tingkat_risiko} pending={isUnclassifiedObservation(obs)} />
+                    </td>
                     <td className="px-4 py-3"><StatusBadge status={obs.status} /></td>
                   </tr>
                 ))}
