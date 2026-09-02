@@ -81,7 +81,11 @@ export function isUnclassifiedRisk(level) {
 }
 
 export function isUnclassifiedObservation(obs) {
-  return isUnclassifiedCategory(obs?.kategori) || isUnclassifiedRisk(obs?.tingkat_risiko)
+  return (
+    isUnclassifiedCategory(obs?.kategori) ||
+    isUnclassifiedRisk(obs?.tingkat_risiko) ||
+    obs?.life_saving_rule === UNCLASSIFIED_CATEGORY
+  )
 }
 
 export function categoryLabel(kategori) {

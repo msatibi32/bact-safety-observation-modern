@@ -139,7 +139,7 @@ export async function addObservation(data) {
     risk_level: data.tingkat_risiko || 'Unclassified',
     potential_risk_level: data.potensi_risiko || data.tingkat_risiko || null,
     is_hipo: data.is_hipo ?? false,
-    life_saving_rule: data.life_saving_rule || 'Tidak terkait',
+    life_saving_rule: data.life_saving_rule || (data.kategori ? 'Tidak terkait' : 'Belum diklasifikasi'),
     stop_work: data.stop_work ?? false,
     photo_urls: photoUrls,
     immediate_action: data.tindakan_langsung || null,
@@ -147,17 +147,23 @@ export async function addObservation(data) {
     status: data.is_hipo ? 'Under Review' : 'Open',
   }
 
-  let insertRow = { ...row }
-  let { error } = await supabase.from('observations').insert(insertRow)
-  if (error && /reporter_employee_id|schema cache/i.test(error.message || '')) {
-    const { reporter_employee_id: _omit, ...withoutEmployeeCol } = insertRow
-    insertRow = withoutEmployeeCol
-    const retry = await supabase.from('observations').insert(insertRow)
-    error = retry.error
-  }
-  if (error && /risk_level|check constraint/i.test(error.message || '')) {
-    const retry = await supabase.from('observations').insert({ ...insertRow, risk_level: 'Low' })
-    error = retry.error
+  const { reporter_employee_id: _employeeCol, ...withoutEmployeeCol } = row
+  const attempts = [
+    row,
+    withoutEmployeeCol,
+    { ...row, risk_level: 'Low' },
+    { ...withoutEmployeeCol, risk_level: 'Low' },
+    { ...row, category: 'Unsafe Act' },
+    { ...withoutEmployeeCol, category: 'Unsafe Act' },
+    { ...row, category: 'Unsafe Act', risk_level: 'Low' },
+    { ...withoutEmployeeCol, category: 'Unsafe Act', risk_level: 'Low' },
+  ]
+
+  let error = null
+  for (const candidate of attempts) {
+    const result = await supabase.from('observations').insert(candidate)
+    error = result.error
+    if (!error) break
   }
   if (error) throw new Error(error.message)
 
@@ -191,6 +197,9 @@ export async function updateObservation(id, patch, previous) {
   if ('tingkat_risiko' in patch) {
     dbPatch.risk_level = patch.tingkat_risiko
     dbPatch.potential_risk_level = patch.potensi_risiko || patch.tingkat_risiko
+  }
+  if (patch.kategori && patch.tingkat_risiko && previous?.life_saving_rule === 'Belum diklasifikasi') {
+    dbPatch.life_saving_rule = 'Tidak terkait'
   }
 
   if (patch.status === 'Closed') {

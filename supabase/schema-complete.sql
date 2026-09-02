@@ -69,6 +69,17 @@ alter table public.observations add constraint observations_status_check
     'Rejected'
   ));
 
+alter table public.observations drop constraint if exists observations_category_check;
+alter table public.observations add constraint observations_category_check
+  check (category in (
+    'Unsafe Act',
+    'Unsafe Condition',
+    'Near Miss',
+    'Positive Observation',
+    'Belum diklasifikasi',
+    'Observasi'
+  ));
+
 alter table public.observations drop constraint if exists observations_risk_level_check;
 alter table public.observations add constraint observations_risk_level_check
   check (risk_level in ('Unclassified', 'Low', 'Medium', 'High'));

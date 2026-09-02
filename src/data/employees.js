@@ -1,6 +1,6 @@
 /**
  * Daftar karyawan BACT untuk autocomplete form pelapor.
- * Digenerate dari scripts/karyawan-raw.csv — 172 karyawan BACT.
+ * Digenerate dari scripts/karyawan-raw.csv — 173 karyawan BACT.
  */
 export const BACT_EMPLOYEES = [
   {"id":"BACT-0062","name":"Abdul Rauf","departemen":"ENGINEERING","jabatan":"Mechanics"},
@@ -118,6 +118,7 @@ export const BACT_EMPLOYEES = [
   {"id":"BACT-0160","name":"Muhammad David Syaputra","departemen":"OPERATIONS","jabatan":"Yard Planner"},
   {"id":"BACT-0034","name":"Muhammad Faiz Haryadi","departemen":"OPERATIONS","jabatan":"Operator RTG"},
   {"id":"BACT-0150","name":"Muhammad Gyan Ridho","departemen":"OPERATIONS","jabatan":"Gate Operating Staff (GOS)"},
+  {"id":"BACT-0165","name":"Muhammad Satibi","departemen":"IT","jabatan":"Application Support"},
   {"id":"BACT-0105","name":"Nova Yuliana","departemen":"HRGA","jabatan":"HR Superintendent"},
   {"id":"BACT-0061","name":"Nurdiansyah","departemen":"ENGINEERING","jabatan":"Welder"},
   {"id":"BACT-0154","name":"Oktafaza Rezika Suprapto","departemen":"OPERATIONS","jabatan":"Document Operator Staff (DOS)"},
