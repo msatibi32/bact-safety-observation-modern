@@ -1,7 +1,11 @@
 import { jsPDF } from 'jspdf'
 import { BRANDING } from './branding'
-import { categoryLabel, isUnclassifiedObservation } from './constants'
-import { buildSummary5W1H, parseInvestigationData } from './investigation'
+import { categoryLabel } from './constants'
+import {
+  buildInvestigationNarrative,
+  buildSocNarrativeEn,
+  buildSocNarrativeId,
+} from './pdfNarrative'
 import { resolveSocNumber } from './socNumber'
 
 const LOGO_PATH = BRANDING.logoPdfSrc || '/logo/BACT Logo_OG Black Text.png'
@@ -24,23 +28,11 @@ async function loadLogoDataUrl() {
   }
 }
 
-function fmtDateId(d) {
-  return new Date(d).toLocaleString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 function fmtDateEn(d) {
   return new Date(d).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   })
 }
 
@@ -50,47 +42,6 @@ function fmtExportDate() {
     month: 'long',
     year: 'numeric',
   })
-}
-
-function riskLabel(level) {
-  if (level === 'High') return 'Tinggi / High'
-  if (level === 'Medium') return 'Sedang / Medium'
-  if (level === 'Low') return 'Rendah / Low'
-  return 'Belum diklasifikasi / Unclassified'
-}
-
-function buildNarrativeId(obs) {
-  const reporter = obs.is_anonymous ? 'Pelapor anonim' : obs.nama_pelapor
-  const unclassified = isUnclassifiedObservation(obs)
-  const lines = [
-    `Pada ${fmtDateId(obs.tanggal_waktu)}, di lokasi ${obs.lokasi_teks}, telah dilaporkan observasi keselamatan oleh ${reporter} (${obs.departemen}, ${obs.nama_perusahaan}).`,
-    unclassified
-      ? 'Kategori dan tingkat risiko belum diklasifikasi oleh HSE.'
-      : `Kategori: ${obs.kategori}. Tingkat risiko aktual: ${riskLabel(obs.tingkat_risiko)}.${obs.is_hipo ? ' Laporan diklasifikasikan sebagai HiPo (High Potential).' : ''}`,
-    obs.stop_work ? 'Pekerjaan di area tersebut telah dihentikan sementara (Stop Work).' : '',
-    '',
-    `Deskripsi kejadian: ${obs.deskripsi}`,
-  ]
-  if (obs.finding_observation) lines.push('', `Finding: ${obs.finding_observation}`)
-  if (obs.rekomendasi) lines.push('', `Rekomendasi: ${obs.rekomendasi}`)
-  return lines.filter((l) => l !== undefined).join('\n')
-}
-
-function buildNarrativeEn(obs) {
-  const reporter = obs.is_anonymous ? 'Anonymous reporter' : obs.nama_pelapor
-  const unclassified = isUnclassifiedObservation(obs)
-  const lines = [
-    `On ${fmtDateEn(obs.tanggal_waktu)}, at ${obs.lokasi_teks}, a safety observation was reported by ${reporter} (${obs.departemen}, ${obs.nama_perusahaan}).`,
-    unclassified
-      ? 'Category and risk level have not yet been classified by HSE.'
-      : `Category: ${obs.kategori}. Actual risk level: ${obs.tingkat_risiko}.${obs.is_hipo ? ' Classified as HiPo (High Potential).' : ''}`,
-    obs.stop_work ? 'Work in the area was temporarily stopped (Stop Work Authority).' : '',
-    '',
-    `Description: ${obs.deskripsi}`,
-  ]
-  if (obs.finding_observation) lines.push('', `Finding: ${obs.finding_observation}`)
-  if (obs.rekomendasi) lines.push('', `Recommendation: ${obs.rekomendasi}`)
-  return lines.filter((l) => l !== undefined).join('\n')
 }
 
 function drawBorder(doc, margin = 12) {
@@ -117,7 +68,7 @@ function drawMetaTable(doc, obs, startY) {
   const w = 210 - margin * 2 - 8 - labelW
   const soc = resolveSocNumber(obs)
   const rows = [
-    ['Kepada / To', obs.pdf_to || '—'],
+    ['Kepada / To', obs.pdf_to || `Management ${obs.nama_perusahaan || 'PT. BACT'} / Tim HSSE`],
     ['Nomor SOC', soc],
     ['Tanggal / Date', fmtDateEn(obs.created_at || obs.tanggal_waktu)],
     [
@@ -125,11 +76,10 @@ function drawMetaTable(doc, obs, startY) {
       `Safety Observation — ${categoryLabel(obs.kategori)} — ${obs.is_anonymous ? 'Anonim' : obs.nama_pelapor}`,
     ],
     ['Status', obs.status || 'Open'],
-    ['PIC / Assigned', obs.pdf_pic || '—'],
+    ['PIC / Assigned', obs.pdf_pic || obs.pic_assigned || '—'],
   ]
 
   let y = startY
-  doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
 
@@ -148,82 +98,119 @@ function drawMetaTable(doc, obs, startY) {
   return y + 4
 }
 
-function drawBilingualBody(doc, obs, startY) {
-  const margin = 12
-  const colW = (210 - margin * 2 - 12) / 2
-  const xId = margin + 4
-  const xEn = xId + colW + 4
+function ensureSpace(doc, y, need, margin = 12) {
+  if (y + need > 278) {
+    doc.addPage()
+    drawBorder(doc, margin)
+    return margin + 10
+  }
+  return y
+}
 
-  doc.setFontSize(8)
+function drawWrapped(doc, text, x, y, maxW, lineH = 3.6) {
+  const lines = doc.splitTextToSize(String(text || ''), maxW)
+  for (const line of lines) {
+    y = ensureSpace(doc, y, lineH + 1)
+    doc.text(line, x, y)
+    y += lineH
+  }
+  return y
+}
+
+function drawBilingualNoticeBody(doc, obs, startY) {
+  const margin = 12
+  const gap = 4
+  const colW = (210 - margin * 2 - 8 - gap) / 2
+  const xId = margin + 4
+  const xEn = xId + colW + gap
+  const id = buildSocNarrativeId(obs)
+  const en = buildSocNarrativeEn(obs)
+
+  let y = startY
   doc.setFont('helvetica', 'bold')
-  doc.text('Bahasa Indonesia', xId, startY)
-  doc.text('English', xEn, startY)
+  doc.setFontSize(8)
+  doc.text('Bahasa Indonesia', xId, y)
+  doc.text('English', xEn, y)
+  y += 5
 
   doc.setFont('helvetica', 'normal')
-  const idLines = doc.splitTextToSize(buildNarrativeId(obs), colW)
-  const enLines = doc.splitTextToSize(buildNarrativeEn(obs), colW)
-  doc.text(idLines, xId, startY + 5)
-  doc.text(enLines, xEn, startY + 5)
+  doc.setFontSize(8)
+  // Track both columns independently then sync
+  let yId = y
+  let yEn = y
 
-  let y = startY + 5 + Math.max(idLines.length, enLines.length) * 3.8 + 6
-
-  const followUp = []
-  if (obs.triage_notes) followUp.push(`Triage HSE: ${obs.triage_notes}`)
-  if (obs.pic_assigned) followUp.push(`Departemen follow-up: ${obs.pic_assigned}`)
-  if (obs.catatan_penutupan) followUp.push(`Penutupan: ${obs.catatan_penutupan}`)
-  if (obs.lokasi_gps) {
-    followUp.push(`GPS: ${obs.lokasi_gps.lat.toFixed(6)}, ${obs.lokasi_gps.lng.toFixed(6)}`)
+  const writePair = (textId, textEn) => {
+    const start = Math.max(yId, yEn)
+    yId = start
+    yEn = start
+    const beforeId = yId
+    const beforeEn = yEn
+    // measure by writing to temp - just write sequentially with sync after each block
+    const linesId = doc.splitTextToSize(textId, colW)
+    const linesEn = doc.splitTextToSize(textEn, colW)
+    const blockH = Math.max(linesId.length, linesEn.length) * 3.6 + 4
+    yId = ensureSpace(doc, start, blockH)
+    yEn = yId
+    doc.text(linesId, xId, yId)
+    doc.text(linesEn, xEn, yEn)
+    const next = yId + Math.max(linesId.length, linesEn.length) * 3.6 + 4
+    yId = next
+    yEn = next
+    void beforeId
+    void beforeEn
   }
 
-  if (followUp.length) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.text('Tindak Lanjut / Follow-up:', margin + 4, y)
-    y += 5
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    for (const item of followUp) {
-      const lines = doc.splitTextToSize(`• ${item}`, 210 - margin * 2 - 8)
-      doc.text(lines, margin + 6, y)
-      y += lines.length * 3.8 + 1
-    }
+  writePair(id.intro, en.intro)
+  writePair(id.classification, en.classification)
+
+  y = Math.max(yId, yEn)
+  y = ensureSpace(doc, y, 8)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.text('Tindakan yang telah dilakukan:', xId, y)
+  doc.text('Actions Taken:', xEn, y)
+  y += 5
+  doc.setFont('helvetica', 'normal')
+
+  const maxActions = Math.max(id.actions.length, en.actions.length)
+  for (let i = 0; i < maxActions; i++) {
+    const aId = id.actions[i] ? `${i + 1}. ${id.actions[i]}` : ''
+    const aEn = en.actions[i] ? `${i + 1}. ${en.actions[i]}` : ''
+    const linesId = doc.splitTextToSize(aId, colW)
+    const linesEn = doc.splitTextToSize(aEn, colW)
+    const h = Math.max(linesId.length, linesEn.length) * 3.6 + 2
+    y = ensureSpace(doc, y, h)
+    if (aId) doc.text(linesId, xId, y)
+    if (aEn) doc.text(linesEn, xEn, y)
+    y += h
   }
 
-  return y
+  y += 2
+  yId = y
+  yEn = y
+  writePair(id.closing, en.closing)
+  return Math.max(yId, yEn)
 }
 
 function drawClosingAndSignature(doc, y) {
   const margin = 12
-  if (y > 220) {
-    doc.addPage()
-    drawBorder(doc, margin)
-    y = margin + 10
-  }
+  y = ensureSpace(doc, y, 40)
+  y = Math.max(y, 235)
 
-  const closing = BRANDING.pdfClosingLine || ''
-  if (closing) {
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(0, 0, 0)
-    const lines = doc.splitTextToSize(closing, 210 - margin * 2 - 8)
-    doc.text(lines, margin + 4, y)
-    y += lines.length * 3.8 + 10
-  }
-
-  y = Math.max(y, 230)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
   doc.text('Hormat kami / Sincerely,', margin + 4, y)
-  doc.text('Tim HSSE / HSSE Team', margin + 4, y + 14)
-  doc.text('Batu Ampar Container Terminal', margin + 4, y + 20)
+  doc.text('Tim HSSE / HSSE Team', margin + 4, y + 16)
+  doc.text('Health and Safety Officer', margin + 4, y + 22)
+  doc.text('Batu Ampar Container Terminal', margin + 4, y + 28)
 
   doc.setFontSize(8)
   doc.setTextColor(60, 60, 60)
   doc.text(`Tanggal export: ${fmtExportDate()}`, 210 - margin - 4, 285, { align: 'right' })
 }
 
-/** Report 1 — PDF SOC harian (Notice of Safety Observation) */
+/** Report 1 — PDF SOC (gaya Notice padat bilingual) */
 export async function exportObservationPdf(obs) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const margin = 12
@@ -241,54 +228,47 @@ export async function exportObservationPdf(obs) {
   doc.text('LAPORAN OBSERVASI KESELAMATAN', 105, margin + 28, { align: 'center' })
 
   let y = drawMetaTable(doc, obs, margin + 34)
-  y = drawBilingualBody(doc, obs, y)
-  drawClosingAndSignature(doc, y + 8)
+  y = drawBilingualNoticeBody(doc, obs, y)
+  drawClosingAndSignature(doc, y + 6)
 
   doc.save(`SOC-${soc}.pdf`)
 }
 
-function ensureSpace(doc, y, need, margin = 12) {
-  if (y + need > 280) {
-    doc.addPage()
-    drawBorder(doc, margin)
-    return margin + 10
-  }
-  return y
-}
-
 function drawSectionTitle(doc, title, y, margin = 12) {
   y = ensureSpace(doc, y, 10, margin)
+  doc.setDrawColor(243, 112, 33)
+  doc.setLineWidth(0.6)
+  doc.line(margin + 4, y + 1.5, margin + 8, y + 1.5)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(0, 0, 0)
-  doc.text(title, margin + 4, y)
-  return y + 6
+  doc.text(title, margin + 10, y + 2)
+  return y + 8
 }
 
 function drawLabeledBlock(doc, label, text, y, margin = 12) {
   if (!text) return y
-  y = ensureSpace(doc, y, 14, margin)
+  y = ensureSpace(doc, y, 12, margin)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
+  doc.setTextColor(40, 40, 40)
   doc.text(label, margin + 4, y)
   y += 4
   doc.setFont('helvetica', 'normal')
-  const lines = doc.splitTextToSize(String(text), 210 - margin * 2 - 8)
-  for (let i = 0; i < lines.length; i++) {
-    y = ensureSpace(doc, y, 5, margin)
-    doc.text(lines[i], margin + 4, y)
-    y += 3.8
-  }
+  doc.setFontSize(8)
+  doc.setTextColor(0, 0, 0)
+  y = drawWrapped(doc, text, margin + 4, y, 210 - margin * 2 - 8, 3.7)
   return y + 3
 }
 
-/** Report 2 — PDF hasil investigasi mendalam */
+/** Report 2 — PDF investigasi mendalam (isi penuh) */
 export async function exportInvestigationPdf(obs) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const margin = 12
   const logo = await loadLogoDataUrl()
   const soc = resolveSocNumber(obs)
-  const inv = parseInvestigationData(obs)
+  const n = buildInvestigationNarrative(obs)
+  const inv = n.inv
 
   drawBorder(doc, margin)
   drawHeader(doc, logo, margin)
@@ -302,33 +282,135 @@ export async function exportInvestigationPdf(obs) {
 
   let y = drawMetaTable(doc, obs, margin + 34)
 
-  y = drawSectionTitle(doc, 'Ringkasan kejadian', y)
-  y = drawLabeledBlock(doc, 'Lokasi', obs.lokasi_teks, y)
-  y = drawLabeledBlock(doc, 'Deskripsi', obs.deskripsi, y)
-  y = drawLabeledBlock(doc, 'Stop Work', obs.stop_work ? 'Ya' : 'Tidak', y)
+  y = drawSectionTitle(doc, 'A. Ringkasan Investigasi / Investigation Summary', y)
+  y = drawLabeledBlock(doc, 'Bahasa Indonesia', n.ringkasanId, y)
+  y = drawLabeledBlock(doc, 'English', n.ringkasanEn, y)
+  y = drawLabeledBlock(
+    doc,
+    'Klasifikasi',
+    `${categoryLabel(obs.kategori)} · Risiko ${obs.tingkat_risiko || '—'} · HiPo: ${obs.is_hipo ? 'Ya' : 'Tidak'} · Stop Work: ${obs.stop_work ? 'Ya' : 'Tidak'}`,
+    y,
+  )
 
-  y = drawSectionTitle(doc, '1. Analisis 5W + 1H', y + 2)
-  y = drawLabeledBlock(doc, 'WHAT', inv.what, y)
-  y = drawLabeledBlock(doc, 'WHERE', inv.where, y)
-  y = drawLabeledBlock(doc, 'WHEN', inv.when, y)
-  y = drawLabeledBlock(doc, 'WHY', inv.why, y)
-  y = drawLabeledBlock(doc, 'HOW', inv.how, y)
-  y = drawLabeledBlock(doc, 'Ringkasan', inv.summary_5w1h || buildSummary5W1H(inv), y)
+  y = drawSectionTitle(doc, 'B. Analisis Root Cause — 5W + 1H (Deep Dive)', y)
+  y = drawLabeledBlock(
+    doc,
+    'WHAT (Apa insiden/potensi bahaya utama?)',
+    inv.what ||
+      `Observasi ${categoryLabel(obs.kategori)} di ${obs.lokasi_teks}: ${obs.deskripsi || '—'}`,
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'WHERE (Lokasi spesifik & kerentanan area)',
+    inv.where ||
+      `Lokasi: ${obs.lokasi_teks || '—'}. Area operasional Batu Ampar Container Terminal dengan paparan aktivitas bongkar muat / pergerakan alat.`,
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'WHEN (Waktu kejadian & pengawasan terakhir)',
+    inv.when ||
+      `Kejadian dilaporkan pada ${fmtDateEn(obs.tanggal_waktu || obs.created_at)}. Interval pengawasan terakhir perlu diverifikasi terhadap jadwal patrol HSSE dan pengawas area.`,
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'WHY (Mengapa bahaya muncul tanpa terdeteksi)',
+    inv.why ||
+      'Indikasi adanya celah pada deteksi dini, komunikasi risiko, dan/atau kepatuhan terhadap prosedur operasional standar di lokasi.',
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'HOW (Bagaimana bahaya berkembang hingga eskalasi / Stop Work)',
+    inv.how ||
+      (obs.stop_work
+        ? 'Kondisi berkembang hingga memerlukan Stop Work Authority agar pekerjaan tidak berlanjut dalam kondisi tidak aman.'
+        : 'Kondisi teridentifikasi melalui pelaporan SOC sebelum sempat berkembang menjadi insiden lebih serius.'),
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Ringkasan 5W+1H (kalimat hasil)',
+    n.summary5 ||
+      `Observasi di ${obs.lokasi_teks} terkait ${obs.deskripsi || 'kondisi/tindakan tidak aman'} telah dianalisis melalui pendekatan 5W+1H untuk memetakan fakta dan titik kegagalan pengendalian.`,
+    y,
+  )
 
-  y = drawSectionTitle(doc, '2. Deep Dive — 5 Whys', y + 2)
-  y = drawLabeledBlock(doc, 'Why 1', inv.why1, y)
-  y = drawLabeledBlock(doc, 'Why 2', inv.why2, y)
-  y = drawLabeledBlock(doc, 'Why 3', inv.why3, y)
-  y = drawLabeledBlock(doc, 'Why 4', inv.why4, y)
-  y = drawLabeledBlock(doc, 'Why 5', inv.why5, y)
+  y = drawSectionTitle(doc, 'C. Deep Dive Analysis — 5 Whys', y)
+  y = drawLabeledBlock(
+    doc,
+    'Why 1 (Gejala Lapangan)',
+    inv.why1 ||
+      `Mengapa kondisi/tindakan tersebut muncul di lapangan? Karena ${obs.deskripsi || 'praktik atau kondisi tidak aman teridentifikasi di area kerja'}.`,
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Why 2 (Kegagalan Pemeriksaan)',
+    inv.why2 ||
+      'Mengapa kondisi berisiko masih dapat berlangsung? Karena pemeriksaan pra-operasional / pengawasan area belum sepenuhnya menangkap penyimpangan tersebut.',
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Why 3 (Kegagalan Prosedur / Individu)',
+    inv.why3 ||
+      'Mengapa prosedur atau perilaku individu tidak mencegah kejadian sejak awal? Karena pemahaman, disiplin, atau penerapan SOP di titik kerja masih perlu diperkuat.',
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Why 4 (Kegagalan Pengawasan & Kontrol)',
+    inv.why4 ||
+      'Mengapa pengawasan dan kontrol manajemen/mitra belum memadai? Karena frekuensi monitoring, verifikasi lapangan, atau standar kelayakan pihak terkait belum konsisten.',
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Why 5 (Akar Masalah Sistemik)',
+    inv.why5 ||
+      'Mengapa sistem pengendalian risiko belum efektif secara menyeluruh? Karena tata kelola risiko operasional masih memiliki celah pada deteksi, eskalasi, dan penegakan standar keselamatan.',
+    y,
+  )
 
-  y = drawSectionTitle(doc, '3. Kesimpulan', y + 2)
-  y = drawLabeledBlock(doc, 'Root Cause', inv.root_cause || obs.root_cause, y)
-  y = drawLabeledBlock(doc, 'Corrective Action', inv.corrective_action, y)
-  y = drawLabeledBlock(doc, 'Investigator', inv.investigator_name || obs.investigator_name, y)
-  y = drawLabeledBlock(doc, 'Finding Observation', obs.finding_observation, y)
-  y = drawLabeledBlock(doc, 'Recommendation', obs.rekomendasi, y)
+  y = drawSectionTitle(doc, 'D. Kesimpulan & Tindak Lanjut', y)
+  y = drawLabeledBlock(
+    doc,
+    'Root Cause (Akar Masalah Utama)',
+    inv.root_cause ||
+      obs.root_cause ||
+      'Akar masalah mengarah pada lemahnya kombinasi deteksi dini, kepatuhan SOP, dan pengawasan operasional di area terdampak.',
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Corrective Action',
+    inv.corrective_action ||
+      'Perkuat briefing/safety induction, perketat pengawasan area, pastikan kepatuhan SOP, dan verifikasi efektivitas tindakan sebelum area dinyatakan aman kembali.',
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Finding Observation',
+    n.finding || obs.deskripsi || '—',
+    y,
+  )
+  y = drawLabeledBlock(
+    doc,
+    'Recommendation',
+    n.recommendation ||
+      'Lakukan monitoring berkala, refreshment safety awareness, dan evaluasi kontrol operasional agar kejadian serupa tidak berulang.',
+    y,
+  )
+  y = drawLabeledBlock(doc, 'Investigator', n.investigator, y)
 
-  drawClosingAndSignature(doc, y + 6)
+  const idClose = buildSocNarrativeId(obs).closing
+  const enClose = buildSocNarrativeEn(obs).closing
+  y = drawLabeledBlock(doc, 'Penutup (ID)', idClose, y)
+  y = drawLabeledBlock(doc, 'Closing (EN)', enClose, y)
+
+  drawClosingAndSignature(doc, y + 4)
   doc.save(`SOC-Investigasi-${soc}.pdf`)
 }

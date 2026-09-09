@@ -3,7 +3,7 @@ import { logout } from '../lib/auth'
 import { BRANDING } from '../lib/branding'
 import { canViewActivityLog } from '../lib/roles'
 import BrandLogo from './BrandLogo'
-import { ChartIcon, ClipboardIcon, LogoutIcon, PinIcon, UsersIcon } from './Icon'
+import { ChartIcon, ClipboardIcon, LogoutIcon, UsersIcon } from './Icon'
 import { useUser } from './RequireRole'
 
 const navLinkClass = ({ isActive }) =>
@@ -50,10 +50,6 @@ export default function AdminLayout({ children }) {
               <ChartIcon className="h-4 w-4" />
               Analitik
             </NavLink>
-            <NavLink to="/admin/peta" className={desktopNavClass}>
-              <PinIcon className="h-4 w-4" />
-              Peta
-            </NavLink>
             {showActivity && (
               <NavLink to="/admin/aktivitas" className={desktopNavClass}>
                 <UsersIcon className="h-4 w-4" />
@@ -87,10 +83,6 @@ export default function AdminLayout({ children }) {
           <NavLink to="/admin/ringkasan" className={navLinkClass}>
             <ChartIcon className="h-5 w-5" />
             Analitik
-          </NavLink>
-          <NavLink to="/admin/peta" className={navLinkClass}>
-            <PinIcon className="h-5 w-5" />
-            Peta
           </NavLink>
           {showActivity ? (
             <NavLink to="/admin/aktivitas" className={navLinkClass}>

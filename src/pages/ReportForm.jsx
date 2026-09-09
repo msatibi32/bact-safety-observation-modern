@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import BrandHeader from '../components/BrandHeader'
 import EmployeeNameField from '../components/EmployeeNameField'
-import { CameraIcon, CheckCircleIcon, PinIcon } from '../components/Icon'
+import { CameraIcon, CheckCircleIcon } from '../components/Icon'
 import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../lib/constants'
 import { isBactCompany } from '../lib/employees'
 import { addObservation } from '../lib/store'
@@ -23,8 +23,6 @@ const emptyForm = {
 export default function ReportForm() {
   const [form, setForm] = useState(emptyForm)
   const [photos, setPhotos] = useState([])
-  const [gps, setGps] = useState(null)
-  const [gpsStatus, setGpsStatus] = useState('idle') // idle | loading | done | error
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [submitted, setSubmitted] = useState(false)
@@ -82,22 +80,6 @@ export default function ReportForm() {
     setPhotos((prev) => prev.filter((_, i) => i !== index))
   }
 
-  function handleGetGps() {
-    if (!navigator.geolocation) {
-      setGpsStatus('error')
-      return
-    }
-    setGpsStatus('loading')
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setGpsStatus('done')
-      },
-      () => setGpsStatus('error'),
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
-  }
-
   async function handleSubmit(e) {
     e.preventDefault()
     setSubmitError('')
@@ -116,7 +98,6 @@ export default function ReportForm() {
         nama_perusahaan:
           form.nama_perusahaan === 'Lainnya' ? form.nama_perusahaan_lainnya : form.nama_perusahaan,
         lokasi_teks: lokasiResolved,
-        lokasi_gps: gps,
         foto: photos.map((p) => p.file),
         is_anonymous: false,
         is_hipo: form.stop_work,
@@ -141,8 +122,6 @@ export default function ReportForm() {
   function handleReportAnother() {
     setForm({ ...emptyForm, tanggal_waktu: new Date().toISOString().slice(0, 16) })
     setPhotos([])
-    setGps(null)
-    setGpsStatus('idle')
     setSubmitted(false)
     setOfflineQueued(false)
   }
@@ -298,23 +277,6 @@ export default function ReportForm() {
                   placeholder="Tulis lokasi lainnya"
                 />
               )}
-              <div className="mt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleGetGps}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
-                >
-                  <PinIcon className="h-3.5 w-3.5" />
-                  Ambil lokasi GPS
-                </button>
-                {gpsStatus === 'loading' && <span className="text-xs text-slate-400">Mengambil lokasi…</span>}
-                {gpsStatus === 'done' && gps && (
-                  <span className="text-xs text-emerald-600">
-                    {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)}
-                  </span>
-                )}
-                {gpsStatus === 'error' && <span className="text-xs text-red-500">Gagal ambil lokasi</span>}
-              </div>
             </Field>
 
             <Field label="Deskripsi kejadian" required>

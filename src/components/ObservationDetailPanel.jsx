@@ -226,12 +226,6 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
           <div className="space-y-4">
             <dl className="space-y-2.5 text-sm">
               <DetailRow icon={<PinIcon className="h-3.5 w-3.5" />} label="Lokasi" value={observation.lokasi_teks} />
-              {observation.lokasi_gps && (
-                <DetailRow
-                  label="GPS"
-                  value={`${observation.lokasi_gps.lat.toFixed(5)}, ${observation.lokasi_gps.lng.toFixed(5)}`}
-                />
-              )}
               {observation.employee_id && <DetailRow label="ID karyawan" value={observation.employee_id} />}
               {observation.life_saving_rule && observation.life_saving_rule !== 'Tidak terkait' && (
                 <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
