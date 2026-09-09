@@ -9,6 +9,8 @@ import {
 import { resolveSocNumber } from './socNumber'
 
 const LOGO_PATH = BRANDING.logoPdfSrc || '/logo/BACT Logo_OG Black Text.png'
+const MARGIN = 14
+const PAGE_BOTTOM = 280
 let cachedLogoData = null
 
 async function loadLogoDataUrl() {
@@ -44,373 +46,375 @@ function fmtExportDate() {
   })
 }
 
-function drawBorder(doc, margin = 12) {
-  doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.4)
-  doc.rect(margin, margin, 210 - margin * 2, 297 - margin * 2)
+function contentWidth() {
+  return 210 - MARGIN * 2
 }
 
-function drawHeader(doc, logo, margin = 12) {
+function drawPageFrame(doc) {
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.5)
+  doc.rect(MARGIN, MARGIN, contentWidth(), 297 - MARGIN * 2)
+}
+
+function ensureSpace(doc, y, need) {
+  if (y + need > PAGE_BOTTOM) {
+    doc.addPage()
+    drawPageFrame(doc)
+    return MARGIN + 8
+  }
+  return y
+}
+
+/** Header mirip Notice: logo kiri + judul tengah + kotak Document No kanan */
+function drawNoticeHeader(doc, logo, title, obs) {
+  const top = MARGIN
+  const innerX = MARGIN
+  const innerW = contentWidth()
+  const headerH = 28
+  const metaBoxW = 58
+  const leftW = innerW - metaBoxW
+
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.35)
+  doc.rect(innerX, top, innerW, headerH)
+  doc.line(innerX + leftW, top, innerX + leftW, top + headerH)
+
   if (logo) {
-    doc.addImage(logo, 'PNG', margin + 4, margin + 4, 38, 12)
+    try {
+      doc.addImage(logo, 'PNG', innerX + 3, top + 4, 32, 10)
+    } catch {
+      /* ignore */
+    }
   }
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
+  doc.setFontSize(7.5)
   doc.setTextColor(0, 0, 0)
-  doc.text('BATU AMPAR CONTAINER TERMINAL', margin + 44, margin + 11)
+  doc.text('BATU AMPAR CONTAINER TERMINAL', innerX + 3, top + 18)
+
+  doc.setFontSize(11)
+  const titleLines = doc.splitTextToSize(title, leftW - 10)
+  const titleY = top + 12 - ((titleLines.length - 1) * 4) / 2
+  doc.text(titleLines, innerX + leftW / 2, titleY, { align: 'center' })
+
+  const soc = resolveSocNumber(obs)
+  const boxX = innerX + leftW
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7)
+  doc.text('Document No.', boxX + 2, top + 6)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  const docLines = doc.splitTextToSize(soc, metaBoxW - 4)
+  doc.text(docLines, boxX + 2, top + 10)
+
+  doc.setFont('helvetica', 'bold')
+  doc.text('Effective Date', boxX + 2, top + 18)
+  doc.setFont('helvetica', 'normal')
+  doc.text(fmtDateEn(obs.created_at || obs.tanggal_waktu), boxX + 2, top + 22)
+
+  return top + headerH
 }
 
-function drawMetaTable(doc, obs, startY) {
-  const margin = 12
-  const labelW = 42
-  const x0 = margin + 4
-  const x1 = x0 + labelW
-  const w = 210 - margin * 2 - 8 - labelW
+/** Tabel Kepada / Tanggal / Perihal (gaya Notice) */
+function drawRecipientTable(doc, obs, startY) {
+  const x0 = MARGIN
+  const labelW = 38
+  const valueW = contentWidth() - labelW
   const soc = resolveSocNumber(obs)
   const rows = [
-    ['Kepada / To', obs.pdf_to || `Management ${obs.nama_perusahaan || 'PT. BACT'} / Tim HSSE`],
-    ['Nomor SOC', soc],
-    ['Tanggal / Date', fmtDateEn(obs.created_at || obs.tanggal_waktu)],
+    ['Kepada / To', obs.pdf_to || `Management of ${obs.nama_perusahaan || 'PT. BACT'}`],
+    ['Tanggal / Date', fmtDateEn(obs.tanggal_waktu || obs.created_at)],
     [
       'Perihal / Subject',
-      `Safety Observation — ${categoryLabel(obs.kategori)} — ${obs.is_anonymous ? 'Anonim' : obs.nama_pelapor}`,
+      `Safety Observation – ${obs.is_anonymous ? 'Anonymous' : obs.nama_pelapor || '—'} (${categoryLabel(obs.kategori)})`,
     ],
-    ['Status', obs.status || 'Open'],
+    ['Nomor SOC', soc],
     ['PIC / Assigned', obs.pdf_pic || obs.pic_assigned || '—'],
   ]
 
   let y = startY
-  doc.setFontSize(9)
-  doc.setTextColor(0, 0, 0)
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.35)
 
   for (const [label, value] of rows) {
-    const lines = doc.splitTextToSize(String(value), w)
-    const h = Math.max(7, lines.length * 4.5 + 2)
-    doc.setDrawColor(180, 180, 180)
+    const lines = doc.splitTextToSize(String(value), valueW - 4)
+    const h = Math.max(7, lines.length * 4 + 3)
     doc.rect(x0, y, labelW, h)
-    doc.rect(x1, y, w, h)
+    doc.rect(x0 + labelW, y, valueW, h)
     doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
     doc.text(label, x0 + 2, y + 5)
     doc.setFont('helvetica', 'normal')
-    doc.text(lines, x1 + 2, y + 5)
+    doc.setFontSize(8)
+    doc.text(lines, x0 + labelW + 2, y + 5)
     y += h
   }
-  return y + 4
+  return y + 5
 }
 
-function ensureSpace(doc, y, need, margin = 12) {
-  if (y + need > 278) {
-    doc.addPage()
-    drawBorder(doc, margin)
-    return margin + 10
-  }
-  return y
-}
-
-function drawWrapped(doc, text, x, y, maxW, lineH = 3.6) {
-  const lines = doc.splitTextToSize(String(text || ''), maxW)
-  for (const line of lines) {
-    y = ensureSpace(doc, y, lineH + 1)
-    doc.text(line, x, y)
-    y += lineH
-  }
-  return y
-}
-
-function drawBilingualNoticeBody(doc, obs, startY) {
-  const margin = 12
-  const gap = 4
-  const colW = (210 - margin * 2 - 8 - gap) / 2
-  const xId = margin + 4
+/**
+ * Badan bilingual sejajar: kiri ID, kanan EN — tanpa label "Bahasa Indonesia/English"
+ * seperti contoh Notice of Safety Violation.
+ */
+function drawBilingualColumns(doc, obs, startY) {
+  const gap = 5
+  const colW = (contentWidth() - gap - 4) / 2
+  const xId = MARGIN + 2
   const xEn = xId + colW + gap
+  const lineH = 3.55
   const id = buildSocNarrativeId(obs)
   const en = buildSocNarrativeEn(obs)
 
   let y = startY
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('Bahasa Indonesia', xId, y)
-  doc.text('English', xEn, y)
-  y += 5
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  // Track both columns independently then sync
-  let yId = y
-  let yEn = y
-
-  const writePair = (textId, textEn) => {
-    const start = Math.max(yId, yEn)
-    yId = start
-    yEn = start
-    const beforeId = yId
-    const beforeEn = yEn
-    // measure by writing to temp - just write sequentially with sync after each block
-    const linesId = doc.splitTextToSize(textId, colW)
-    const linesEn = doc.splitTextToSize(textEn, colW)
-    const blockH = Math.max(linesId.length, linesEn.length) * 3.6 + 4
-    yId = ensureSpace(doc, start, blockH)
-    yEn = yId
-    doc.text(linesId, xId, yId)
-    doc.text(linesEn, xEn, yEn)
-    const next = yId + Math.max(linesId.length, linesEn.length) * 3.6 + 4
-    yId = next
-    yEn = next
-    void beforeId
-    void beforeEn
+  const writeSynced = (textId, textEn, { bold = false, size = 8.5 } = {}) => {
+    doc.setFont('helvetica', bold ? 'bold' : 'normal')
+    doc.setFontSize(size)
+    const linesId = doc.splitTextToSize(textId || '', colW)
+    const linesEn = doc.splitTextToSize(textEn || '', colW)
+    const rows = Math.max(linesId.length, linesEn.length)
+    y = ensureSpace(doc, y, rows * lineH + 3)
+    for (let i = 0; i < rows; i++) {
+      if (linesId[i]) doc.text(linesId[i], xId, y)
+      if (linesEn[i]) doc.text(linesEn[i], xEn, y)
+      y += lineH
+    }
+    y += 3.2
   }
 
-  writePair(id.intro, en.intro)
-  writePair(id.classification, en.classification)
+  writeSynced(id.intro, en.intro)
+  writeSynced(id.classification, en.classification)
 
-  y = Math.max(yId, yEn)
-  y = ensureSpace(doc, y, 8)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('Tindakan yang telah dilakukan:', xId, y)
-  doc.text('Actions Taken:', xEn, y)
-  y += 5
-  doc.setFont('helvetica', 'normal')
+  writeSynced('Tindakan yang telah dilakukan:', 'Actions Taken:', { bold: true, size: 9 })
 
-  const maxActions = Math.max(id.actions.length, en.actions.length)
-  for (let i = 0; i < maxActions; i++) {
-    const aId = id.actions[i] ? `${i + 1}. ${id.actions[i]}` : ''
-    const aEn = en.actions[i] ? `${i + 1}. ${en.actions[i]}` : ''
-    const linesId = doc.splitTextToSize(aId, colW)
-    const linesEn = doc.splitTextToSize(aEn, colW)
-    const h = Math.max(linesId.length, linesEn.length) * 3.6 + 2
-    y = ensureSpace(doc, y, h)
-    if (aId) doc.text(linesId, xId, y)
-    if (aEn) doc.text(linesEn, xEn, y)
-    y += h
+  const n = Math.max(id.actions.length, en.actions.length)
+  for (let i = 0; i < n; i++) {
+    const bulletId = id.actions[i] ? `${i + 1}. ${id.actions[i]}` : ''
+    const bulletEn = en.actions[i] ? `${i + 1}. ${en.actions[i]}` : ''
+    writeSynced(bulletId, bulletEn)
   }
 
-  y += 2
-  yId = y
-  yEn = y
-  writePair(id.closing, en.closing)
-  return Math.max(yId, yEn)
+  writeSynced(id.closing, en.closing)
+  return y
 }
 
-function drawClosingAndSignature(doc, y) {
-  const margin = 12
-  y = ensureSpace(doc, y, 40)
-  y = Math.max(y, 235)
+function drawSignature(doc, y) {
+  y = ensureSpace(doc, y, 42)
+  y = Math.max(y + 4, 238)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
-  doc.text('Hormat kami / Sincerely,', margin + 4, y)
-  doc.text('Tim HSSE / HSSE Team', margin + 4, y + 16)
-  doc.text('Health and Safety Officer', margin + 4, y + 22)
-  doc.text('Batu Ampar Container Terminal', margin + 4, y + 28)
+  doc.text('Sincerely,', MARGIN + 2, y)
+  y += 18
+  doc.setFont('helvetica', 'bold')
+  doc.text('Tim HSSE', MARGIN + 2, y)
+  y += 5
+  doc.setFont('helvetica', 'normal')
+  doc.text('Health and Safety Officer', MARGIN + 2, y)
+  y += 4.5
+  doc.text('PT. Batu Ampar Container Terminal', MARGIN + 2, y)
 
-  doc.setFontSize(8)
-  doc.setTextColor(60, 60, 60)
-  doc.text(`Tanggal export: ${fmtExportDate()}`, 210 - margin - 4, 285, { align: 'right' })
+  doc.setFontSize(7.5)
+  doc.setTextColor(80, 80, 80)
+  doc.text(`Tanggal export: ${fmtExportDate()}`, 210 - MARGIN - 2, 287, { align: 'right' })
 }
 
-/** Report 1 — PDF SOC (gaya Notice padat bilingual) */
+/** PDF SOC — layout Notice of Safety Observation (bilingual sejajar) */
 export async function exportObservationPdf(obs) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const margin = 12
   const logo = await loadLogoDataUrl()
   const soc = resolveSocNumber(obs)
 
-  drawBorder(doc, margin)
-  drawHeader(doc, logo, margin)
-
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor(0, 0, 0)
-  doc.text('NOTICE OF SAFETY OBSERVATION', 105, margin + 22, { align: 'center' })
-  doc.setFontSize(10)
-  doc.text('LAPORAN OBSERVASI KESELAMATAN', 105, margin + 28, { align: 'center' })
-
-  let y = drawMetaTable(doc, obs, margin + 34)
-  y = drawBilingualNoticeBody(doc, obs, y)
-  drawClosingAndSignature(doc, y + 6)
+  drawPageFrame(doc)
+  let y = drawNoticeHeader(doc, logo, 'NOTICE OF SAFETY OBSERVATION', obs)
+  y = drawRecipientTable(doc, obs, y)
+  y = drawBilingualColumns(doc, obs, y)
+  drawSignature(doc, y)
 
   doc.save(`SOC-${soc}.pdf`)
 }
 
-function drawSectionTitle(doc, title, y, margin = 12) {
-  y = ensureSpace(doc, y, 10, margin)
-  doc.setDrawColor(243, 112, 33)
-  doc.setLineWidth(0.6)
-  doc.line(margin + 4, y + 1.5, margin + 8, y + 1.5)
+function drawSectionBanner(doc, titleId, titleEn, y) {
+  const gap = 5
+  const colW = (contentWidth() - gap - 4) / 2
+  const xId = MARGIN + 2
+  const xEn = xId + colW + gap
+  y = ensureSpace(doc, y, 8)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10)
+  doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
-  doc.text(title, margin + 10, y + 2)
-  return y + 8
+  doc.text(titleId, xId, y)
+  doc.text(titleEn, xEn, y)
+  y += 2
+  doc.setDrawColor(180, 180, 180)
+  doc.setLineWidth(0.2)
+  doc.line(xId, y, xId + colW, y)
+  doc.line(xEn, y, xEn + colW, y)
+  return y + 5
 }
 
-function drawLabeledBlock(doc, label, text, y, margin = 12) {
-  if (!text) return y
-  y = ensureSpace(doc, y, 12, margin)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(40, 40, 40)
-  doc.text(label, margin + 4, y)
-  y += 4
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(0, 0, 0)
-  y = drawWrapped(doc, text, margin + 4, y, 210 - margin * 2 - 8, 3.7)
-  return y + 3
+function writeInvPair(doc, textId, textEn, y, { bold = false, size = 8 } = {}) {
+  const gap = 5
+  const colW = (contentWidth() - gap - 4) / 2
+  const xId = MARGIN + 2
+  const xEn = xId + colW + gap
+  const lineH = 3.5
+  doc.setFont('helvetica', bold ? 'bold' : 'normal')
+  doc.setFontSize(size)
+  const linesId = doc.splitTextToSize(textId || '', colW)
+  const linesEn = doc.splitTextToSize(textEn || '', colW)
+  const rows = Math.max(linesId.length, linesEn.length)
+  y = ensureSpace(doc, y, rows * lineH + 2)
+  for (let i = 0; i < rows; i++) {
+    if (linesId[i]) doc.text(linesId[i], xId, y)
+    if (linesEn[i]) doc.text(linesEn[i], xEn, y)
+    y += lineH
+  }
+  return y + 2.8
 }
 
-/** Report 2 — PDF investigasi mendalam (isi penuh) */
+/** PDF Investigasi — juga bilingual kiri ID / kanan EN */
 export async function exportInvestigationPdf(obs) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const margin = 12
   const logo = await loadLogoDataUrl()
   const soc = resolveSocNumber(obs)
   const n = buildInvestigationNarrative(obs)
   const inv = n.inv
+  const idN = buildSocNarrativeId(obs)
+  const enN = buildSocNarrativeEn(obs)
 
-  drawBorder(doc, margin)
-  drawHeader(doc, logo, margin)
+  drawPageFrame(doc)
+  let y = drawNoticeHeader(doc, logo, 'INVESTIGATION REPORT', obs)
+  y = drawRecipientTable(doc, obs, y)
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.setTextColor(0, 0, 0)
-  doc.text('INVESTIGATION REPORT', 105, margin + 22, { align: 'center' })
-  doc.setFontSize(10)
-  doc.text('LAPORAN HASIL INVESTIGASI SOC', 105, margin + 28, { align: 'center' })
+  y = drawSectionBanner(doc, 'A. Ringkasan Investigasi', 'A. Investigation Summary', y)
+  y = writeInvPair(doc, n.ringkasanId, n.ringkasanEn, y)
+  y = writeInvPair(doc, idN.classification, enN.classification, y)
 
-  let y = drawMetaTable(doc, obs, margin + 34)
-
-  y = drawSectionTitle(doc, 'A. Ringkasan Investigasi / Investigation Summary', y)
-  y = drawLabeledBlock(doc, 'Bahasa Indonesia', n.ringkasanId, y)
-  y = drawLabeledBlock(doc, 'English', n.ringkasanEn, y)
-  y = drawLabeledBlock(
+  y = drawSectionBanner(doc, 'B. Analisis 5W + 1H', 'B. 5W + 1H Analysis', y)
+  const w5 = [
+    [
+      'WHAT',
+      inv.what || `Observasi ${categoryLabel(obs.kategori)} di ${obs.lokasi_teks}: ${obs.deskripsi || '—'}`,
+      inv.what ||
+        `${categoryLabel(obs.kategori)} observation at ${obs.lokasi_teks}: ${obs.deskripsi || '—'}`,
+    ],
+    [
+      'WHERE',
+      inv.where || `Lokasi: ${obs.lokasi_teks}. Area operasional Batu Ampar Container Terminal.`,
+      inv.where || `Location: ${obs.lokasi_teks}. Batu Ampar Container Terminal operational area.`,
+    ],
+    [
+      'WHEN',
+      inv.when || `Dilaporkan pada ${fmtDateEn(obs.tanggal_waktu || obs.created_at)}.`,
+      inv.when || `Reported on ${fmtDateEn(obs.tanggal_waktu || obs.created_at)}.`,
+    ],
+    [
+      'WHY',
+      inv.why ||
+        'Terdapat celah pada deteksi dini, komunikasi risiko, dan/atau kepatuhan terhadap prosedur operasional.',
+      inv.why ||
+        'Gaps were identified in early detection, risk communication, and/or adherence to operational procedures.',
+    ],
+    [
+      'HOW',
+      inv.how ||
+        (obs.stop_work
+          ? 'Kondisi berkembang hingga memerlukan Stop Work Authority.'
+          : 'Kondisi teridentifikasi melalui pelaporan SOC sebelum berkembang menjadi insiden lebih serius.'),
+      inv.how ||
+        (obs.stop_work
+          ? 'The condition escalated to the point where Stop Work Authority was required.'
+          : 'The condition was identified through the SOC report before escalating into a more serious incident.'),
+    ],
+  ]
+  for (const [label, tId, tEn] of w5) {
+    y = writeInvPair(doc, `${label}: ${tId}`, `${label}: ${tEn}`, y)
+  }
+  y = writeInvPair(
     doc,
-    'Klasifikasi',
-    `${categoryLabel(obs.kategori)} · Risiko ${obs.tingkat_risiko || '—'} · HiPo: ${obs.is_hipo ? 'Ya' : 'Tidak'} · Stop Work: ${obs.stop_work ? 'Ya' : 'Tidak'}`,
-    y,
-  )
-
-  y = drawSectionTitle(doc, 'B. Analisis Root Cause — 5W + 1H (Deep Dive)', y)
-  y = drawLabeledBlock(
-    doc,
-    'WHAT (Apa insiden/potensi bahaya utama?)',
-    inv.what ||
-      `Observasi ${categoryLabel(obs.kategori)} di ${obs.lokasi_teks}: ${obs.deskripsi || '—'}`,
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'WHERE (Lokasi spesifik & kerentanan area)',
-    inv.where ||
-      `Lokasi: ${obs.lokasi_teks || '—'}. Area operasional Batu Ampar Container Terminal dengan paparan aktivitas bongkar muat / pergerakan alat.`,
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'WHEN (Waktu kejadian & pengawasan terakhir)',
-    inv.when ||
-      `Kejadian dilaporkan pada ${fmtDateEn(obs.tanggal_waktu || obs.created_at)}. Interval pengawasan terakhir perlu diverifikasi terhadap jadwal patrol HSSE dan pengawas area.`,
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'WHY (Mengapa bahaya muncul tanpa terdeteksi)',
-    inv.why ||
-      'Indikasi adanya celah pada deteksi dini, komunikasi risiko, dan/atau kepatuhan terhadap prosedur operasional standar di lokasi.',
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'HOW (Bagaimana bahaya berkembang hingga eskalasi / Stop Work)',
-    inv.how ||
-      (obs.stop_work
-        ? 'Kondisi berkembang hingga memerlukan Stop Work Authority agar pekerjaan tidak berlanjut dalam kondisi tidak aman.'
-        : 'Kondisi teridentifikasi melalui pelaporan SOC sebelum sempat berkembang menjadi insiden lebih serius.'),
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'Ringkasan 5W+1H (kalimat hasil)',
-    n.summary5 ||
-      `Observasi di ${obs.lokasi_teks} terkait ${obs.deskripsi || 'kondisi/tindakan tidak aman'} telah dianalisis melalui pendekatan 5W+1H untuk memetakan fakta dan titik kegagalan pengendalian.`,
+    `Ringkasan: ${n.summary5 || idN.intro}`,
+    `Summary: ${n.summary5 || enN.intro}`,
     y,
   )
 
-  y = drawSectionTitle(doc, 'C. Deep Dive Analysis — 5 Whys', y)
-  y = drawLabeledBlock(
-    doc,
-    'Why 1 (Gejala Lapangan)',
-    inv.why1 ||
-      `Mengapa kondisi/tindakan tersebut muncul di lapangan? Karena ${obs.deskripsi || 'praktik atau kondisi tidak aman teridentifikasi di area kerja'}.`,
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'Why 2 (Kegagalan Pemeriksaan)',
-    inv.why2 ||
-      'Mengapa kondisi berisiko masih dapat berlangsung? Karena pemeriksaan pra-operasional / pengawasan area belum sepenuhnya menangkap penyimpangan tersebut.',
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'Why 3 (Kegagalan Prosedur / Individu)',
-    inv.why3 ||
-      'Mengapa prosedur atau perilaku individu tidak mencegah kejadian sejak awal? Karena pemahaman, disiplin, atau penerapan SOP di titik kerja masih perlu diperkuat.',
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'Why 4 (Kegagalan Pengawasan & Kontrol)',
-    inv.why4 ||
-      'Mengapa pengawasan dan kontrol manajemen/mitra belum memadai? Karena frekuensi monitoring, verifikasi lapangan, atau standar kelayakan pihak terkait belum konsisten.',
-    y,
-  )
-  y = drawLabeledBlock(
-    doc,
-    'Why 5 (Akar Masalah Sistemik)',
-    inv.why5 ||
-      'Mengapa sistem pengendalian risiko belum efektif secara menyeluruh? Karena tata kelola risiko operasional masih memiliki celah pada deteksi, eskalasi, dan penegakan standar keselamatan.',
-    y,
-  )
+  y = drawSectionBanner(doc, 'C. Deep Dive — 5 Whys', 'C. Deep Dive — 5 Whys', y)
+  const whys = [
+    [
+      inv.why1 ||
+        `Why 1 (Gejala lapangan): Kondisi/tindakan muncul karena ${obs.deskripsi || 'praktik tidak aman di area kerja'}.`,
+      inv.why1 ||
+        `Why 1 (Field symptom): The condition/act arose because ${obs.deskripsi || 'an unsafe practice was present in the work area'}.`,
+    ],
+    [
+      inv.why2 ||
+        'Why 2 (Kegagalan pemeriksaan): Pemeriksaan/pengawasan area belum sepenuhnya menangkap penyimpangan.',
+      inv.why2 ||
+        'Why 2 (Inspection failure): Area inspection/supervision did not fully capture the deviation.',
+    ],
+    [
+      inv.why3 ||
+        'Why 3 (Kegagalan prosedur/individu): Pemahaman atau penerapan SOP di titik kerja masih perlu diperkuat.',
+      inv.why3 ||
+        'Why 3 (Procedure/individual failure): Understanding or application of SOP at the work point still requires reinforcement.',
+    ],
+    [
+      inv.why4 ||
+        'Why 4 (Kegagalan pengawasan & kontrol): Monitoring dan verifikasi lapangan belum konsisten.',
+      inv.why4 ||
+        'Why 4 (Supervision & control failure): Field monitoring and verification were not consistent.',
+    ],
+    [
+      inv.why5 ||
+        'Why 5 (Akar sistemik): Tata kelola risiko operasional masih memiliki celah pada deteksi, eskalasi, dan penegakan standar.',
+      inv.why5 ||
+        'Why 5 (Systemic root): Operational risk governance still has gaps in detection, escalation, and standard enforcement.',
+    ],
+  ]
+  for (const [tId, tEn] of whys) {
+    y = writeInvPair(doc, tId, tEn, y)
+  }
 
-  y = drawSectionTitle(doc, 'D. Kesimpulan & Tindak Lanjut', y)
-  y = drawLabeledBlock(
+  y = drawSectionBanner(doc, 'D. Kesimpulan & Tindak Lanjut', 'D. Conclusion & Follow-up', y)
+  y = writeInvPair(
     doc,
-    'Root Cause (Akar Masalah Utama)',
-    inv.root_cause ||
-      obs.root_cause ||
-      'Akar masalah mengarah pada lemahnya kombinasi deteksi dini, kepatuhan SOP, dan pengawasan operasional di area terdampak.',
+    `Root Cause: ${inv.root_cause || obs.root_cause || 'Lemahnya deteksi dini, kepatuhan SOP, dan pengawasan operasional di area terdampak.'}`,
+    `Root Cause: ${inv.root_cause || obs.root_cause || 'Weak early detection, SOP compliance, and operational supervision in the affected area.'}`,
     y,
   )
-  y = drawLabeledBlock(
+  y = writeInvPair(
     doc,
-    'Corrective Action',
-    inv.corrective_action ||
-      'Perkuat briefing/safety induction, perketat pengawasan area, pastikan kepatuhan SOP, dan verifikasi efektivitas tindakan sebelum area dinyatakan aman kembali.',
+    `Corrective Action: ${inv.corrective_action || 'Perkuat briefing/safety induction, perketat pengawasan area, pastikan kepatuhan SOP, dan verifikasi efektivitas tindakan.'}`,
+    `Corrective Action: ${inv.corrective_action || 'Strengthen briefing/safety induction, tighten area supervision, ensure SOP compliance, and verify action effectiveness.'}`,
     y,
   )
-  y = drawLabeledBlock(
+  y = writeInvPair(
     doc,
-    'Finding Observation',
-    n.finding || obs.deskripsi || '—',
+    `Finding: ${n.finding || obs.deskripsi || '—'}`,
+    `Finding: ${n.finding || obs.deskripsi || '—'}`,
     y,
   )
-  y = drawLabeledBlock(
+  y = writeInvPair(
     doc,
-    'Recommendation',
-    n.recommendation ||
-      'Lakukan monitoring berkala, refreshment safety awareness, dan evaluasi kontrol operasional agar kejadian serupa tidak berulang.',
+    `Recommendation: ${n.recommendation || 'Lakukan monitoring berkala dan evaluasi kontrol operasional agar kejadian serupa tidak berulang.'}`,
+    `Recommendation: ${n.recommendation || 'Conduct periodic monitoring and evaluate operational controls to prevent recurrence.'}`,
     y,
   )
-  y = drawLabeledBlock(doc, 'Investigator', n.investigator, y)
+  y = writeInvPair(doc, `Investigator: ${n.investigator}`, `Investigator: ${n.investigator}`, y)
 
-  const idClose = buildSocNarrativeId(obs).closing
-  const enClose = buildSocNarrativeEn(obs).closing
-  y = drawLabeledBlock(doc, 'Penutup (ID)', idClose, y)
-  y = drawLabeledBlock(doc, 'Closing (EN)', enClose, y)
+  y = writeInvPair(doc, 'Tindakan yang telah dilakukan:', 'Actions Taken:', y, { bold: true, size: 9 })
+  const maxA = Math.max(idN.actions.length, enN.actions.length)
+  for (let i = 0; i < maxA; i++) {
+    y = writeInvPair(
+      doc,
+      idN.actions[i] ? `${i + 1}. ${idN.actions[i]}` : '',
+      enN.actions[i] ? `${i + 1}. ${enN.actions[i]}` : '',
+      y,
+    )
+  }
 
-  drawClosingAndSignature(doc, y + 4)
+  y = writeInvPair(doc, idN.closing, enN.closing, y)
+  drawSignature(doc, y)
+
   doc.save(`SOC-Investigasi-${soc}.pdf`)
 }
