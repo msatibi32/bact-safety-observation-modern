@@ -1,4 +1,5 @@
 import { PHOTO_BUCKET, supabase } from './supabase'
+import { investigationPlainSummary } from './investigation'
 
 function parseReporterPosition(raw) {
   const text = raw || ''
@@ -34,7 +35,9 @@ function toAppShape(row) {
     status: row.status,
     triage_notes: row.triage_notes || '',
     investigation_notes: row.investigation_notes || '',
+    investigation_data: row.investigation_data || null,
     root_cause: row.root_cause || '',
+    finding_observation: row.finding_observation || '',
     verification_notes: row.verification_notes || '',
     verified_at: row.verified_at,
     verified_by: row.verified_by || '',
@@ -45,6 +48,11 @@ function toAppShape(row) {
     is_anonymous: row.is_anonymous ?? false,
     escalated: row.escalated ?? false,
     escalation_due_at: row.escalation_due_at,
+    requires_investigation: row.requires_investigation ?? false,
+    soc_number: row.soc_number || '',
+    pdf_to: row.pdf_to || '',
+    pdf_pic: row.pdf_pic || '',
+    investigator_name: row.investigator_name || '',
   }
 }
 
@@ -190,8 +198,16 @@ export async function updateObservation(id, patch, previous) {
   if ('catatan_penutupan' in patch) dbPatch.closing_notes = patch.catatan_penutupan || null
   if ('triage_notes' in patch) dbPatch.triage_notes = patch.triage_notes || null
   if ('investigation_notes' in patch) dbPatch.investigation_notes = patch.investigation_notes || null
+  if ('investigation_data' in patch) dbPatch.investigation_data = patch.investigation_data || null
   if ('root_cause' in patch) dbPatch.root_cause = patch.root_cause || null
+  if ('finding_observation' in patch) dbPatch.finding_observation = patch.finding_observation || null
+  if ('rekomendasi' in patch) dbPatch.recommendation = patch.rekomendasi || null
   if ('verification_notes' in patch) dbPatch.verification_notes = patch.verification_notes || null
+  if ('requires_investigation' in patch) dbPatch.requires_investigation = Boolean(patch.requires_investigation)
+  if ('soc_number' in patch) dbPatch.soc_number = patch.soc_number || null
+  if ('pdf_to' in patch) dbPatch.pdf_to = patch.pdf_to || null
+  if ('pdf_pic' in patch) dbPatch.pdf_pic = patch.pdf_pic || null
+  if ('investigator_name' in patch) dbPatch.investigator_name = patch.investigator_name || null
   if ('is_hipo' in patch) dbPatch.is_hipo = patch.is_hipo
   if ('kategori' in patch) dbPatch.category = patch.kategori
   if ('tingkat_risiko' in patch) {
@@ -212,12 +228,26 @@ export async function updateObservation(id, patch, previous) {
     }
   }
 
-  const { data: row, error } = await supabase
-    .from('observations')
-    .update(dbPatch)
-    .eq('id', id)
-    .select()
-    .single()
+  let row = null
+  let error = null
+  ;({ data: row, error } = await supabase.from('observations').update(dbPatch).eq('id', id).select().single())
+
+  // Fallback jika kolom v8 belum ada di DB
+  if (error && /column|schema|investigation_data|finding_observation|pdf_to|pdf_pic|requires_investigation|soc_number|investigator_name/i.test(error.message)) {
+    const legacy = { ...dbPatch }
+    delete legacy.investigation_data
+    delete legacy.finding_observation
+    delete legacy.pdf_to
+    delete legacy.pdf_pic
+    delete legacy.requires_investigation
+    delete legacy.soc_number
+    delete legacy.investigator_name
+    if (patch.investigation_data) {
+      legacy.investigation_notes = investigationPlainSummary(patch.investigation_data)
+      if (patch.investigation_data.root_cause) legacy.root_cause = patch.investigation_data.root_cause
+    }
+    ;({ data: row, error } = await supabase.from('observations').update(legacy).eq('id', id).select().single())
+  }
 
   if (error) throw new Error(error.message)
 
@@ -226,7 +256,7 @@ export async function updateObservation(id, patch, previous) {
     changes.push(`Status: ${previous.status} → ${patch.status}`)
   }
   if (previous && patch.pic_assigned !== undefined && previous.pic_assigned !== patch.pic_assigned) {
-    changes.push(`PIC: ${previous.pic_assigned || '—'} → ${patch.pic_assigned || '—'}`)
+    changes.push(`Departemen follow-up: ${previous.pic_assigned || '—'} → ${patch.pic_assigned || '—'}`)
   }
   if (previous && patch.kategori && previous.kategori !== patch.kategori) {
     changes.push(`Kategori: ${previous.kategori || '—'} → ${patch.kategori}`)
@@ -234,15 +264,67 @@ export async function updateObservation(id, patch, previous) {
   if (previous && patch.tingkat_risiko && previous.tingkat_risiko !== patch.tingkat_risiko) {
     changes.push(`Risiko: ${previous.tingkat_risiko || '—'} → ${patch.tingkat_risiko}`)
   }
+  if (previous && patch.requires_investigation !== undefined && previous.requires_investigation !== patch.requires_investigation) {
+    changes.push(patch.requires_investigation ? 'Ditandai lanjut investigasi' : 'Investigasi dibatalkan')
+  }
   if (changes.length > 0) {
     try {
       await logAudit(id, 'Perubahan laporan', changes.join('; '))
+      await logActivity('Perubahan laporan', changes.join('; '), id)
     } catch {
       /* migrasi belum dijalankan */
     }
   }
 
   return toAppShape(row)
+}
+
+export async function logActivity(action, details = '', observationId = null) {
+  try {
+    const { data: auth } = await supabase.auth.getUser()
+    const email = auth.user?.email || 'Admin'
+    const role = auth.user?.user_metadata?.role || 'hse'
+    await supabase.from('activity_logs').insert({
+      action,
+      details,
+      observation_id: observationId,
+      actor_email: email,
+      actor_role: role,
+    })
+  } catch {
+    /* activity_logs mungkin belum ada */
+  }
+}
+
+export async function getActivityLogs({ since, limit = 200 } = {}) {
+  let q = supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(limit)
+  if (since) q = q.gte('created_at', since)
+  const { data, error } = await q
+  if (error) {
+    // Fallback: pakai audit_logs global jika activity_logs belum ada
+    let aq = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(limit)
+    if (since) aq = aq.gte('created_at', since)
+    const fallback = await aq
+    if (fallback.error) throw new Error(error.message)
+    return (fallback.data || []).map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      actor_email: row.actor_email || 'Sistem',
+      actor_role: '',
+      action: row.action,
+      details: row.details || '',
+      observation_id: row.observation_id,
+    }))
+  }
+  return data || []
+}
+
+export async function getAllAuditLogs({ since, limit = 300 } = {}) {
+  let q = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(limit)
+  if (since) q = q.gte('created_at', since)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  return (data || []).map(toAuditShape)
 }
 
 // ─── CAPA ────────────────────────────────────────────────────────────────────

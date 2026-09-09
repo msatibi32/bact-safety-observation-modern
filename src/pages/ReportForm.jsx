@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import BrandHeader from '../components/BrandHeader'
 import EmployeeNameField from '../components/EmployeeNameField'
 import { CameraIcon, CheckCircleIcon, PinIcon } from '../components/Icon'
-import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS } from '../lib/constants'
+import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../lib/constants'
 import { isBactCompany } from '../lib/employees'
 import { addObservation } from '../lib/store'
 import { flushOfflineQueue, isOnline, saveOfflineReport } from '../lib/offlineQueue'
@@ -15,6 +15,7 @@ const emptyForm = {
   nama_perusahaan_lainnya: '',
   tanggal_waktu: new Date().toISOString().slice(0, 16),
   lokasi_teks: '',
+  lokasi_lainnya: '',
   deskripsi: '',
   stop_work: false,
 }
@@ -102,10 +103,19 @@ export default function ReportForm() {
     setSubmitError('')
     setSubmitting(true)
     try {
+      const lokasiResolved =
+        form.lokasi_teks === 'Other' ? form.lokasi_lainnya.trim() : form.lokasi_teks
+      if (!lokasiResolved) {
+        setSubmitError('Isi lokasi kejadian.')
+        setSubmitting(false)
+        return
+      }
+
       const payload = {
         ...form,
         nama_perusahaan:
           form.nama_perusahaan === 'Lainnya' ? form.nama_perusahaan_lainnya : form.nama_perusahaan,
+        lokasi_teks: lokasiResolved,
         lokasi_gps: gps,
         foto: photos.map((p) => p.file),
         is_anonymous: false,
@@ -265,14 +275,29 @@ export default function ReportForm() {
             </Field>
 
             <Field label="Lokasi kejadian" required>
-              <input
-                type="text"
+              <select
                 required
                 value={form.lokasi_teks}
                 onChange={(e) => update('lokasi_teks', e.target.value)}
                 className="input"
-                placeholder="Contoh: Area Tangki 3"
-              />
+              >
+                <option value="">— Pilih lokasi —</option>
+                {LOCATION_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              {form.lokasi_teks === 'Other' && (
+                <input
+                  type="text"
+                  required
+                  value={form.lokasi_lainnya}
+                  onChange={(e) => update('lokasi_lainnya', e.target.value)}
+                  className="input mt-2"
+                  placeholder="Tulis lokasi lainnya"
+                />
+              )}
               <div className="mt-2 flex items-center gap-3">
                 <button
                   type="button"

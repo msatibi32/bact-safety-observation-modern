@@ -87,3 +87,78 @@ export function monthlyReportCount(observations) {
   const start = new Date(now.getFullYear(), now.getMonth(), 1)
   return observations.filter((o) => new Date(o.created_at || o.tanggal_waktu) >= start).length
 }
+
+export function departmentStats(observations) {
+  const map = {}
+  for (const o of observations) {
+    const name = o.departemen || '—'
+    if (!map[name]) map[name] = { name, total: 0, open: 0, closed: 0 }
+    map[name].total++
+    if (o.status === 'Closed') map[name].closed++
+    else if (o.status !== 'Rejected') map[name].open++
+  }
+  return Object.values(map).sort((a, b) => b.total - a.total)
+}
+
+export function topLocations(observations, limit = 8) {
+  const counts = {}
+  for (const o of observations) {
+    const loc = (o.lokasi_teks || '—').trim()
+    counts[loc] = (counts[loc] || 0) + 1
+  }
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name, value]) => ({ name, value }))
+}
+
+export function monthlyTrend(observations) {
+  const months = {}
+  for (const o of observations) {
+    const d = new Date(o.created_at || o.tanggal_waktu)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' })
+    if (!months[key]) months[key] = { key, label, count: 0, investigation: 0 }
+    months[key].count++
+    if (o.requires_investigation || o.investigation_data || o.root_cause) {
+      months[key].investigation++
+    }
+  }
+  return Object.values(months).sort((a, b) => a.key.localeCompare(b.key))
+}
+
+export function investigationCount(observations) {
+  return observations.filter(
+    (o) => o.requires_investigation || o.investigation_data || (o.root_cause && o.root_cause.length > 10),
+  ).length
+}
+
+/** Performa aktor HSE dari audit logs — Super Admin only. */
+export function hsePerformanceFromAudits(observations, auditLogs) {
+  const byActor = {}
+  for (const log of auditLogs || []) {
+    const email = log.actor_email || '—'
+    if (!byActor[email]) {
+      byActor[email] = { email, changes: 0, investigations: 0, closed: 0, obsIds: new Set() }
+    }
+    byActor[email].changes++
+    if (log.observation_id) byActor[email].obsIds.add(log.observation_id)
+    const details = (log.details || '').toLowerCase()
+    const action = (log.action || '').toLowerCase()
+    if (details.includes('investigasi') || action.includes('investigasi')) {
+      byActor[email].investigations++
+    }
+    if (details.includes('→ closed') || details.includes('status: ') && details.includes('closed')) {
+      byActor[email].closed++
+    }
+  }
+  return Object.values(byActor)
+    .map((a) => ({
+      email: a.email,
+      changes: a.changes,
+      touchedReports: a.obsIds.size,
+      investigations: a.investigations,
+      closed: a.closed,
+    }))
+    .sort((a, b) => b.changes - a.changes)
+}

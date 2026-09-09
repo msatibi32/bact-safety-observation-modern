@@ -1,4 +1,5 @@
 export const ROLES = {
+  SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
   HSE: 'hse',
   PIC: 'pic',
@@ -6,14 +7,15 @@ export const ROLES = {
 }
 
 export const ROLE_LABELS = {
-  admin: 'Administrator',
+  super_admin: 'Super Admin',
+  admin: 'Super Admin',
   hse: 'HSE Officer',
   pic: 'PIC / Departemen',
   viewer: 'Viewer (read-only)',
 }
 
-/** Hierarchy: higher index = more access */
-const RANK = { viewer: 0, pic: 1, hse: 2, admin: 3 }
+/** Hierarchy: higher index = more access. admin & super_admin = pantau semua. */
+const RANK = { viewer: 0, pic: 1, hse: 2, admin: 3, super_admin: 4 }
 
 export function getUserRole(user) {
   return user?.user_metadata?.role || ROLES.HSE
@@ -28,6 +30,12 @@ export function hasMinRole(user, minRole) {
   return (RANK[current] ?? 0) >= (RANK[minRole] ?? 0)
 }
 
+/** Super Admin: role admin atau super_admin — performa HSE + activity log. */
+export function isSuperAdmin(user) {
+  const role = getUserRole(user)
+  return role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN
+}
+
 export function canEditObservations(user) {
   return hasMinRole(user, ROLES.PIC)
 }
@@ -37,11 +45,19 @@ export function canClassifyObservations(user) {
 }
 
 export function canManageKpi(user) {
-  return hasMinRole(user, ROLES.ADMIN)
+  return isSuperAdmin(user)
 }
 
 export function canManageNotifications(user) {
   return hasMinRole(user, ROLES.HSE)
+}
+
+export function canViewHsePerformance(user) {
+  return isSuperAdmin(user)
+}
+
+export function canViewActivityLog(user) {
+  return isSuperAdmin(user)
 }
 
 export function filterObservationsForRole(observations, user) {

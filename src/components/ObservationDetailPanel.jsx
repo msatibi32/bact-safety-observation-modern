@@ -1,23 +1,30 @@
 import { useEffect, useState } from 'react'
-import AuditTrail from './AuditTrail'
 import { HiPoBadge, RiskBadge, StatusBadge } from './Badge'
-import CapaPanel from './CapaPanel'
+import InvestigationForm from './InvestigationForm'
+import RecommendationPanel from './RecommendationPanel'
 import { BuildingIcon, PinIcon } from './Icon'
 import {
+  DEPARTMENT_OPTIONS,
   KATEGORI_OPTIONS,
-  PIC_OPTIONS,
   RISIKO_OPTIONS,
   STATUS_OPTIONS,
   computeIsHiPo,
   isUnclassifiedObservation,
 } from '../lib/constants'
-import { exportObservationPdf } from '../lib/pdf'
+import {
+  buildSummary5W1H,
+  hasInvestigationContent,
+  investigationPlainSummary,
+  parseInvestigationData,
+} from '../lib/investigation'
+import { exportInvestigationPdf, exportObservationPdf } from '../lib/pdf'
 import { canClassifyObservations, canEditObservations } from '../lib/roles'
+import { resolveSocNumber } from '../lib/socNumber'
 import { useUser } from './RequireRole'
 
-const TABS = ['Detail', 'Investigasi', 'CAPA', 'Audit']
+const TABS = ['Detail', 'Investigasi', 'Rekomendasi']
 
-export default function ObservationDetailPanel({ observation, onSave }) {
+export default function ObservationDetailPanel({ observation, onSave, allObservations = [] }) {
   const user = useUser()
   const canEdit = canEditObservations(user)
   const canClassify = canClassifyObservations(user)
@@ -29,12 +36,21 @@ export default function ObservationDetailPanel({ observation, onSave }) {
   const [risiko, setRisiko] = useState(pendingClass ? '' : observation.tingkat_risiko)
   const [catatan, setCatatan] = useState(observation.catatan_penutupan || '')
   const [triageNotes, setTriageNotes] = useState(observation.triage_notes || '')
-  const [investigationNotes, setInvestigationNotes] = useState(observation.investigation_notes || '')
-  const [rootCause, setRootCause] = useState(observation.root_cause || '')
   const [verificationNotes, setVerificationNotes] = useState(observation.verification_notes || '')
+  const [requiresInvestigation, setRequiresInvestigation] = useState(
+    Boolean(observation.requires_investigation),
+  )
+  const [pdfTo, setPdfTo] = useState(observation.pdf_to || '')
+  const [pdfPic, setPdfPic] = useState(observation.pdf_pic || '')
+  const [inv, setInv] = useState(() => parseInvestigationData(observation))
+  const [finding, setFinding] = useState(observation.finding_observation || '')
+  const [recommendation, setRecommendation] = useState(observation.rekomendasi || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [pdfBusy, setPdfBusy] = useState('')
+
+  const socNo = resolveSocNumber(observation, allObservations)
 
   useEffect(() => {
     const pending = isUnclassifiedObservation(observation)
@@ -44,13 +60,16 @@ export default function ObservationDetailPanel({ observation, onSave }) {
     setRisiko(pending ? '' : observation.tingkat_risiko)
     setCatatan(observation.catatan_penutupan || '')
     setTriageNotes(observation.triage_notes || '')
-    setInvestigationNotes(observation.investigation_notes || '')
-    setRootCause(observation.root_cause || '')
     setVerificationNotes(observation.verification_notes || '')
+    setRequiresInvestigation(Boolean(observation.requires_investigation))
+    setPdfTo(observation.pdf_to || '')
+    setPdfPic(observation.pdf_pic || '')
+    setInv(parseInvestigationData(observation))
+    setFinding(observation.finding_observation || '')
+    setRecommendation(observation.rekomendasi || '')
   }, [observation])
 
-  async function handleSubmit(e) {
-    e.preventDefault()
+  async function persist(patchExtra = {}) {
     setError('')
     if (canClassify && (kategori ? !risiko : Boolean(risiko))) {
       setError('Isi kategori dan risiko bersama.')
@@ -58,14 +77,27 @@ export default function ObservationDetailPanel({ observation, onSave }) {
     }
     setSaving(true)
     try {
+      const invPayload = {
+        ...inv,
+        summary_5w1h: inv.summary_5w1h || buildSummary5W1H(inv),
+      }
       const patch = {
         pic_assigned: pic,
         status,
         catatan_penutupan: catatan,
         triage_notes: triageNotes,
-        investigation_notes: investigationNotes,
-        root_cause: rootCause,
         verification_notes: verificationNotes,
+        requires_investigation: requiresInvestigation,
+        pdf_to: pdfTo,
+        pdf_pic: pdfPic,
+        investigation_data: invPayload,
+        investigation_notes: investigationPlainSummary(invPayload),
+        root_cause: invPayload.root_cause || '',
+        investigator_name: invPayload.investigator_name || '',
+        finding_observation: finding,
+        rekomendasi: recommendation,
+        soc_number: observation.soc_number || socNo,
+        ...patchExtra,
       }
       if (canClassify && kategori && risiko) {
         patch.kategori = kategori
@@ -87,7 +119,35 @@ export default function ObservationDetailPanel({ observation, onSave }) {
     }
   }
 
-  const needsInvestigation = observation.is_hipo || risiko === 'High'
+  async function handleSubmit(e) {
+    e.preventDefault()
+    await persist()
+  }
+
+  async function handlePdf(type) {
+    setPdfBusy(type)
+    try {
+      const enriched = {
+        ...observation,
+        soc_number: observation.soc_number || socNo,
+        pdf_to: pdfTo || observation.pdf_to,
+        pdf_pic: pdfPic || observation.pdf_pic,
+        investigation_data: inv,
+        finding_observation: finding,
+        rekomendasi: recommendation,
+        root_cause: inv.root_cause || observation.root_cause,
+      }
+      if (type === 'soc') await exportObservationPdf(enriched)
+      else await exportInvestigationPdf(enriched)
+    } catch {
+      setError('Gagal export PDF.')
+    } finally {
+      setPdfBusy('')
+    }
+  }
+
+  const suggestedInvestigate = observation.is_hipo || risiko === 'High'
+  const invActive = requiresInvestigation || hasInvestigationContent(inv)
 
   return (
     <div className="flex max-h-none flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 md:max-h-[calc(100vh-12rem)]">
@@ -105,21 +165,40 @@ export default function ObservationDetailPanel({ observation, onSave }) {
               {observation.stop_work && (
                 <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-medium text-white">Stop Work</span>
               )}
+              {requiresInvestigation && (
+                <span className="rounded-full bg-amber-600/80 px-2 py-0.5 text-[10px] font-medium text-white">
+                  Investigasi
+                </span>
+              )}
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
               <BuildingIcon className="h-3.5 w-3.5" />
               {observation.departemen}
               {observation.nama_perusahaan ? ` · ${observation.nama_perusahaan}` : ''}
             </div>
+            <p className="mt-1 font-mono text-[10px] text-slate-500">{socNo}</p>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <button
-              type="button"
-              onClick={() => exportObservationPdf(observation).catch(() => {})}
-              className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-400 hover:border-brand-500 hover:text-brand-400"
-            >
-              Export PDF
-            </button>
+            <div className="flex flex-wrap justify-end gap-1">
+              <button
+                type="button"
+                onClick={() => handlePdf('soc')}
+                disabled={Boolean(pdfBusy)}
+                className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-400 hover:border-brand-500 hover:text-brand-400"
+              >
+                {pdfBusy === 'soc' ? '…' : 'PDF SOC'}
+              </button>
+              {invActive && (
+                <button
+                  type="button"
+                  onClick={() => handlePdf('inv')}
+                  disabled={Boolean(pdfBusy)}
+                  className="rounded-lg border border-amber-700/50 px-2 py-1 text-[10px] font-medium text-amber-400 hover:border-amber-500"
+                >
+                  {pdfBusy === 'inv' ? '…' : 'PDF Investigasi'}
+                </button>
+              )}
+            </div>
             <RiskBadge level={observation.tingkat_risiko} pending={pendingClass} />
             <StatusBadge status={observation.status} />
           </div>
@@ -136,9 +215,7 @@ export default function ObservationDetailPanel({ observation, onSave }) {
               }`}
             >
               {t}
-              {t === 'Investigasi' && needsInvestigation && (
-                <span className="ml-1 text-red-300">*</span>
-              )}
+              {t === 'Investigasi' && requiresInvestigation && <span className="ml-1 text-amber-300">●</span>}
             </button>
           ))}
         </div>
@@ -160,10 +237,6 @@ export default function ObservationDetailPanel({ observation, onSave }) {
                 <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
               )}
               <DetailRow label="Deskripsi" value={observation.deskripsi} />
-              {observation.tindakan_langsung && (
-                <DetailRow label="Tindakan langsung" value={observation.tindakan_langsung} />
-              )}
-              {observation.rekomendasi && <DetailRow label="Rekomendasi" value={observation.rekomendasi} />}
             </dl>
 
             {observation.foto?.length > 0 && (
@@ -181,113 +254,194 @@ export default function ObservationDetailPanel({ observation, onSave }) {
                 <p className="text-xs text-amber-400">Mode viewer — tidak bisa mengubah laporan.</p>
               )}
               <fieldset disabled={!canEdit} className="space-y-3 disabled:opacity-60">
-              {pendingClass && (
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                  Kategori & risiko belum diisi. Tentukan klasifikasi HSE di bawah.
+                {pendingClass && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                    Kategori & risiko belum diisi. Tentukan klasifikasi HSE di bawah.
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Kategori (HSE)</span>
+                    <select
+                      value={kategori}
+                      onChange={(e) => setKategori(e.target.value)}
+                      disabled={!canClassify}
+                      className="admin-input"
+                    >
+                      <option value="">— Belum diklasifikasi —</option>
+                      {KATEGORI_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Risiko (HSE)</span>
+                    <select
+                      value={risiko}
+                      onChange={(e) => setRisiko(e.target.value)}
+                      disabled={!canClassify}
+                      className="admin-input"
+                    >
+                      <option value="">— Belum diklasifikasi —</option>
+                      {RISIKO_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-              )}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Kategori (HSE)</span>
-                  <select
-                    value={kategori}
-                    onChange={(e) => setKategori(e.target.value)}
-                    disabled={!canClassify}
-                    className="admin-input"
-                  >
-                    <option value="">— Belum diklasifikasi —</option>
-                    {KATEGORI_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Departemen follow-up</span>
+                  <select value={pic} onChange={(e) => setPic(e.target.value)} className="admin-input">
+                    <option value="">— Belum di-assign —</option>
+                    {DEPARTMENT_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
                     ))}
                   </select>
                 </label>
+
+                <label className="flex items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={requiresInvestigation}
+                    onChange={(e) => setRequiresInvestigation(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-slate-300">
+                    <span className="font-medium text-slate-100">Lanjut ke tahap investigasi</span>
+                    <span className="mt-0.5 block text-slate-500">
+                      Tidak semua SOC wajib diinvestigasi. Centang hanya jika butuh laporan investigasi mendalam.
+                      {suggestedInvestigate && !requiresInvestigation
+                        ? ' (HiPo/High — disarankan investigasi.)'
+                        : ''}
+                    </span>
+                  </span>
+                </label>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Kepada / To (PDF)</span>
+                    <input
+                      type="text"
+                      value={pdfTo}
+                      onChange={(e) => setPdfTo(e.target.value)}
+                      className="admin-input"
+                      placeholder="Input manual HSE…"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-400">PIC / Assigned (PDF)</span>
+                    <input
+                      type="text"
+                      value={pdfPic}
+                      onChange={(e) => setPdfPic(e.target.value)}
+                      className="admin-input"
+                      placeholder="Input manual HSE…"
+                    />
+                  </label>
+                </div>
+
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Risiko (HSE)</span>
-                  <select
-                    value={risiko}
-                    onChange={(e) => setRisiko(e.target.value)}
-                    disabled={!canClassify}
-                    className="admin-input"
-                  >
-                    <option value="">— Belum diklasifikasi —</option>
-                    {RISIKO_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Status workflow</span>
+                  <select value={status} onChange={(e) => setStatus(e.target.value)} className="admin-input">
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
                     ))}
                   </select>
                 </label>
-              </div>
 
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-400">PIC follow-up</span>
-                <select value={pic} onChange={(e) => setPic(e.target.value)} className="admin-input">
-                  <option value="">— Belum di-assign —</option>
-                  {PIC_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-400">Status workflow</span>
-                <select value={status} onChange={(e) => setStatus(e.target.value)} className="admin-input">
-                  {STATUS_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-slate-400">Catatan triage HSE</span>
-                <textarea rows={2} value={triageNotes} onChange={(e) => setTriageNotes(e.target.value)} className="admin-input" placeholder="Review awal severity & prioritas…" />
-              </label>
-
-              {(status === 'Closed' || status === 'Pending Verification') && (
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Catatan penutupan</span>
-                  <textarea rows={2} value={catatan} onChange={(e) => setCatatan(e.target.value)} className="admin-input" placeholder="Tindakan yang sudah dilakukan…" />
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Catatan triage HSE</span>
+                  <textarea
+                    rows={2}
+                    value={triageNotes}
+                    onChange={(e) => setTriageNotes(e.target.value)}
+                    className="admin-input"
+                    placeholder="Review awal severity & prioritas…"
+                  />
                 </label>
-              )}
 
-              {status === 'Pending Verification' && (
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Verifikasi efektivitas</span>
-                  <textarea rows={2} value={verificationNotes} onChange={(e) => setVerificationNotes(e.target.value)} className="admin-input" placeholder="Bukti tindakan efektif…" />
-                </label>
-              )}
+                {(status === 'Closed' || status === 'Pending Verification') && (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Catatan penutupan</span>
+                    <textarea
+                      rows={2}
+                      value={catatan}
+                      onChange={(e) => setCatatan(e.target.value)}
+                      className="admin-input"
+                      placeholder="Tindakan yang sudah dilakukan…"
+                    />
+                  </label>
+                )}
 
-              {error && <p className="text-sm text-red-400">{error}</p>}
-              <button type="submit" disabled={saving || !canEdit} className="btn-primary w-full">
-                {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan perubahan'}
-              </button>
+                {status === 'Pending Verification' && (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Verifikasi efektivitas</span>
+                    <textarea
+                      rows={2}
+                      value={verificationNotes}
+                      onChange={(e) => setVerificationNotes(e.target.value)}
+                      className="admin-input"
+                      placeholder="Bukti tindakan efektif…"
+                    />
+                  </label>
+                )}
+
+                {error && <p className="text-sm text-red-400">{error}</p>}
+                <button type="submit" disabled={saving || !canEdit} className="btn-primary w-full">
+                  {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan perubahan'}
+                </button>
               </fieldset>
             </form>
           </div>
         )}
 
         {tab === 'Investigasi' && (
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {needsInvestigation && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                Laporan HiPo / High Risk — investigasi wajib (5 Whys / root cause).
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-3"
+          >
+            {!requiresInvestigation && (
+              <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-xs text-slate-400">
+                SOC ini belum ditandai lanjut investigasi. Centang di tab Detail jika perlu laporan investigasi
+                mendalam (harian biasanya cukup PDF SOC saja).
               </div>
             )}
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-700">Catatan investigasi</span>
-              <textarea rows={4} value={investigationNotes} onChange={(e) => setInvestigationNotes(e.target.value)} className="admin-input" placeholder="Temuan investigasi, saksi, kondisi lapangan…" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-700">Root cause (5 Whys)</span>
-              <textarea rows={4} value={rootCause} onChange={(e) => setRootCause(e.target.value)} className="admin-input" placeholder="Akar penyebab utama…" />
-            </label>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button type="submit" disabled={saving} className="btn-primary w-full">
-              {saving ? 'Menyimpan…' : 'Simpan investigasi'}
+            {requiresInvestigation && suggestedInvestigate && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                HiPo / High — isi 5W+1H dan 5 Whys secara lengkap agar draft laporan seragam.
+              </div>
+            )}
+            <InvestigationForm data={inv} onChange={setInv} disabled={!canEdit} />
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <button type="submit" disabled={saving || !canEdit} className="btn-primary w-full">
+              {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan investigasi'}
             </button>
           </form>
         )}
 
-        {tab === 'CAPA' && <CapaPanel observationId={observation.id} />}
-        {tab === 'Audit' && <AuditTrail observationId={observation.id} />}
+        {tab === 'Rekomendasi' && (
+          <RecommendationPanel
+            observationId={observation.id}
+            finding={finding}
+            recommendation={recommendation}
+            onFindingChange={setFinding}
+            onRecommendationChange={setRecommendation}
+            onSaveText={() => persist()}
+            saving={saving}
+            saved={saved}
+            canEdit={canEdit}
+            error={error}
+          />
+        )}
       </div>
     </div>
   )

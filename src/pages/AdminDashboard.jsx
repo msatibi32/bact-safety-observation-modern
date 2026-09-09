@@ -257,7 +257,7 @@ export default function AdminDashboard() {
         </div>
         <div className="col-span-2">
           {selected ? (
-            <ObservationDetailPanel observation={selected} onSave={handleSave} />
+            <ObservationDetailPanel observation={selected} onSave={handleSave} allObservations={observations} />
           ) : (
             <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
               Pilih laporan untuk detail & follow-up.
@@ -280,7 +280,7 @@ export default function AdminDashboard() {
             <span className="truncate text-sm font-semibold text-slate-100">{selected.nama_pelapor}</span>
           </div>
           <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <ObservationDetailPanel observation={selected} onSave={handleSave} />
+            <ObservationDetailPanel observation={selected} onSave={handleSave} allObservations={observations} />
           </div>
         </div>
       )}

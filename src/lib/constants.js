@@ -32,15 +32,6 @@ export const LIFE_SAVING_RULES = [
   'Working at Height',
 ]
 
-export const PIC_OPTIONS = [
-  'HSE',
-  'Produksi',
-  'Maintenance',
-  'Logistik',
-  'Operasional',
-  'Umum / GA',
-]
-
 export const DEPARTMENT_OPTIONS = [
   'MANAGEMENT',
   'OPERATIONS',
@@ -53,6 +44,43 @@ export const DEPARTMENT_OPTIONS = [
   'CONTRACTOR/ TEMPORARY WORKER/ VISITOR',
   'IT',
 ]
+
+/** Lokasi kejadian — dropdown form pelapor */
+export const LOCATION_OPTIONS = [
+  'CY/A1',
+  'CY/A2',
+  'CY/A3',
+  'CY/A',
+  'CY/B',
+  'CY/C',
+  'CY/D',
+  'CY/E',
+  'CY/F',
+  'CY/G',
+  'CY/H',
+  'CY/I',
+  'CY/J',
+  'CY/00',
+  'CY/DY',
+  'Gate IN',
+  'Gate Out',
+  'BACT Office',
+  'Workshop',
+  'ETT Charging',
+  'Power House',
+  'Pump House',
+  'TPFT',
+  'Jetty',
+  'Container Rest Area',
+  'New Building Office',
+  'HSSE Office',
+  'Parking Area Truck Internal',
+  'Parking Area Employee',
+  'Other',
+]
+
+/** Follow-up departemen = sama opsi form pelaporan */
+export const PIC_OPTIONS = DEPARTMENT_OPTIONS
 
 export const COMPANY_OPTIONS = [
   'PT. BACT',

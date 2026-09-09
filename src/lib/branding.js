@@ -6,7 +6,10 @@ export const BRANDING = {
   legalName: 'PT. BACT',
   appName: 'Safety Observation Card',
   tagline: 'Pelaporan observasi keselamatan kerja di area terminal',
-  subsidiary: 'An ICTSI Group Company',
+  /** Teks samping logo PDF — tanpa "BACT DAN ICTSI" / ICTSI Group */
+  subsidiary: '',
+  pdfClosingLine:
+    'Demikian laporan observasi keselamatan ini dibuat untuk ditindaklanjuti sesuai prosedur HSSE Batu Ampar Container Terminal.',
 
   // Logo huruf putih — header web, form, PPT (latar gelap)
   logoSrc: '/logo/BACT Logo_OG White Text.png',
