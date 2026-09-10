@@ -184,7 +184,7 @@ function drawBilingualColumns(doc, obs, startY) {
   writeSynced(id.intro, en.intro)
   writeSynced(id.classification, en.classification)
 
-  writeSynced('Tindakan yang telah dilakukan:', 'Actions Taken:', { bold: true, size: 9 })
+  writeSynced('Tindakan yang dilakukan:', 'Actions taken:', { bold: true, size: 9 })
 
   const n = Math.max(id.actions.length, en.actions.length)
   for (let i = 0; i < n; i++) {
@@ -207,12 +207,12 @@ function drawSignature(doc, y) {
   doc.text('Sincerely,', MARGIN + 2, y)
   y += 18
   doc.setFont('helvetica', 'bold')
-  doc.text('Tim HSSE', MARGIN + 2, y)
+  doc.text('HSSE', MARGIN + 2, y)
   y += 5
   doc.setFont('helvetica', 'normal')
   doc.text('Health and Safety Officer', MARGIN + 2, y)
   y += 4.5
-  doc.text('PT. Batu Ampar Container Terminal', MARGIN + 2, y)
+  doc.text('Batu Ampar Container Terminal', MARGIN + 2, y)
 
   doc.setFontSize(7.5)
   doc.setTextColor(80, 80, 80)
@@ -287,105 +287,49 @@ export async function exportInvestigationPdf(obs) {
   let y = drawNoticeHeader(doc, logo, 'INVESTIGATION REPORT', obs)
   y = drawRecipientTable(doc, obs, y)
 
-  y = drawSectionBanner(doc, 'A. Ringkasan Investigasi', 'A. Investigation Summary', y)
+  y = drawSectionBanner(doc, 'A. Ringkasan', 'A. Summary', y)
   y = writeInvPair(doc, n.ringkasanId, n.ringkasanEn, y)
   y = writeInvPair(doc, idN.classification, enN.classification, y)
 
-  y = drawSectionBanner(doc, 'B. Analisis 5W + 1H', 'B. 5W + 1H Analysis', y)
+  const fb = n.fb
+  y = drawSectionBanner(doc, 'B. 5W + 1H', 'B. 5W + 1H', y)
   const w5 = [
-    [
-      'WHAT',
-      inv.what || `Observasi ${categoryLabel(obs.kategori)} di ${obs.lokasi_teks}: ${obs.deskripsi || '—'}`,
-      inv.what ||
-        `${categoryLabel(obs.kategori)} observation at ${obs.lokasi_teks}: ${obs.deskripsi || '—'}`,
-    ],
-    [
-      'WHERE',
-      inv.where || `Lokasi: ${obs.lokasi_teks}. Area operasional Batu Ampar Container Terminal.`,
-      inv.where || `Location: ${obs.lokasi_teks}. Batu Ampar Container Terminal operational area.`,
-    ],
-    [
-      'WHEN',
-      inv.when || `Dilaporkan pada ${fmtDateEn(obs.tanggal_waktu || obs.created_at)}.`,
-      inv.when || `Reported on ${fmtDateEn(obs.tanggal_waktu || obs.created_at)}.`,
-    ],
-    [
-      'WHY',
-      inv.why ||
-        'Terdapat celah pada deteksi dini, komunikasi risiko, dan/atau kepatuhan terhadap prosedur operasional.',
-      inv.why ||
-        'Gaps were identified in early detection, risk communication, and/or adherence to operational procedures.',
-    ],
-    [
-      'HOW',
-      inv.how ||
-        (obs.stop_work
-          ? 'Kondisi berkembang hingga memerlukan Stop Work Authority.'
-          : 'Kondisi teridentifikasi melalui pelaporan SOC sebelum berkembang menjadi insiden lebih serius.'),
-      inv.how ||
-        (obs.stop_work
-          ? 'The condition escalated to the point where Stop Work Authority was required.'
-          : 'The condition was identified through the SOC report before escalating into a more serious incident.'),
-    ],
+    ['WHAT', inv.what || fb.whatId, inv.what || fb.whatEn],
+    ['WHERE', inv.where || fb.whereId, inv.where || fb.whereEn],
+    ['WHEN', inv.when || fb.whenId, inv.when || fb.whenEn],
+    ['WHY', inv.why || fb.whyId, inv.why || fb.whyEn],
+    ['HOW', inv.how || fb.howId, inv.how || fb.howEn],
   ]
   for (const [label, tId, tEn] of w5) {
     y = writeInvPair(doc, `${label}: ${tId}`, `${label}: ${tEn}`, y)
   }
-  y = writeInvPair(
-    doc,
-    `Ringkasan: ${n.summary5 || idN.intro}`,
-    `Summary: ${n.summary5 || enN.intro}`,
-    y,
-  )
+  if (n.summary5) {
+    y = writeInvPair(doc, `Ringkasan: ${n.summary5}`, `Summary: ${n.summary5}`, y)
+  }
 
-  y = drawSectionBanner(doc, 'C. Deep Dive — 5 Whys', 'C. Deep Dive — 5 Whys', y)
+  y = drawSectionBanner(doc, 'C. 5 Whys', 'C. 5 Whys', y)
   const whys = [
-    [
-      inv.why1 ||
-        `Why 1 (Gejala lapangan): Kondisi/tindakan muncul karena ${obs.deskripsi || 'praktik tidak aman di area kerja'}.`,
-      inv.why1 ||
-        `Why 1 (Field symptom): The condition/act arose because ${obs.deskripsi || 'an unsafe practice was present in the work area'}.`,
-    ],
-    [
-      inv.why2 ||
-        'Why 2 (Kegagalan pemeriksaan): Pemeriksaan/pengawasan area belum sepenuhnya menangkap penyimpangan.',
-      inv.why2 ||
-        'Why 2 (Inspection failure): Area inspection/supervision did not fully capture the deviation.',
-    ],
-    [
-      inv.why3 ||
-        'Why 3 (Kegagalan prosedur/individu): Pemahaman atau penerapan SOP di titik kerja masih perlu diperkuat.',
-      inv.why3 ||
-        'Why 3 (Procedure/individual failure): Understanding or application of SOP at the work point still requires reinforcement.',
-    ],
-    [
-      inv.why4 ||
-        'Why 4 (Kegagalan pengawasan & kontrol): Monitoring dan verifikasi lapangan belum konsisten.',
-      inv.why4 ||
-        'Why 4 (Supervision & control failure): Field monitoring and verification were not consistent.',
-    ],
-    [
-      inv.why5 ||
-        'Why 5 (Akar sistemik): Tata kelola risiko operasional masih memiliki celah pada deteksi, eskalasi, dan penegakan standar.',
-      inv.why5 ||
-        'Why 5 (Systemic root): Operational risk governance still has gaps in detection, escalation, and standard enforcement.',
-    ],
+    [inv.why1 || fb.why1Id, inv.why1 || fb.why1En],
+    [inv.why2 || fb.why2Id, inv.why2 || fb.why2En],
+    [inv.why3 || fb.why3Id, inv.why3 || fb.why3En],
+    [inv.why4 || fb.why4Id, inv.why4 || fb.why4En],
+    [inv.why5 || fb.why5Id, inv.why5 || fb.why5En],
   ]
   for (const [tId, tEn] of whys) {
     y = writeInvPair(doc, tId, tEn, y)
   }
 
-  y = drawSectionBanner(doc, 'D. Kesimpulan & Tindak Lanjut', 'D. Conclusion & Follow-up', y)
+  y = drawSectionBanner(doc, 'D. Kesimpulan', 'D. Conclusion', y)
   y = writeInvPair(
     doc,
-    `Root Cause: ${inv.root_cause || obs.root_cause || 'Lemahnya deteksi dini, kepatuhan SOP, dan pengawasan operasional di area terdampak.'}`,
-    `Root Cause: ${inv.root_cause || obs.root_cause || 'Weak early detection, SOP compliance, and operational supervision in the affected area.'}`,
+    `Root cause: ${inv.root_cause || obs.root_cause || fb.rootId}`,
+    `Root cause: ${inv.root_cause || obs.root_cause || fb.rootEn}`,
     y,
   )
   y = writeInvPair(
     doc,
-    `Corrective Action: ${inv.corrective_action || 'Perkuat briefing/safety induction, perketat pengawasan area, pastikan kepatuhan SOP, dan verifikasi efektivitas tindakan.'}`,
-    `Corrective Action: ${inv.corrective_action || 'Strengthen briefing/safety induction, tighten area supervision, ensure SOP compliance, and verify action effectiveness.'}`,
+    `Corrective action: ${inv.corrective_action || fb.caId}`,
+    `Corrective action: ${inv.corrective_action || fb.caEn}`,
     y,
   )
   y = writeInvPair(
@@ -396,13 +340,13 @@ export async function exportInvestigationPdf(obs) {
   )
   y = writeInvPair(
     doc,
-    `Recommendation: ${n.recommendation || 'Lakukan monitoring berkala dan evaluasi kontrol operasional agar kejadian serupa tidak berulang.'}`,
-    `Recommendation: ${n.recommendation || 'Conduct periodic monitoring and evaluate operational controls to prevent recurrence.'}`,
+    `Recommendation: ${n.recommendation || fb.recId}`,
+    `Recommendation: ${n.recommendation || fb.recEn}`,
     y,
   )
   y = writeInvPair(doc, `Investigator: ${n.investigator}`, `Investigator: ${n.investigator}`, y)
 
-  y = writeInvPair(doc, 'Tindakan yang telah dilakukan:', 'Actions Taken:', y, { bold: true, size: 9 })
+  y = writeInvPair(doc, 'Tindakan yang dilakukan:', 'Actions taken:', y, { bold: true, size: 9 })
   const maxA = Math.max(idN.actions.length, enN.actions.length)
   for (let i = 0; i < maxA; i++) {
     y = writeInvPair(

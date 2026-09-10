@@ -1,7 +1,12 @@
+/**
+ * Narasi PDF SOC / Investigasi — gaya HSSE pelabuhan & stevedoring (bongkar muat).
+ * Faktual, ringkas, standar notice internasional. Hindari frasa generik bergaya AI.
+ */
+
 import { categoryLabel, isUnclassifiedObservation } from './constants'
 import { buildSummary5W1H, parseInvestigationData } from './investigation'
 
-function fmtDateLongId(d) {
+function fmtDateId(d) {
   return new Date(d).toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'long',
@@ -9,175 +14,195 @@ function fmtDateLongId(d) {
   })
 }
 
-function fmtDateLongEn(d) {
-  return new Date(d).toLocaleDateString('en-US', {
+function fmtDateEn(d) {
+  return new Date(d).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   })
 }
 
-function fmtTimeWib(d) {
-  return (
-    new Date(d).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }) + ' WIB'
-  )
+function fmtTime(d) {
+  return new Date(d).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
-function companyOf(obs) {
+function company(obs) {
   return obs.nama_perusahaan || 'PT. BACT'
 }
 
-function personId(obs) {
-  if (obs.is_anonymous) return 'seorang pelapor anonim'
-  return `Saudara/i ${obs.nama_pelapor || '—'}`
+function nameId(obs) {
+  if (obs.is_anonymous) return 'pelapor anonim'
+  return obs.nama_pelapor || '—'
 }
 
-function personEn(obs) {
+function nameEn(obs) {
   if (obs.is_anonymous) return 'an anonymous reporter'
-  return `Mr/Ms ${obs.nama_pelapor || '—'}`
+  return obs.nama_pelapor || '—'
 }
 
-function deptId(obs) {
-  return obs.departemen ? ` (${obs.departemen})` : ''
+function deptBitId(obs) {
+  return obs.departemen ? `, ${obs.departemen}` : ''
 }
 
-function deptEn(obs) {
-  return obs.departemen ? ` (${obs.departemen} Department)` : ''
+function deptBitEn(obs) {
+  return obs.departemen ? `, ${obs.departemen}` : ''
 }
 
-function classificationId(obs) {
+function riskId(level) {
+  if (level === 'High') return 'tinggi'
+  if (level === 'Medium') return 'sedang'
+  if (level === 'Low') return 'rendah'
+  return null
+}
+
+function classLineId(obs) {
   if (isUnclassifiedObservation(obs)) {
-    return 'Observasi ini telah dicatat pada sistem Safety Observation Card (SOC) dan menunggu klasifikasi resmi oleh Tim HSSE Batu Ampar Container Terminal.'
+    return 'Kategori dan tingkat risiko masih menunggu klasifikasi HSSE.'
   }
-  const cat = categoryLabel(obs.kategori)
-  const risk =
-    obs.tingkat_risiko === 'High'
-      ? 'Tinggi (High)'
-      : obs.tingkat_risiko === 'Medium'
-        ? 'Sedang (Medium)'
-        : obs.tingkat_risiko === 'Low'
-          ? 'Rendah (Low)'
-          : obs.tingkat_risiko
-  let s = `Temuan ini diklasifikasikan sebagai ${cat} dengan tingkat risiko ${risk} sesuai prosedur keselamatan dan manajemen risiko operasional PT. Batu Ampar Container Terminal.`
-  if (obs.is_hipo) s += ' Kasus ini juga dikategorikan sebagai HiPo (High Potential).'
-  if (obs.stop_work) {
-    s +=
-      ' Sehubungan dengan potensi bahaya tersebut, Stop Work Authority telah diterapkan di area terkait hingga kondisi dinyatakan aman.'
-  }
-  return s
+  const parts = [`Kategori: ${categoryLabel(obs.kategori)}`, `risiko ${riskId(obs.tingkat_risiko) || obs.tingkat_risiko}`]
+  if (obs.is_hipo) parts.push('status HiPo')
+  if (obs.stop_work) parts.push('Stop Work diterapkan di lokasi')
+  return `${parts.join('; ')}.`
 }
 
-function classificationEn(obs) {
+function classLineEn(obs) {
   if (isUnclassifiedObservation(obs)) {
-    return 'This observation has been recorded in the Safety Observation Card (SOC) system and is pending official classification by the Batu Ampar Container Terminal HSSE Team.'
+    return 'Category and risk level are pending HSSE classification.'
   }
-  const cat = categoryLabel(obs.kategori)
-  let s = `This finding has been classified as ${cat} with a ${obs.tingkat_risiko} risk level in accordance with the operational safety and risk management procedures of PT. Batu Ampar Container Terminal.`
-  if (obs.is_hipo) s += ' The case is also categorized as HiPo (High Potential).'
-  if (obs.stop_work) {
-    s +=
-      ' Due to the associated hazard potential, Stop Work Authority was applied in the related area until conditions were declared safe.'
-  }
-  return s
+  const parts = [`Category: ${categoryLabel(obs.kategori)}`, `risk: ${obs.tingkat_risiko}`]
+  if (obs.is_hipo) parts.push('HiPo')
+  if (obs.stop_work) parts.push('Stop Work applied on site')
+  return `${parts.join('; ')}.`
 }
 
-/** Actions: selalu 3 poin profesional gaya Notice (isi dari data bila ada). */
+/**
+ * Actions konkret — bahasa lapangan terminal, bukan “awareness reinforcement”.
+ */
 export function buildNoticeActions(obs) {
   const id = []
   const en = []
 
   if (obs.stop_work) {
-    id.push(
-      'Melaksanakan Stop Work Authority dan menghentikan sementara aktivitas di area terkait hingga kondisi dinyatakan aman oleh Tim HSSE.',
-    )
-    en.push(
-      'Exercised Stop Work Authority and temporarily suspended related activities until the area was declared safe by the HSSE Team.',
-    )
+    id.push('Stop Work di area terkait sampai kondisi dinyatakan aman.')
+    en.push('Stop Work in the affected area until cleared safe.')
   }
 
-  id.push(
-    obs.finding_observation
-      ? `Mencatat temuan observasi pada sistem SOC digital: ${obs.finding_observation}`
-      : 'Mencatat kejadian pada sistem Safety Observation Card (SOC) digital HSSE untuk ditindaklanjuti.',
-  )
-  en.push(
-    obs.finding_observation
-      ? `Recorded the observation finding in the digital SOC system: ${obs.finding_observation}`
-      : 'Recorded the incident in the HSSE digital Safety Observation Card (SOC) system for follow-up.',
-  )
+  id.push('Kejadian dicatat di SOC digital HSSE.')
+  en.push('Incident logged in the HSSE digital SOC.')
+
+  if (obs.finding_observation) {
+    id.push(`Temuan: ${obs.finding_observation}`)
+    en.push(`Finding: ${obs.finding_observation}`)
+  }
 
   if (obs.rekomendasi) {
-    id.push(`Memberikan penguatan awareness dan rekomendasi: ${obs.rekomendasi}`)
-    en.push(`Provided safety awareness reinforcement and recommendation: ${obs.rekomendasi}`)
+    id.push(obs.rekomendasi)
+    en.push(obs.rekomendasi)
   } else if (obs.triage_notes) {
-    id.push(`Melakukan triage awal HSSE: ${obs.triage_notes}`)
-    en.push(`Conducted initial HSSE triage: ${obs.triage_notes}`)
+    id.push(`Triage HSSE: ${obs.triage_notes}`)
+    en.push(`HSSE triage: ${obs.triage_notes}`)
   } else {
-    id.push(
-      'Memberikan penguatan awareness keselamatan kepada pihak terkait mengenai kepatuhan terhadap peraturan keselamatan yang berlaku di area terminal.',
-    )
-    en.push(
-      'Provided safety awareness reinforcement to the parties concerned regarding compliance with applicable terminal safety regulations.',
-    )
+    id.push('Pihak terkait diberi pengarahan singkat di lokasi.')
+    en.push('Parties concerned were briefed on site.')
   }
 
-  if (obs.pic_assigned && id.length < 4) {
-    id.push(`Menugaskan departemen follow-up: ${obs.pic_assigned}.`)
-    en.push(`Assigned follow-up department: ${obs.pic_assigned}.`)
+  if (obs.pic_assigned) {
+    id.push(`Follow-up: ${obs.pic_assigned}.`)
+    en.push(`Follow-up assigned to ${obs.pic_assigned}.`)
   }
 
   if (obs.requires_investigation || obs.investigation_data) {
-    id.push(
-      'Mengangkat kasus ke tahap investigasi mendalam (analisis 5W+1H dan 5 Whys) sesuai prosedur HSSE.',
-    )
-    en.push(
-      'Escalated the case to a formal investigation (5W+1H and 5 Whys analysis) in accordance with HSSE procedure.',
-    )
+    id.push('Kasus dilanjutkan ke investigasi (5W+1H / 5 Whys).')
+    en.push('Case escalated to investigation (5W+1H / 5 Whys).')
   }
 
-  return { id: id.slice(0, 4), en: en.slice(0, 4) }
+  if (obs.catatan_penutupan) {
+    id.push(`Penutupan: ${obs.catatan_penutupan}`)
+    en.push(`Closure: ${obs.catatan_penutupan}`)
+  }
+
+  return { id: id.slice(0, 5), en: en.slice(0, 5) }
 }
 
-/**
- * Narasi SOC gaya Notice of Safety Violation — formal, padat, paralel ID/EN.
- */
 export function buildSocNarrativeId(obs) {
   const when = obs.tanggal_waktu || obs.created_at
-  const intro = `Dengan ini kami sampaikan bahwa pada tanggal ${fmtDateLongId(when)} pukul ${fmtTimeWib(when)}, ${personId(obs)} dari ${companyOf(obs)}${deptId(obs)} teridentifikasi terkait observasi keselamatan di area ${obs.lokasi_teks || 'Batu Ampar Container Terminal'}. Adapun uraian kejadian sebagai berikut: ${obs.deskripsi || '—'}`
+  const loc = obs.lokasi_teks || 'area terminal'
+  const intro = `Pada ${fmtDateId(when)} pukul ${fmtTime(when)} WIB, ${nameId(obs)} (${company(obs)}${deptBitId(obs)}) dilaporkan terkait observasi keselamatan di ${loc}. Uraian: ${obs.deskripsi || '—'}`
 
   const closing =
-    'Pemberitahuan ini disampaikan untuk menjadi perhatian agar seluruh personel senantiasa mematuhi persyaratan keselamatan yang berlaku di Batu Ampar Container Terminal. Terima kasih atas perhatian dan kerja samanya.'
+    'Mohon ditindaklanjuti agar ketentuan keselamatan operasional terminal dipatuhi. Terima kasih.'
 
   const actions = buildNoticeActions(obs)
-  return { intro, classification: classificationId(obs), actions: actions.id, closing }
+  return { intro, classification: classLineId(obs), actions: actions.id, closing }
 }
 
 export function buildSocNarrativeEn(obs) {
   const when = obs.tanggal_waktu || obs.created_at
-  const intro = `We hereby inform you that on ${fmtDateLongEn(when)} at ${fmtTimeWib(when)}, ${personEn(obs)} from ${companyOf(obs)}${deptEn(obs)} was identified in connection with a safety observation at ${obs.lokasi_teks || 'Batu Ampar Container Terminal'}. The incident is described as follows: ${obs.deskripsi || '—'}`
+  const loc = obs.lokasi_teks || 'the terminal area'
+  const intro = `On ${fmtDateEn(when)} at ${fmtTime(when)} hrs (WIB), ${nameEn(obs)} (${company(obs)}${deptBitEn(obs)}) was reported in a safety observation at ${loc}. Details: ${obs.deskripsi || '—'}`
 
   const closing =
-    'This notification is issued for your information and attention to ensure that all personnel continue to comply with the applicable safety requirements at Batu Ampar Container Terminal. Thank you for your attention and cooperation.'
+    'Please follow up to ensure terminal operational safety requirements are observed. Thank you.'
 
   const actions = buildNoticeActions(obs)
-  return { intro, classification: classificationEn(obs), actions: actions.en, closing }
+  return { intro, classification: classLineEn(obs), actions: actions.en, closing }
+}
+
+/** Fallback investigasi — bahasa operasional yard/quay, bukan konsultan generik. */
+export function investigationFallbacks(obs) {
+  const loc = obs.lokasi_teks || 'area kerja'
+  const desc = obs.deskripsi || 'kondisi/tindakan tidak aman'
+  return {
+    whatId: `Observasi di ${loc}: ${desc}`,
+    whatEn: `Observation at ${loc}: ${desc}`,
+    whereId: `${loc}, Batu Ampar Container Terminal (area operasional bongkar muat / yard).`,
+    whereEn: `${loc}, Batu Ampar Container Terminal (cargo handling / yard operational area).`,
+    whenId: `Dilaporkan ${fmtDateId(obs.tanggal_waktu || obs.created_at)}, pukul ${fmtTime(obs.tanggal_waktu || obs.created_at)} WIB.`,
+    whenEn: `Reported ${fmtDateEn(obs.tanggal_waktu || obs.created_at)}, ${fmtTime(obs.tanggal_waktu || obs.created_at)} hrs WIB.`,
+    whyId: 'Pengendalian di lokasi (pengawasan, APD, atau prosedur kerja) belum mencegah kondisi tersebut.',
+    whyEn: 'Site controls (supervision, PPE, or work procedure) did not prevent the condition.',
+    howId: obs.stop_work
+      ? 'Kondisi berlanjut hingga Stop Work diterapkan agar pekerjaan tidak dilanjutkan dalam keadaan tidak aman.'
+      : 'Teridentifikasi lewat pelaporan SOC sebelum menjadi insiden lebih berat.',
+    howEn: obs.stop_work
+      ? 'The condition continued until Stop Work was applied so work would not proceed unsafely.'
+      : 'Identified through the SOC report before developing into a more serious incident.',
+    why1Id: `Gejala di lapangan: ${desc}.`,
+    why1En: `Field condition: ${desc}.`,
+    why2Id: 'Pemeriksaan / pengawasan shift tidak menangkap penyimpangan lebih awal.',
+    why2En: 'Shift inspection / supervision did not catch the deviation earlier.',
+    why3Id: 'SOP atau disiplin kerja di titik tersebut belum dijalankan penuh.',
+    why3En: 'SOP or work discipline at that point was not fully applied.',
+    why4Id: 'Kontrol pengawas area / mitra terhadap praktik di lokasi masih longgar.',
+    why4En: 'Area supervisor / contractor control of on-site practice remained weak.',
+    why5Id: 'Standar penegakan keselamatan operasional di terminal belum konsisten pada titik ini.',
+    why5En: 'Enforcement of operational safety standards at this terminal point was not consistent.',
+    rootId: 'Pengawasan dan kepatuhan prosedur di area operasional belum memadai.',
+    rootEn: 'Supervision and procedure compliance in the operational area were inadequate.',
+    caId: 'Briefing ulang di lokasi, perketat pengawasan shift, pastikan APD/SOP dipatuhi, verifikasi sebelum kerja dilanjutkan.',
+    caEn: 'Re-brief on site, tighten shift supervision, enforce PPE/SOP, verify before work resumes.',
+    recId: 'Patrol berkala di area sejenis; evaluasi kontrol operasional agar tidak berulang.',
+    recEn: 'Schedule patrols in similar areas; review operational controls to prevent recurrence.',
+  }
 }
 
 export function buildInvestigationNarrative(obs) {
   const inv = parseInvestigationData(obs)
   const when = obs.tanggal_waktu || obs.created_at
+  const fb = investigationFallbacks(obs)
 
   return {
-    ringkasanId: `Dengan ini kami sampaikan hasil investigasi atas laporan SOC terkait observasi di ${obs.lokasi_teks || '—'} pada tanggal ${fmtDateLongId(when)} yang melibatkan ${personId(obs)} dari ${companyOf(obs)}. Uraian awal: ${obs.deskripsi || '—'}${obs.stop_work ? ' Stop Work Authority telah diterapkan di lapangan.' : ''}`,
-    ringkasanEn: `We hereby submit the investigation findings for the SOC report concerning an observation at ${obs.lokasi_teks || '—'} on ${fmtDateLongEn(when)} involving ${personEn(obs)} from ${companyOf(obs)}. Initial description: ${obs.deskripsi || '—'}${obs.stop_work ? ' Stop Work Authority had been applied on site.' : ''}`,
+    ringkasanId: `Investigasi SOC — ${obs.lokasi_teks || '—'}, ${fmtDateId(when)}. Terlibat: ${nameId(obs)} (${company(obs)}). Uraian awal: ${obs.deskripsi || '—'}${obs.stop_work ? ' Stop Work sudah diterapkan.' : ''}`,
+    ringkasanEn: `SOC investigation — ${obs.lokasi_teks || '—'}, ${fmtDateEn(when)}. Involved: ${nameEn(obs)} (${company(obs)}). Initial report: ${obs.deskripsi || '—'}${obs.stop_work ? ' Stop Work already applied.' : ''}`,
     inv,
     summary5: inv.summary_5w1h || buildSummary5W1H(inv),
     finding: obs.finding_observation || '',
     recommendation: obs.rekomendasi || '',
-    investigator: inv.investigator_name || obs.investigator_name || 'Tim HSSE',
+    investigator: inv.investigator_name || obs.investigator_name || 'HSSE',
+    fb,
   }
 }
