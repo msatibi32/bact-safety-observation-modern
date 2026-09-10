@@ -182,6 +182,7 @@ function drawBilingualColumns(doc, obs, startY) {
   }
 
   writeSynced(id.intro, en.intro)
+  writeSynced(id.context, en.context)
   writeSynced(id.classification, en.classification)
 
   writeSynced('Tindakan yang telah dilakukan:', 'Actions Taken:', { bold: true, size: 9 })
@@ -193,6 +194,7 @@ function drawBilingualColumns(doc, obs, startY) {
     writeSynced(bulletId, bulletEn)
   }
 
+  writeSynced(id.followUp, en.followUp)
   writeSynced(id.closing, en.closing)
   return y
 }
@@ -290,7 +292,9 @@ export async function exportInvestigationPdf(obs) {
 
   y = drawSectionBanner(doc, 'A. Ringkasan kejadian', 'A. Incident summary', y)
   y = writeInvPair(doc, n.ringkasanId, n.ringkasanEn, y)
+  y = writeInvPair(doc, n.purposeId, n.purposeEn, y)
   y = writeInvPair(doc, idN.classification, enN.classification, y)
+  y = writeInvPair(doc, idN.context, enN.context, y)
 
   y = drawSectionBanner(doc, 'B. Fakta kejadian', 'B. Factual findings', y)
   y = writeInvPair(doc, inv.what || fb.natureId, inv.what || fb.natureEn, y)
@@ -341,7 +345,10 @@ export async function exportInvestigationPdf(obs) {
     y,
   )
 
-  y = writeInvPair(doc, 'Tindakan yang dilakukan:', 'Actions taken:', y, { bold: true, size: 9 })
+  y = writeInvPair(doc, 'Tindakan yang telah dilakukan:', 'Actions Taken:', y, {
+    bold: true,
+    size: 9,
+  })
   const maxA = Math.max(idN.actions.length, enN.actions.length)
   for (let i = 0; i < maxA; i++) {
     y = writeInvPair(
@@ -352,6 +359,7 @@ export async function exportInvestigationPdf(obs) {
     )
   }
 
+  y = writeInvPair(doc, idN.followUp, enN.followUp, y)
   y = writeInvPair(doc, idN.closing, enN.closing, y)
   drawSignature(doc, y)
 
