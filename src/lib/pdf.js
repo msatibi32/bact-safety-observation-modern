@@ -184,7 +184,7 @@ function drawBilingualColumns(doc, obs, startY) {
   writeSynced(id.intro, en.intro)
   writeSynced(id.classification, en.classification)
 
-  writeSynced('Tindakan yang dilakukan:', 'Actions taken:', { bold: true, size: 9 })
+  writeSynced('Tindakan yang telah dilakukan:', 'Actions Taken:', { bold: true, size: 9 })
 
   const n = Math.max(id.actions.length, en.actions.length)
   for (let i = 0; i < n; i++) {
@@ -273,13 +273,14 @@ function writeInvPair(doc, textId, textEn, y, { bold = false, size = 8 } = {}) {
   return y + 2.8
 }
 
-/** PDF Investigasi — juga bilingual kiri ID / kanan EN */
+/** PDF Investigasi — bilingual; tanpa label metodologi 5W+1H / 5 Whys */
 export async function exportInvestigationPdf(obs) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const logo = await loadLogoDataUrl()
   const soc = resolveSocNumber(obs)
   const n = buildInvestigationNarrative(obs)
   const inv = n.inv
+  const fb = n.fb
   const idN = buildSocNarrativeId(obs)
   const enN = buildSocNarrativeEn(obs)
 
@@ -287,64 +288,58 @@ export async function exportInvestigationPdf(obs) {
   let y = drawNoticeHeader(doc, logo, 'INVESTIGATION REPORT', obs)
   y = drawRecipientTable(doc, obs, y)
 
-  y = drawSectionBanner(doc, 'A. Ringkasan', 'A. Summary', y)
+  y = drawSectionBanner(doc, 'A. Ringkasan kejadian', 'A. Incident summary', y)
   y = writeInvPair(doc, n.ringkasanId, n.ringkasanEn, y)
   y = writeInvPair(doc, idN.classification, enN.classification, y)
 
-  const fb = n.fb
-  y = drawSectionBanner(doc, 'B. 5W + 1H', 'B. 5W + 1H', y)
-  const w5 = [
-    ['WHAT', inv.what || fb.whatId, inv.what || fb.whatEn],
-    ['WHERE', inv.where || fb.whereId, inv.where || fb.whereEn],
-    ['WHEN', inv.when || fb.whenId, inv.when || fb.whenEn],
-    ['WHY', inv.why || fb.whyId, inv.why || fb.whyEn],
-    ['HOW', inv.how || fb.howId, inv.how || fb.howEn],
-  ]
-  for (const [label, tId, tEn] of w5) {
-    y = writeInvPair(doc, `${label}: ${tId}`, `${label}: ${tEn}`, y)
-  }
+  y = drawSectionBanner(doc, 'B. Fakta kejadian', 'B. Factual findings', y)
+  y = writeInvPair(doc, inv.what || fb.natureId, inv.what || fb.natureEn, y)
+  y = writeInvPair(doc, inv.where || fb.locationId, inv.where || fb.locationEn, y)
+  y = writeInvPair(doc, inv.when || fb.timeId, inv.when || fb.timeEn, y)
+  y = writeInvPair(doc, inv.why || fb.factorsId, inv.why || fb.factorsEn, y)
+  y = writeInvPair(doc, inv.how || fb.sequenceId, inv.how || fb.sequenceEn, y)
   if (n.summary5) {
-    y = writeInvPair(doc, `Ringkasan: ${n.summary5}`, `Summary: ${n.summary5}`, y)
+    y = writeInvPair(doc, n.summary5, n.summary5, y)
   }
 
-  y = drawSectionBanner(doc, 'C. 5 Whys', 'C. 5 Whys', y)
-  const whys = [
-    [inv.why1 || fb.why1Id, inv.why1 || fb.why1En],
-    [inv.why2 || fb.why2Id, inv.why2 || fb.why2En],
-    [inv.why3 || fb.why3Id, inv.why3 || fb.why3En],
-    [inv.why4 || fb.why4Id, inv.why4 || fb.why4En],
-    [inv.why5 || fb.why5Id, inv.why5 || fb.why5En],
-  ]
-  for (const [tId, tEn] of whys) {
-    y = writeInvPair(doc, tId, tEn, y)
-  }
+  y = drawSectionBanner(doc, 'C. Analisis penyebab', 'C. Cause analysis', y)
+  y = writeInvPair(doc, inv.why1 || fb.cause1Id, inv.why1 || fb.cause1En, y)
+  y = writeInvPair(doc, inv.why2 || fb.cause2Id, inv.why2 || fb.cause2En, y)
+  y = writeInvPair(doc, inv.why3 || fb.cause3Id, inv.why3 || fb.cause3En, y)
+  y = writeInvPair(doc, inv.why4 || fb.cause4Id, inv.why4 || fb.cause4En, y)
+  y = writeInvPair(doc, inv.why5 || fb.cause5Id, inv.why5 || fb.cause5En, y)
 
-  y = drawSectionBanner(doc, 'D. Kesimpulan', 'D. Conclusion', y)
+  y = drawSectionBanner(doc, 'D. Kesimpulan & tindakan', 'D. Conclusion & actions', y)
   y = writeInvPair(
     doc,
-    `Root cause: ${inv.root_cause || obs.root_cause || fb.rootId}`,
+    `Akar masalah: ${inv.root_cause || obs.root_cause || fb.rootId}`,
     `Root cause: ${inv.root_cause || obs.root_cause || fb.rootEn}`,
     y,
   )
   y = writeInvPair(
     doc,
-    `Corrective action: ${inv.corrective_action || fb.caId}`,
+    `Tindakan korektif: ${inv.corrective_action || fb.caId}`,
     `Corrective action: ${inv.corrective_action || fb.caEn}`,
     y,
   )
   y = writeInvPair(
     doc,
-    `Finding: ${n.finding || obs.deskripsi || '—'}`,
+    `Temuan: ${n.finding || obs.deskripsi || '—'}`,
     `Finding: ${n.finding || obs.deskripsi || '—'}`,
     y,
   )
   y = writeInvPair(
     doc,
-    `Recommendation: ${n.recommendation || fb.recId}`,
+    `Rekomendasi: ${n.recommendation || fb.recId}`,
     `Recommendation: ${n.recommendation || fb.recEn}`,
     y,
   )
-  y = writeInvPair(doc, `Investigator: ${n.investigator}`, `Investigator: ${n.investigator}`, y)
+  y = writeInvPair(
+    doc,
+    `Petugas investigasi: ${n.investigator}`,
+    `Investigating officer: ${n.investigator}`,
+    y,
+  )
 
   y = writeInvPair(doc, 'Tindakan yang dilakukan:', 'Actions taken:', y, { bold: true, size: 9 })
   const maxA = Math.max(idN.actions.length, enN.actions.length)
