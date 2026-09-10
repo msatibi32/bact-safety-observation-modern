@@ -21,6 +21,8 @@ import { filterObservationsForRole } from '../lib/roles'
 import { useUser } from '../components/RequireRole'
 import { getObservations, getPendingNotifications, updateObservation } from '../lib/store'
 
+const PAGE_SIZE = 10
+
 function initials(name = '') {
   return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 }
@@ -34,6 +36,7 @@ export default function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState('Semua')
   const [filterHiPo, setFilterHiPo] = useState(false)
   const [filterUnclassified, setFilterUnclassified] = useState(false)
+  const [page, setPage] = useState(1)
   const [notifications, setNotifications] = useState([])
 
   async function loadObservations() {
@@ -71,6 +74,16 @@ export default function AdminDashboard() {
     if (filterUnclassified) list = list.filter((o) => isUnclassifiedObservation(o))
     return list
   }, [roleFiltered, filterStatus, filterHiPo, filterUnclassified])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filterStatus, filterHiPo, filterUnclassified])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+  const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, filtered.length)
 
   const escalations = useMemo(() => overdueEscalations(roleFiltered), [roleFiltered])
 
@@ -197,11 +210,22 @@ export default function AdminDashboard() {
       {/* Mobile: card list */}
       <div className="space-y-3 md:hidden">
         {loading && <p className="text-center text-sm text-slate-500">Memuat…</p>}
-        {!loading && filtered.map((obs) => (
+        {!loading && paged.map((obs) => (
           <ReportCard key={obs.id} obs={obs} selected={selectedId === obs.id} onClick={() => setSelectedId(obs.id)} />
         ))}
         {!loading && filtered.length === 0 && (
           <p className="py-8 text-center text-sm text-slate-500">Belum ada laporan.</p>
+        )}
+        {!loading && filtered.length > PAGE_SIZE && (
+          <ListPager
+            rangeStart={rangeStart}
+            rangeEnd={rangeEnd}
+            total={filtered.length}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          />
         )}
       </div>
 
@@ -220,7 +244,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80">
-                {!loading && filtered.map((obs) => (
+                {!loading && paged.map((obs) => (
                   <tr
                     key={obs.id}
                     onClick={() => setSelectedId(obs.id)}
@@ -254,6 +278,17 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+          {!loading && filtered.length > PAGE_SIZE && (
+            <ListPager
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              total={filtered.length}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPrev={() => setPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+            />
+          )}
         </div>
         <div className="col-span-2">
           {selected ? (
@@ -285,6 +320,37 @@ export default function AdminDashboard() {
         </div>
       )}
     </AdminLayout>
+  )
+}
+
+function ListPager({ rangeStart, rangeEnd, total, currentPage, totalPages, onPrev, onNext }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-slate-800 px-4 py-3">
+      <p className="text-xs text-slate-500">
+        {rangeStart}–{rangeEnd} dari {total}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={currentPage <= 1}
+          className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-300 disabled:opacity-40"
+        >
+          Sebelumnya
+        </button>
+        <span className="font-mono text-[11px] text-slate-400">
+          {currentPage}/{totalPages}
+        </span>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={currentPage >= totalPages}
+          className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-300 disabled:opacity-40"
+        >
+          Berikutnya
+        </button>
+      </div>
+    </div>
   )
 }
 
