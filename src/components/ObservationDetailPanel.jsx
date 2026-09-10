@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { HiPoBadge, RiskBadge, StatusBadge } from './Badge'
 import InvestigationForm from './InvestigationForm'
 import RecommendationPanel from './RecommendationPanel'
@@ -18,6 +18,8 @@ import {
   parseInvestigationData,
 } from '../lib/investigation'
 import { exportInvestigationPdf, exportObservationPdf } from '../lib/pdf'
+import { buildNoticeActions } from '../lib/pdfNarrative'
+import { buildPdfSubject, normalizeActionChecks } from '../lib/pdfMeta'
 import { canClassifyObservations, canEditObservations } from '../lib/roles'
 import { resolveSocNumber } from '../lib/socNumber'
 import { useUser } from './RequireRole'
@@ -42,6 +44,10 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   )
   const [pdfTo, setPdfTo] = useState(observation.pdf_to || '')
   const [pdfPic, setPdfPic] = useState(observation.pdf_pic || '')
+  const [pdfSubject, setPdfSubject] = useState(observation.pdf_subject || '')
+  const [actionChecks, setActionChecks] = useState(() =>
+    normalizeActionChecks(buildNoticeActions(observation).id.length, observation.pdf_action_checks),
+  )
   const [inv, setInv] = useState(() => parseInvestigationData(observation))
   const [finding, setFinding] = useState(observation.finding_observation || '')
   const [recommendation, setRecommendation] = useState(observation.rekomendasi || '')
@@ -51,6 +57,23 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   const [pdfBusy, setPdfBusy] = useState('')
 
   const socNo = resolveSocNumber(observation, allObservations)
+  const noticeActions = useMemo(
+    () =>
+      buildNoticeActions({
+        ...observation,
+        pic_assigned: pic,
+        finding_observation: finding,
+        rekomendasi: recommendation,
+        triage_notes: triageNotes,
+        requires_investigation: requiresInvestigation,
+        catatan_penutupan: catatan,
+      }),
+    [observation, pic, finding, recommendation, triageNotes, requiresInvestigation, catatan],
+  )
+
+  useEffect(() => {
+    setActionChecks((prev) => normalizeActionChecks(noticeActions.id.length, prev))
+  }, [noticeActions.id.length])
 
   useEffect(() => {
     const pending = isUnclassifiedObservation(observation)
@@ -64,6 +87,10 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
     setRequiresInvestigation(Boolean(observation.requires_investigation))
     setPdfTo(observation.pdf_to || '')
     setPdfPic(observation.pdf_pic || '')
+    setPdfSubject(observation.pdf_subject || '')
+    setActionChecks(
+      normalizeActionChecks(buildNoticeActions(observation).id.length, observation.pdf_action_checks),
+    )
     setInv(parseInvestigationData(observation))
     setFinding(observation.finding_observation || '')
     setRecommendation(observation.rekomendasi || '')
@@ -90,6 +117,8 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
         requires_investigation: requiresInvestigation,
         pdf_to: pdfTo,
         pdf_pic: pdfPic,
+        pdf_subject: pdfSubject,
+        pdf_action_checks: actionChecks,
         investigation_data: invPayload,
         investigation_notes: investigationPlainSummary(invPayload),
         root_cause: invPayload.root_cause || '',
@@ -132,10 +161,18 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
         soc_number: observation.soc_number || socNo,
         pdf_to: pdfTo || observation.pdf_to,
         pdf_pic: pdfPic || observation.pdf_pic,
+        pdf_subject: pdfSubject || observation.pdf_subject,
+        pdf_action_checks: actionChecks,
         investigation_data: inv,
         finding_observation: finding,
         rekomendasi: recommendation,
         root_cause: inv.root_cause || observation.root_cause,
+        pic_assigned: pic || observation.pic_assigned,
+        requires_investigation: requiresInvestigation,
+        catatan_penutupan: catatan,
+        triage_notes: triageNotes,
+        kategori: kategori || observation.kategori,
+        tingkat_risiko: risiko || observation.tingkat_risiko,
       }
       if (type === 'soc') await exportObservationPdf(enriched)
       else await exportInvestigationPdf(enriched)
@@ -339,6 +376,53 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                       placeholder="Input manual HSE…"
                     />
                   </label>
+                </div>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-400">
+                    Perihal / Subject (PDF)
+                  </span>
+                  <input
+                    type="text"
+                    value={pdfSubject}
+                    onChange={(e) => setPdfSubject(e.target.value)}
+                    className="admin-input"
+                    placeholder={buildPdfSubject({
+                      ...observation,
+                      kategori,
+                      tingkat_risiko: risiko,
+                    })}
+                  />
+                  <span className="mt-1 block text-[10px] text-slate-500">
+                    Nama pelapor tidak masuk perihal — ada kolom Pelapor / Reported by di PDF.
+                  </span>
+                </label>
+
+                <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5">
+                  <p className="mb-2 text-xs font-medium text-slate-300">
+                    Tindakan yang telah dilakukan (centang untuk PDF)
+                  </p>
+                  <ul className="space-y-1.5">
+                    {noticeActions.id.map((text, i) => (
+                      <li key={`${i}-${text.slice(0, 24)}`}>
+                        <label className="flex items-start gap-2 text-xs text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={actionChecks[i] !== false}
+                            onChange={() =>
+                              setActionChecks((prev) => {
+                                const next = normalizeActionChecks(noticeActions.id.length, prev)
+                                next[i] = !next[i]
+                                return next
+                              })
+                            }
+                            className="mt-0.5"
+                          />
+                          <span>{text}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
                 <label className="block">

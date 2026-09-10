@@ -1,32 +1,46 @@
 import { jsPDF } from 'jspdf'
 import { BRANDING } from './branding'
-import { categoryLabel } from './constants'
 import {
   buildInvestigationNarrative,
   buildSocNarrativeEn,
   buildSocNarrativeId,
 } from './pdfNarrative'
+import { buildPdfReporter, buildPdfSubject, normalizeActionChecks } from './pdfMeta'
 import { resolveSocNumber } from './socNumber'
 
 const LOGO_PATH = BRANDING.logoPdfSrc || '/logo/BACT Logo_OG Black Text.png'
-const MARGIN = 14
+const MARGIN = 16
 const PAGE_BOTTOM = 280
-let cachedLogoData = null
+const FALLBACK_LOGO_RATIO = 3.26
 
-async function loadLogoDataUrl() {
-  if (cachedLogoData) return cachedLogoData
+let cachedLogo = null
+let pdfCtx = { title: '', soc: '' }
+
+async function loadLogo() {
+  if (cachedLogo) return cachedLogo
   try {
-    const res = await fetch(LOGO_PATH)
-    const blob = await res.blob()
-    cachedLogoData = await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image()
+      el.onload = () => resolve(el)
+      el.onerror = reject
+      el.src = encodeURI(LOGO_PATH)
     })
-    return cachedLogoData
+    const ratio = img.naturalWidth / img.naturalHeight || FALLBACK_LOGO_RATIO
+    const maxPx = 720
+    let w = img.naturalWidth
+    let h = img.naturalHeight
+    if (w > maxPx) {
+      h = Math.round((h * maxPx) / w)
+      w = maxPx
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h)
+    cachedLogo = { data: canvas.toDataURL('image/png'), ratio }
+    return cachedLogo
   } catch {
-    return null
+    return { data: null, ratio: FALLBACK_LOGO_RATIO }
   }
 }
 
@@ -50,318 +64,390 @@ function contentWidth() {
   return 210 - MARGIN * 2
 }
 
-function drawPageFrame(doc) {
+function lineHeightMm(doc) {
+  return doc.getFontSize() * doc.getLineHeightFactor() * 0.352777778
+}
+
+function bilingualCols() {
+  const gap = 7
+  const colW = (contentWidth() - gap) / 2
+  const xId = MARGIN
+  const xEn = xId + colW + gap
+  return { gap, colW, xId, xEn }
+}
+
+function drawJustified(doc, text, x, y, maxWidth) {
+  const value = String(text || '')
+  if (!value) return
+  const lines = doc.splitTextToSize(value, maxWidth)
+  if (lines.length <= 1) {
+    doc.text(value, x, y)
+    return
+  }
+  try {
+    doc.text(value, x, y, { align: 'justify', maxWidth })
+  } catch {
+    doc.text(lines, x, y)
+  }
+}
+
+function drawCheckBox(doc, x, yBaseline, checked) {
+  const size = 3.1
+  const top = yBaseline - 2.45
   doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.5)
-  doc.rect(MARGIN, MARGIN, contentWidth(), 297 - MARGIN * 2)
+  doc.setLineWidth(0.32)
+  doc.rect(x, top, size, size)
+  if (checked) {
+    doc.setLineWidth(0.48)
+    doc.line(x + 0.5, top + 1.65, x + 1.2, top + 2.45)
+    doc.line(x + 1.2, top + 2.45, x + 2.6, top + 0.5)
+  }
 }
 
 function ensureSpace(doc, y, need) {
-  if (y + need > PAGE_BOTTOM) {
-    doc.addPage()
-    drawPageFrame(doc)
-    return MARGIN + 8
-  }
-  return y
+  if (y + need <= PAGE_BOTTOM) return y
+  doc.addPage()
+  drawContinuationBar(doc)
+  return MARGIN + 14
 }
 
-/** Header mirip Notice: logo kiri + judul tengah + kotak Document No kanan */
-function drawNoticeHeader(doc, logo, title, obs) {
-  const top = MARGIN
-  const innerX = MARGIN
-  const innerW = contentWidth()
-  const headerH = 28
-  const metaBoxW = 58
-  const leftW = innerW - metaBoxW
-
+function drawContinuationBar(doc) {
   doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.35)
-  doc.rect(innerX, top, innerW, headerH)
-  doc.line(innerX + leftW, top, innerX + leftW, top + headerH)
-
-  if (logo) {
-    try {
-      doc.addImage(logo, 'PNG', innerX + 3, top + 4, 32, 10)
-    } catch {
-      /* ignore */
-    }
-  }
+  doc.setLineWidth(0.3)
+  doc.line(MARGIN, MARGIN, MARGIN + contentWidth(), MARGIN)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7.5)
+  doc.setFontSize(8)
   doc.setTextColor(0, 0, 0)
-  doc.text('BATU AMPAR CONTAINER TERMINAL', innerX + 3, top + 18)
-
-  doc.setFontSize(11)
-  const titleLines = doc.splitTextToSize(title, leftW - 10)
-  const titleY = top + 12 - ((titleLines.length - 1) * 4) / 2
-  doc.text(titleLines, innerX + leftW / 2, titleY, { align: 'center' })
-
-  const soc = resolveSocNumber(obs)
-  const boxX = innerX + leftW
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
-  doc.text('Document No.', boxX + 2, top + 6)
+  doc.text(headerTitleLines(pdfCtx.title || 'NOTICE').join(' '), MARGIN, MARGIN + 5)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  const docLines = doc.splitTextToSize(soc, metaBoxW - 4)
-  doc.text(docLines, boxX + 2, top + 10)
-
-  doc.setFont('helvetica', 'bold')
-  doc.text('Effective Date', boxX + 2, top + 18)
-  doc.setFont('helvetica', 'normal')
-  doc.text(fmtDateEn(obs.created_at || obs.tanggal_waktu), boxX + 2, top + 22)
-
-  return top + headerH
+  doc.setFontSize(8)
+  doc.text(pdfCtx.soc || '', MARGIN + contentWidth(), MARGIN + 5, { align: 'right' })
 }
 
-/** Tabel Kepada / Tanggal / Perihal (gaya Notice) */
-function drawRecipientTable(doc, obs, startY) {
-  const x0 = MARGIN
-  const labelW = 38
-  const valueW = contentWidth() - labelW
-  const soc = resolveSocNumber(obs)
-  const rows = [
-    ['Kepada / To', obs.pdf_to || `Management of ${obs.nama_perusahaan || 'PT. BACT'}`],
-    ['Tanggal / Date', fmtDateEn(obs.tanggal_waktu || obs.created_at)],
-    [
-      'Perihal / Subject',
-      `Safety Observation – ${obs.is_anonymous ? 'Anonymous' : obs.nama_pelapor || '—'} (${categoryLabel(obs.kategori)})`,
-    ],
-    ['Nomor SOC', soc],
-    ['PIC / Assigned', obs.pdf_pic || obs.pic_assigned || '—'],
-  ]
-
-  let y = startY
-  doc.setDrawColor(0, 0, 0)
-  doc.setLineWidth(0.35)
-
-  for (const [label, value] of rows) {
-    const lines = doc.splitTextToSize(String(value), valueW - 4)
-    const h = Math.max(7, lines.length * 4 + 3)
-    doc.rect(x0, y, labelW, h)
-    doc.rect(x0 + labelW, y, valueW, h)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
-    doc.text(label, x0 + 2, y + 5)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.text(lines, x0 + labelW + 2, y + 5)
-    y += h
-  }
-  return y + 5
+function headerTitleLines(title) {
+  if (title === 'NOTICE OF SAFETY OBSERVATION') return ['NOTICE OF', 'SAFETY OBSERVATION']
+  if (title === 'INVESTIGATION REPORT') return ['INVESTIGATION', 'REPORT']
+  return String(title || '').split('\n')
 }
 
 /**
- * Badan bilingual sejajar: kiri ID, kanan EN — tanpa label "Bahasa Indonesia/English"
- * seperti contoh Notice of Safety Violation.
+ * Kop surat: logo kiri (ukuran normal) + judul 2 baris di kanan,
+ * lalu tabel 3 kolom (label | isi | Document No).
  */
-function drawBilingualColumns(doc, obs, startY) {
-  const gap = 5
-  const colW = (contentWidth() - gap - 4) / 2
-  const xId = MARGIN + 2
-  const xEn = xId + colW + gap
-  const lineH = 3.55
-  const id = buildSocNarrativeId(obs)
-  const en = buildSocNarrativeEn(obs)
+function drawLetterhead(doc, logo, title, obs) {
+  const x0 = MARGIN
+  const tableW = contentWidth()
+  const headerH = 24
+  const top = MARGIN
 
-  let y = startY
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.35)
+  doc.rect(x0, top, tableW, headerH)
 
-  const writeSynced = (textId, textEn, { bold = false, size = 8.5 } = {}) => {
-    doc.setFont('helvetica', bold ? 'bold' : 'normal')
-    doc.setFontSize(size)
-    const linesId = doc.splitTextToSize(textId || '', colW)
-    const linesEn = doc.splitTextToSize(textEn || '', colW)
-    const rows = Math.max(linesId.length, linesEn.length)
-    y = ensureSpace(doc, y, rows * lineH + 3)
-    for (let i = 0; i < rows; i++) {
-      if (linesId[i]) doc.text(linesId[i], xId, y)
-      if (linesEn[i]) doc.text(linesEn[i], xEn, y)
-      y += lineH
+  let logoW = 0
+  let logoH = 0
+  if (logo?.data) {
+    const maxW = 62
+    const maxH = 18
+    logoW = maxW
+    logoH = logoW / (logo.ratio || FALLBACK_LOGO_RATIO)
+    if (logoH > maxH) {
+      logoH = maxH
+      logoW = logoH * (logo.ratio || FALLBACK_LOGO_RATIO)
     }
-    y += 3.2
+    try {
+      doc.addImage(logo.data, 'PNG', x0 + 3, top + (headerH - logoH) / 2, logoW, logoH)
+    } catch {
+      logoW = 0
+    }
   }
 
-  writeSynced(id.intro, en.intro)
-  writeSynced(id.context, en.context)
-  writeSynced(id.classification, en.classification)
+  const titleX = x0 + (logoW ? logoW + 7 : 4)
+  const titleW = tableW - (titleX - x0) - 3
+  const titleLines = headerTitleLines(title)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(titleLines.length > 1 ? 11 : 13)
+  doc.setTextColor(0, 0, 0)
+  const lineH = 5
+  const titleBlockH = titleLines.length * lineH
+  let ty = top + (headerH - titleBlockH) / 2 + 4
+  for (const line of titleLines) {
+    const fitted = doc.splitTextToSize(line, titleW)
+    doc.text(fitted, titleX, ty)
+    ty += lineH
+  }
 
-  writeSynced('Tindakan yang telah dilakukan:', 'Actions Taken:', { bold: true, size: 9 })
+  return drawRecipientTable(doc, obs, top + headerH)
+}
+
+function drawRecipientTable(doc, obs, startY) {
+  const x0 = MARGIN
+  const tableW = contentWidth()
+  const labelW = 44
+  const metaW = 48
+  const valueW = tableW - labelW - metaW
+  const soc = resolveSocNumber(obs)
+
+  const rows = [
+    ['Kepada / To', obs.pdf_to || `Management of ${obs.nama_perusahaan || 'PT. BACT'}`],
+    ['Tanggal / Date', fmtDateEn(obs.tanggal_waktu || obs.created_at)],
+    ['Perihal / Subject', buildPdfSubject(obs)],
+    ['Pelapor / Reported by', buildPdfReporter(obs)],
+    ['PIC / Assigned', obs.pdf_pic || obs.pic_assigned || '—'],
+  ]
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  const heights = rows.map(([label, value]) => {
+    const labelLines = doc.splitTextToSize(label, labelW - 4)
+    const valueLines = doc.splitTextToSize(String(value), valueW - 4)
+    return Math.max(7.2, Math.max(labelLines.length, valueLines.length) * 3.6 + 3.2)
+  })
+  const totalH = heights.reduce((a, b) => a + b, 0)
+
+  doc.setDrawColor(0, 0, 0)
+  doc.setLineWidth(0.35)
+  doc.rect(x0, startY, tableW, totalH)
+  doc.line(x0 + labelW, startY, x0 + labelW, startY + totalH)
+  doc.line(x0 + labelW + valueW, startY, x0 + labelW + valueW, startY + totalH)
+
+  let y = startY
+  rows.forEach(([label, value], i) => {
+    const h = heights[i]
+    if (i > 0) doc.line(x0, y, x0 + tableW, y)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.text(label, x0 + 2, y + 5.2)
+    doc.setFont('helvetica', 'normal')
+    const lines = doc.splitTextToSize(String(value), valueW - 4)
+    doc.text(lines, x0 + labelW + 2, y + 5.2)
+    y += h
+  })
+
+  const metaX = x0 + labelW + valueW
+  const metaMid = startY + totalH / 2
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.text('Document No.', metaX + 2, startY + 5.2)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  const docLines = doc.splitTextToSize(soc, metaW - 4)
+  doc.text(docLines, metaX + 2, startY + 9.4)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8)
+  doc.text('Effective Date', metaX + 2, metaMid + 4)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.text(fmtDateEn(obs.created_at || obs.tanggal_waktu), metaX + 2, metaMid + 8.2)
+
+  return startY + totalH + 6
+}
+
+function drawBilingualBlock(doc, textId, textEn, y, opts = {}) {
+  const { bold = false, size = 8.6, checkbox = null, gapAfter = 3.8 } = opts
+  const { colW, xId, xEn } = bilingualCols()
+  const indent = checkbox != null ? 5.2 : 0
+  const textW = colW - indent
+
+  doc.setFont('helvetica', bold ? 'bold' : 'normal')
+  doc.setFontSize(size)
+  doc.setLineHeightFactor(1.2)
+  doc.setTextColor(0, 0, 0)
+
+  const linesId = doc.splitTextToSize(textId || '', textW)
+  const linesEn = doc.splitTextToSize(textEn || '', textW)
+  const rows = Math.max(linesId.length, linesEn.length, textId || textEn ? 1 : 0)
+  if (!rows) return y
+
+  const lh = lineHeightMm(doc)
+  y = ensureSpace(doc, y, rows * lh + gapAfter)
+
+  if (checkbox != null) {
+    if (textId) drawCheckBox(doc, xId, y, checkbox)
+    if (textEn) drawCheckBox(doc, xEn, y, checkbox)
+  }
+
+  drawJustified(doc, textId, xId + indent, y, textW)
+  drawJustified(doc, textEn, xEn + indent, y, textW)
+  return y + rows * lh + gapAfter
+}
+
+function drawBilingualColumns(doc, obs, startY) {
+  const id = buildSocNarrativeId(obs)
+  const en = buildSocNarrativeEn(obs)
+  const flags = normalizeActionChecks(Math.max(id.actions.length, en.actions.length), obs.pdf_action_checks)
+  let y = startY
+
+  y = drawBilingualBlock(doc, id.intro, en.intro, y, { gapAfter: 3.4 })
+  y = drawBilingualBlock(doc, id.context, en.context, y, { gapAfter: 3.4 })
+  y = drawBilingualBlock(doc, id.classification, en.classification, y, { gapAfter: 4 })
+
+  y = drawBilingualBlock(doc, 'Tindakan yang telah dilakukan:', 'Actions Taken:', y, {
+    bold: true,
+    size: 9,
+    gapAfter: 2.6,
+  })
 
   const n = Math.max(id.actions.length, en.actions.length)
   for (let i = 0; i < n; i++) {
-    const bulletId = id.actions[i] ? `${i + 1}. ${id.actions[i]}` : ''
-    const bulletEn = en.actions[i] ? `${i + 1}. ${en.actions[i]}` : ''
-    writeSynced(bulletId, bulletEn)
+    y = drawBilingualBlock(doc, id.actions[i] || '', en.actions[i] || '', y, {
+      checkbox: flags[i],
+      gapAfter: 2.2,
+    })
   }
 
-  writeSynced(id.followUp, en.followUp)
-  writeSynced(id.closing, en.closing)
+  y = drawBilingualBlock(doc, id.followUp, en.followUp, y, { gapAfter: 3.4 })
+  y = drawBilingualBlock(doc, id.closing, en.closing, y, { gapAfter: 5 })
   return y
 }
 
 function drawSignature(doc, y) {
-  y = ensureSpace(doc, y, 42)
-  y = Math.max(y + 4, 238)
+  const blockH = 28
+  y = ensureSpace(doc, y, blockH)
+  y += 1.5
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
-  doc.text('Sincerely,', MARGIN + 2, y)
-  y += 18
+  doc.text('Sincerely,', MARGIN, y)
+  y += 13
   doc.setFont('helvetica', 'bold')
-  doc.text('HSSE', MARGIN + 2, y)
-  y += 5
+  doc.text('HSSE', MARGIN, y)
+  y += 4.6
   doc.setFont('helvetica', 'normal')
-  doc.text('Health and Safety Officer', MARGIN + 2, y)
-  y += 4.5
-  doc.text('Batu Ampar Container Terminal', MARGIN + 2, y)
+  doc.setFontSize(8.5)
+  doc.text('Health and Safety Officer', MARGIN, y)
+  y += 4.2
+  doc.text('Batu Ampar Container Terminal', MARGIN, y)
 
-  doc.setFontSize(7.5)
-  doc.setTextColor(80, 80, 80)
-  doc.text(`Tanggal export: ${fmtExportDate()}`, 210 - MARGIN - 2, 287, { align: 'right' })
-}
-
-/** PDF SOC — layout Notice of Safety Observation (bilingual sejajar) */
-export async function exportObservationPdf(obs) {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const logo = await loadLogoDataUrl()
-  const soc = resolveSocNumber(obs)
-
-  drawPageFrame(doc)
-  let y = drawNoticeHeader(doc, logo, 'NOTICE OF SAFETY OBSERVATION', obs)
-  y = drawRecipientTable(doc, obs, y)
-  y = drawBilingualColumns(doc, obs, y)
-  drawSignature(doc, y)
-
-  doc.save(`SOC-${soc}.pdf`)
+  doc.setFontSize(7)
+  doc.setTextColor(110, 110, 110)
+  doc.text(`Tanggal export: ${fmtExportDate()}`, MARGIN + contentWidth(), 287, { align: 'right' })
 }
 
 function drawSectionBanner(doc, titleId, titleEn, y) {
-  const gap = 5
-  const colW = (contentWidth() - gap - 4) / 2
-  const xId = MARGIN + 2
-  const xEn = xId + colW + gap
-  y = ensureSpace(doc, y, 8)
+  const { colW, xId, xEn } = bilingualCols()
+  y = ensureSpace(doc, y, 9)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.setTextColor(0, 0, 0)
   doc.text(titleId, xId, y)
   doc.text(titleEn, xEn, y)
   y += 2
-  doc.setDrawColor(180, 180, 180)
+  doc.setDrawColor(160, 160, 160)
   doc.setLineWidth(0.2)
   doc.line(xId, y, xId + colW, y)
   doc.line(xEn, y, xEn + colW, y)
   return y + 5
 }
 
-function writeInvPair(doc, textId, textEn, y, { bold = false, size = 8 } = {}) {
-  const gap = 5
-  const colW = (contentWidth() - gap - 4) / 2
-  const xId = MARGIN + 2
-  const xEn = xId + colW + gap
-  const lineH = 3.5
-  doc.setFont('helvetica', bold ? 'bold' : 'normal')
-  doc.setFontSize(size)
-  const linesId = doc.splitTextToSize(textId || '', colW)
-  const linesEn = doc.splitTextToSize(textEn || '', colW)
-  const rows = Math.max(linesId.length, linesEn.length)
-  y = ensureSpace(doc, y, rows * lineH + 2)
-  for (let i = 0; i < rows; i++) {
-    if (linesId[i]) doc.text(linesId[i], xId, y)
-    if (linesEn[i]) doc.text(linesEn[i], xEn, y)
-    y += lineH
-  }
-  return y + 2.8
+/** PDF SOC — layout Notice of Safety Observation (bilingual, justify) */
+export async function buildObservationPdf(obs) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const logo = await loadLogo()
+  const soc = resolveSocNumber(obs)
+  pdfCtx = { title: 'NOTICE OF SAFETY OBSERVATION', soc }
+
+  let y = drawLetterhead(doc, logo, 'NOTICE OF SAFETY OBSERVATION', obs)
+  y = drawBilingualColumns(doc, obs, y)
+  drawSignature(doc, y)
+  return { doc, soc }
+}
+
+export async function exportObservationPdf(obs) {
+  const { doc, soc } = await buildObservationPdf(obs)
+  doc.save(`SOC-${soc}.pdf`)
 }
 
 /** PDF Investigasi — bilingual; tanpa label metodologi 5W+1H / 5 Whys */
-export async function exportInvestigationPdf(obs) {
+export async function buildInvestigationPdf(obs) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
-  const logo = await loadLogoDataUrl()
+  const logo = await loadLogo()
   const soc = resolveSocNumber(obs)
   const n = buildInvestigationNarrative(obs)
   const inv = n.inv
   const fb = n.fb
   const idN = buildSocNarrativeId(obs)
   const enN = buildSocNarrativeEn(obs)
+  const flags = normalizeActionChecks(Math.max(idN.actions.length, enN.actions.length), obs.pdf_action_checks)
+  pdfCtx = { title: 'INVESTIGATION REPORT', soc }
 
-  drawPageFrame(doc)
-  let y = drawNoticeHeader(doc, logo, 'INVESTIGATION REPORT', obs)
-  y = drawRecipientTable(doc, obs, y)
+  let y = drawLetterhead(doc, logo, 'INVESTIGATION REPORT', obs)
 
   y = drawSectionBanner(doc, 'A. Ringkasan kejadian', 'A. Incident summary', y)
-  y = writeInvPair(doc, n.ringkasanId, n.ringkasanEn, y)
-  y = writeInvPair(doc, n.purposeId, n.purposeEn, y)
-  y = writeInvPair(doc, idN.classification, enN.classification, y)
-  y = writeInvPair(doc, idN.context, enN.context, y)
+  y = drawBilingualBlock(doc, n.ringkasanId, n.ringkasanEn, y)
+  y = drawBilingualBlock(doc, n.purposeId, n.purposeEn, y)
+  y = drawBilingualBlock(doc, idN.classification, enN.classification, y)
+  y = drawBilingualBlock(doc, idN.context, enN.context, y)
 
   y = drawSectionBanner(doc, 'B. Fakta kejadian', 'B. Factual findings', y)
-  y = writeInvPair(doc, inv.what || fb.natureId, inv.what || fb.natureEn, y)
-  y = writeInvPair(doc, inv.where || fb.locationId, inv.where || fb.locationEn, y)
-  y = writeInvPair(doc, inv.when || fb.timeId, inv.when || fb.timeEn, y)
-  y = writeInvPair(doc, inv.why || fb.factorsId, inv.why || fb.factorsEn, y)
-  y = writeInvPair(doc, inv.how || fb.sequenceId, inv.how || fb.sequenceEn, y)
-  if (n.summary5) {
-    y = writeInvPair(doc, n.summary5, n.summary5, y)
-  }
+  y = drawBilingualBlock(doc, inv.what || fb.natureId, inv.what || fb.natureEn, y)
+  y = drawBilingualBlock(doc, inv.where || fb.locationId, inv.where || fb.locationEn, y)
+  y = drawBilingualBlock(doc, inv.when || fb.timeId, inv.when || fb.timeEn, y)
+  y = drawBilingualBlock(doc, inv.why || fb.factorsId, inv.why || fb.factorsEn, y)
+  y = drawBilingualBlock(doc, inv.how || fb.sequenceId, inv.how || fb.sequenceEn, y)
+  if (n.summary5) y = drawBilingualBlock(doc, n.summary5, n.summary5, y)
 
   y = drawSectionBanner(doc, 'C. Analisis penyebab', 'C. Cause analysis', y)
-  y = writeInvPair(doc, inv.why1 || fb.cause1Id, inv.why1 || fb.cause1En, y)
-  y = writeInvPair(doc, inv.why2 || fb.cause2Id, inv.why2 || fb.cause2En, y)
-  y = writeInvPair(doc, inv.why3 || fb.cause3Id, inv.why3 || fb.cause3En, y)
-  y = writeInvPair(doc, inv.why4 || fb.cause4Id, inv.why4 || fb.cause4En, y)
-  y = writeInvPair(doc, inv.why5 || fb.cause5Id, inv.why5 || fb.cause5En, y)
+  y = drawBilingualBlock(doc, inv.why1 || fb.cause1Id, inv.why1 || fb.cause1En, y)
+  y = drawBilingualBlock(doc, inv.why2 || fb.cause2Id, inv.why2 || fb.cause2En, y)
+  y = drawBilingualBlock(doc, inv.why3 || fb.cause3Id, inv.why3 || fb.cause3En, y)
+  y = drawBilingualBlock(doc, inv.why4 || fb.cause4Id, inv.why4 || fb.cause4En, y)
+  y = drawBilingualBlock(doc, inv.why5 || fb.cause5Id, inv.why5 || fb.cause5En, y)
 
   y = drawSectionBanner(doc, 'D. Kesimpulan & tindakan', 'D. Conclusion & actions', y)
-  y = writeInvPair(
+  y = drawBilingualBlock(
     doc,
     `Akar masalah: ${inv.root_cause || obs.root_cause || fb.rootId}`,
     `Root cause: ${inv.root_cause || obs.root_cause || fb.rootEn}`,
     y,
   )
-  y = writeInvPair(
+  y = drawBilingualBlock(
     doc,
     `Tindakan korektif: ${inv.corrective_action || fb.caId}`,
     `Corrective action: ${inv.corrective_action || fb.caEn}`,
     y,
   )
-  y = writeInvPair(
+  y = drawBilingualBlock(
     doc,
     `Temuan: ${n.finding || obs.deskripsi || '—'}`,
     `Finding: ${n.finding || obs.deskripsi || '—'}`,
     y,
   )
-  y = writeInvPair(
+  y = drawBilingualBlock(
     doc,
     `Rekomendasi: ${n.recommendation || fb.recId}`,
     `Recommendation: ${n.recommendation || fb.recEn}`,
     y,
   )
-  y = writeInvPair(
+  y = drawBilingualBlock(
     doc,
     `Petugas investigasi: ${n.investigator}`,
     `Investigating officer: ${n.investigator}`,
     y,
   )
 
-  y = writeInvPair(doc, 'Tindakan yang telah dilakukan:', 'Actions Taken:', y, {
+  y = drawBilingualBlock(doc, 'Tindakan yang telah dilakukan:', 'Actions Taken:', y, {
     bold: true,
     size: 9,
+    gapAfter: 2.6,
   })
   const maxA = Math.max(idN.actions.length, enN.actions.length)
   for (let i = 0; i < maxA; i++) {
-    y = writeInvPair(
-      doc,
-      idN.actions[i] ? `${i + 1}. ${idN.actions[i]}` : '',
-      enN.actions[i] ? `${i + 1}. ${enN.actions[i]}` : '',
-      y,
-    )
+    y = drawBilingualBlock(doc, idN.actions[i] || '', enN.actions[i] || '', y, {
+      checkbox: flags[i],
+      gapAfter: 2.8,
+    })
   }
 
-  y = writeInvPair(doc, idN.followUp, enN.followUp, y)
-  y = writeInvPair(doc, idN.closing, enN.closing, y)
+  y = drawBilingualBlock(doc, idN.followUp, enN.followUp, y)
+  y = drawBilingualBlock(doc, idN.closing, enN.closing, y, { gapAfter: 6 })
   drawSignature(doc, y)
+  return { doc, soc }
+}
 
+export async function exportInvestigationPdf(obs) {
+  const { doc, soc } = await buildInvestigationPdf(obs)
   doc.save(`SOC-Investigasi-${soc}.pdf`)
 }

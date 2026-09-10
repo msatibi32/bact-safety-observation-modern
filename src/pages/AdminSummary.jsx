@@ -15,7 +15,8 @@ import {
   topLocations,
   trendDelta,
 } from '../lib/analytics'
-import { avgDaysToClose, countOverdueCapa, exportObservationsCsv } from '../lib/export'
+import { avgDaysToClose, countOverdueCapa, exportObservationsExcel } from '../lib/export'
+import { exportSocFlowchartPdf } from '../lib/pdfFlowchart'
 import { canViewHsePerformance } from '../lib/roles'
 import { getAllAuditLogs, getAllCapa, getKpiTargets, getObservations } from '../lib/store'
 
@@ -120,14 +121,23 @@ export default function AdminSummary() {
           <LivePulse />
           <h1 className="text-base font-semibold text-slate-100 md:text-lg">Analitik HSE</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => exportObservationsCsv(observations)}
-          disabled={!observations.length}
-          className="btn-primary text-sm"
-        >
-          Export CSV
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => exportSocFlowchartPdf()}
+            className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 hover:border-brand-500 hover:text-brand-400"
+          >
+            Unduh Flow Chart
+          </button>
+          <button
+            type="button"
+            onClick={() => exportObservationsExcel(observations)}
+            disabled={!observations.length}
+            className="btn-primary text-sm"
+          >
+            Export Excel
+          </button>
+        </div>
       </div>
 
       {loading && <p className="text-sm text-slate-500">Memuat data…</p>}

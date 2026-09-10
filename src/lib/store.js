@@ -52,6 +52,8 @@ function toAppShape(row) {
     soc_number: row.soc_number || '',
     pdf_to: row.pdf_to || '',
     pdf_pic: row.pdf_pic || '',
+    pdf_subject: row.pdf_subject || '',
+    pdf_action_checks: Array.isArray(row.pdf_action_checks) ? row.pdf_action_checks : null,
     investigator_name: row.investigator_name || '',
   }
 }
@@ -207,6 +209,8 @@ export async function updateObservation(id, patch, previous) {
   if ('soc_number' in patch) dbPatch.soc_number = patch.soc_number || null
   if ('pdf_to' in patch) dbPatch.pdf_to = patch.pdf_to || null
   if ('pdf_pic' in patch) dbPatch.pdf_pic = patch.pdf_pic || null
+  if ('pdf_subject' in patch) dbPatch.pdf_subject = patch.pdf_subject || null
+  if ('pdf_action_checks' in patch) dbPatch.pdf_action_checks = patch.pdf_action_checks ?? null
   if ('investigator_name' in patch) dbPatch.investigator_name = patch.investigator_name || null
   if ('is_hipo' in patch) dbPatch.is_hipo = patch.is_hipo
   if ('kategori' in patch) dbPatch.category = patch.kategori
@@ -233,12 +237,14 @@ export async function updateObservation(id, patch, previous) {
   ;({ data: row, error } = await supabase.from('observations').update(dbPatch).eq('id', id).select().single())
 
   // Fallback jika kolom v8 belum ada di DB
-  if (error && /column|schema|investigation_data|finding_observation|pdf_to|pdf_pic|requires_investigation|soc_number|investigator_name/i.test(error.message)) {
+  if (error && /column|schema|investigation_data|finding_observation|pdf_to|pdf_pic|pdf_subject|pdf_action_checks|requires_investigation|soc_number|investigator_name/i.test(error.message)) {
     const legacy = { ...dbPatch }
     delete legacy.investigation_data
     delete legacy.finding_observation
     delete legacy.pdf_to
     delete legacy.pdf_pic
+    delete legacy.pdf_subject
+    delete legacy.pdf_action_checks
     delete legacy.requires_investigation
     delete legacy.soc_number
     delete legacy.investigator_name
