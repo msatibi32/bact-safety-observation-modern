@@ -1,8 +1,36 @@
 import { Area, AreaChart, ResponsiveContainer } from 'recharts'
 
-export function TradingStatCard({ label, value, delta, up, sparkData, accent = 'text-white' }) {
-  const chartData = (sparkData || []).map((v, i) => ({ i, v }))
+export function Sparkline({ data, up = true, id = 'spark' }) {
+  const chartData = (data || []).map((v, i) => ({ i, v }))
+  if (!chartData.length) return null
+  const stroke = up ? '#34d399' : '#f87171'
+  const gradId = String(id).replace(/[^a-zA-Z0-9_-]/g, '-')
+  return (
+    <div className="h-10 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={chartData}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={stroke} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey="v"
+            stroke={stroke}
+            strokeWidth={1.5}
+            fill={`url(#${gradId})`}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
 
+export function TradingStatCard({ label, value, delta, up, sparkData, accent = 'text-white' }) {
   return (
     <div className="admin-stat-card min-w-[148px] shrink-0 rounded-2xl border border-slate-700/60 bg-slate-900/80 p-3.5 backdrop-blur sm:min-w-0">
       <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
@@ -18,27 +46,9 @@ export function TradingStatCard({ label, value, delta, up, sparkData, accent = '
           </span>
         )}
       </div>
-      {chartData.length > 0 && (
-        <div className="mt-2 h-10 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id={`spark-${label}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={up ? '#34d399' : '#f87171'} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={up ? '#34d399' : '#f87171'} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="v"
-                stroke={up ? '#34d399' : '#f87171'}
-                strokeWidth={1.5}
-                fill={`url(#spark-${label})`}
-                dot={false}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+      {sparkData?.length > 0 && (
+        <div className="mt-2">
+          <Sparkline data={sparkData} up={up} id={`spark-${label}`} />
         </div>
       )}
     </div>

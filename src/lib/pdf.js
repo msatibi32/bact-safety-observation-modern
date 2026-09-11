@@ -118,26 +118,20 @@ function drawContinuationBar(doc) {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
   doc.setTextColor(0, 0, 0)
-  doc.text(headerTitleLines(pdfCtx.title || 'NOTICE').join(' '), MARGIN, MARGIN + 5)
+  doc.text(pdfCtx.title || 'NOTICE', MARGIN, MARGIN + 5)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.text(pdfCtx.soc || '', MARGIN + contentWidth(), MARGIN + 5, { align: 'right' })
 }
 
-function headerTitleLines(title) {
-  if (title === 'NOTICE OF SAFETY OBSERVATION') return ['NOTICE OF', 'SAFETY OBSERVATION']
-  if (title === 'INVESTIGATION REPORT') return ['INVESTIGATION', 'REPORT']
-  return String(title || '').split('\n')
-}
-
 /**
- * Kop surat: logo kiri (ukuran normal) + judul 2 baris di kanan,
- * lalu tabel 3 kolom (label | isi | Document No).
+ * Kop surat: logo kiri + judul 1 baris di kanan,
+ * lalu tabel 3 kolom (label | isi | Document No rapi).
  */
 function drawLetterhead(doc, logo, title, obs) {
   const x0 = MARGIN
   const tableW = contentWidth()
-  const headerH = 24
+  const headerH = 20
   const top = MARGIN
 
   doc.setDrawColor(0, 0, 0)
@@ -147,8 +141,8 @@ function drawLetterhead(doc, logo, title, obs) {
   let logoW = 0
   let logoH = 0
   if (logo?.data) {
-    const maxW = 62
-    const maxH = 18
+    const maxW = 52
+    const maxH = 15
     logoW = maxW
     logoH = logoW / (logo.ratio || FALLBACK_LOGO_RATIO)
     if (logoH > maxH) {
@@ -162,31 +156,36 @@ function drawLetterhead(doc, logo, title, obs) {
     }
   }
 
-  const titleX = x0 + (logoW ? logoW + 7 : 4)
+  const titleX = x0 + (logoW ? logoW + 6 : 4)
   const titleW = tableW - (titleX - x0) - 3
-  const titleLines = headerTitleLines(title)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(titleLines.length > 1 ? 11 : 13)
   doc.setTextColor(0, 0, 0)
-  const lineH = 5
-  const titleBlockH = titleLines.length * lineH
-  let ty = top + (headerH - titleBlockH) / 2 + 4
-  for (const line of titleLines) {
-    const fitted = doc.splitTextToSize(line, titleW)
-    doc.text(fitted, titleX, ty)
-    ty += lineH
+  let size = 12
+  doc.setFontSize(size)
+  while (size > 8.5 && doc.getTextWidth(title) > titleW) {
+    size -= 0.3
+    doc.setFontSize(size)
   }
+  doc.text(title, titleX, top + headerH / 2 + 1.2)
 
   return drawRecipientTable(doc, obs, top + headerH)
+}
+
+function socNumberLines(soc) {
+  const text = String(soc || '')
+  const match = text.match(/^(SOC-\d+-BACT)-(.*)$/i)
+  if (match) return [match[1], match[2]]
+  return [text]
 }
 
 function drawRecipientTable(doc, obs, startY) {
   const x0 = MARGIN
   const tableW = contentWidth()
-  const labelW = 44
-  const metaW = 48
+  const labelW = 42
+  const metaW = 54
   const valueW = tableW - labelW - metaW
   const soc = resolveSocNumber(obs)
+  const metaX = x0 + labelW + valueW
 
   const rows = [
     ['Kepada / To', obs.pdf_to || `Management of ${obs.nama_perusahaan || 'PT. BACT'}`],
@@ -201,45 +200,46 @@ function drawRecipientTable(doc, obs, startY) {
   const heights = rows.map(([label, value]) => {
     const labelLines = doc.splitTextToSize(label, labelW - 4)
     const valueLines = doc.splitTextToSize(String(value), valueW - 4)
-    return Math.max(7.2, Math.max(labelLines.length, valueLines.length) * 3.6 + 3.2)
+    return Math.max(7.4, Math.max(labelLines.length, valueLines.length) * 3.6 + 3.4)
   })
   const totalH = heights.reduce((a, b) => a + b, 0)
+  const metaSplit = startY + totalH / 2
 
   doc.setDrawColor(0, 0, 0)
   doc.setLineWidth(0.35)
   doc.rect(x0, startY, tableW, totalH)
   doc.line(x0 + labelW, startY, x0 + labelW, startY + totalH)
-  doc.line(x0 + labelW + valueW, startY, x0 + labelW + valueW, startY + totalH)
+  doc.line(metaX, startY, metaX, startY + totalH)
+  doc.line(metaX, metaSplit, x0 + tableW, metaSplit)
 
   let y = startY
   rows.forEach(([label, value], i) => {
     const h = heights[i]
-    if (i > 0) doc.line(x0, y, x0 + tableW, y)
+    if (i > 0) doc.line(x0, y, metaX, y)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
     doc.text(label, x0 + 2, y + 5.2)
     doc.setFont('helvetica', 'normal')
-    const lines = doc.splitTextToSize(String(value), valueW - 4)
-    doc.text(lines, x0 + labelW + 2, y + 5.2)
+    doc.text(doc.splitTextToSize(String(value), valueW - 4), x0 + labelW + 2, y + 5.2)
     y += h
   })
 
-  const metaX = x0 + labelW + valueW
-  const metaMid = startY + totalH / 2
+  const pad = 2.4
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('Document No.', metaX + 2, startY + 5.2)
-  doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
-  const docLines = doc.splitTextToSize(soc, metaW - 4)
-  doc.text(docLines, metaX + 2, startY + 9.4)
+  doc.text('Document No.', metaX + pad, startY + 5)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.2)
+  socNumberLines(soc).forEach((line, i) => {
+    doc.text(line, metaX + pad, startY + 9.2 + i * 3.6)
+  })
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.text('Effective Date', metaX + 2, metaMid + 4)
+  doc.setFontSize(7.5)
+  doc.text('Effective Date', metaX + pad, metaSplit + 5)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
-  doc.text(fmtDateEn(obs.created_at || obs.tanggal_waktu), metaX + 2, metaMid + 8.2)
+  doc.text(fmtDateEn(obs.created_at || obs.tanggal_waktu), metaX + pad, metaSplit + 9.4)
 
   return startY + totalH + 6
 }

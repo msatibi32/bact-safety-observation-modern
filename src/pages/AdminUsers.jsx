@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '../components/AdminLayout'
 import { useUser } from '../components/RequireRole'
-import { createAdminUser, deleteAdminUser, listAdminUsers, updateAdminUser } from '../lib/adminUsers'
+import {
+  createAdminUser,
+  deleteAdminUser,
+  listAdminUsers,
+  setAdminUserDisabled,
+  updateAdminUser,
+} from '../lib/adminUsers'
 import { DEPARTMENT_OPTIONS } from '../lib/constants'
 import { ASSIGNABLE_ROLES, canManageUsers, displayRole } from '../lib/roles'
 
@@ -80,6 +86,29 @@ export default function AdminUsers() {
     }
   }
 
+  async function handleToggle(target) {
+    if (target.id === user?.id) {
+      setError('Tidak boleh menonaktifkan akun sendiri.')
+      return
+    }
+    const nextDisabled = !target.disabled
+    if (
+      nextDisabled &&
+      !confirm(`Nonaktifkan ${target.email}? Orang ini tidak bisa login sampai diaktifkan lagi.`)
+    ) {
+      return
+    }
+    setError('')
+    setMessage('')
+    try {
+      await setAdminUserDisabled(target.id, nextDisabled)
+      setMessage(nextDisabled ? `${target.email} dinonaktifkan.` : `${target.email} diaktifkan lagi.`)
+      await load()
+    } catch (err) {
+      setError(err.message || 'Gagal mengubah status akun.')
+    }
+  }
+
   async function handleDelete(target) {
     if (!confirm(`Hapus akun ${target.email}? Orang ini tidak bisa login lagi.`)) return
     setError('')
@@ -106,7 +135,7 @@ export default function AdminUsers() {
     <AdminLayout>
       <h1 className="mb-1 text-lg font-semibold text-slate-100">Pengguna & Role</h1>
       <p className="mb-5 text-sm text-slate-500">
-        Tambah orang yang boleh login ke dashboard. Pilih role-nya. Hanya Super Admin yang melihat menu ini.
+        Semua akun terdaftar. Super Admin bisa tambah, ganti role/password, atau aktifkan/nonaktifkan kapan saja.
       </p>
 
       <form
@@ -184,19 +213,44 @@ export default function AdminUsers() {
 
       {loading && <p className="text-sm text-slate-500">Memuat daftar pengguna…</p>}
 
+      {!loading && users.length > 0 && (
+        <p className="mb-3 text-xs text-slate-500">
+          {users.length} akun terdaftar · {users.filter((u) => !u.disabled).length} aktif ·{' '}
+          {users.filter((u) => u.disabled).length} nonaktif
+        </p>
+      )}
+
       <ul className="space-y-2">
         {users.map((u) => (
           <li
             key={u.id}
-            className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3"
+            className={`rounded-2xl border px-4 py-3 ${
+              u.disabled
+                ? 'border-slate-800/70 bg-slate-950/40 opacity-80'
+                : 'border-slate-800 bg-slate-900/40'
+            }`}
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-100">{u.email}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-medium text-slate-100">{u.email}</p>
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                      u.disabled
+                        ? 'bg-red-500/15 text-red-400'
+                        : 'bg-emerald-500/15 text-emerald-400'
+                    }`}
+                  >
+                    {u.disabled ? 'Nonaktif' : 'Aktif'}
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500">
                   {displayRole(u.role)}
                   {u.pic_department ? ` · ${u.pic_department}` : ''}
                   {u.id === user?.id ? ' · akun kamu' : ''}
+                  {u.last_sign_in_at
+                    ? ` · login terakhir ${new Date(u.last_sign_in_at).toLocaleString('id-ID')}`
+                    : ' · belum pernah login'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -214,6 +268,19 @@ export default function AdminUsers() {
                     </option>
                   ))}
                 </select>
+                {u.id !== user?.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggle(u)}
+                    className={`rounded-lg px-2 py-1 text-xs ${
+                      u.disabled
+                        ? 'text-emerald-400 hover:bg-emerald-500/10'
+                        : 'text-amber-300 hover:bg-amber-500/10'
+                    }`}
+                  >
+                    {u.disabled ? 'Aktifkan' : 'Nonaktifkan'}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {

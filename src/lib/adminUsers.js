@@ -53,3 +53,8 @@ export async function updateAdminUser(id, patch) {
 export async function deleteAdminUser(id) {
   await invokeManageUsers({ action: 'delete', id })
 }
+
+export async function setAdminUserDisabled(id, disabled) {
+  const data = await invokeManageUsers({ action: 'update', id, disabled })
+  return data.user
+}

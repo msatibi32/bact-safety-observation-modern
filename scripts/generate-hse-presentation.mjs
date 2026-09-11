@@ -199,7 +199,7 @@ function arrowRight(slide, x, y, w = 0.32) {
     align: 'center',
     fontFace: FONT,
   })
-  slide.addText('Form ringkas  ·  Lookup karyawan BACT  ·  Klasifikasi oleh HSE  ·  Notifikasi email', {
+  slide.addText('Form ringkas  ·  Klasifikasi HSE  ·  Log HSE  ·  Kelola user  ·  Notifikasi email', {
     x: 0.5,
     y: 4.55,
     w: 9,
@@ -529,12 +529,12 @@ function arrowRight(slide, x, y, w = 0.32) {
 {
   const slide = contentSlide('Dashboard HSE (Command Center)', '/admin  ·  login email & password')
   const boxes = [
-    { t: 'Live Traffic', b: 'Kartu total, aktif, HiPo, closed + grafik 14 hari.', c: C.orange },
+    { t: 'Live Traffic', b: 'Kartu total, aktif, HiPo, closed + grafik 14 hari. Daftar laporan 10 per halaman.', c: C.orange },
     { t: 'Belum diklasifikasi', b: 'Filter antrian laporan yang menunggu HSE isi kategori/risiko.', c: C.amber },
-    { t: 'Detail laporan', b: 'Dropdown kategori & risiko, PIC, status, foto, ID karyawan.', c: C.blue },
-    { t: 'Analitik', b: 'KPI vs target. High/positif hanya dari yang sudah diklasifikasi.', c: C.indigo },
-    { t: 'PDF & Excel', b: 'Export Notice, Investigasi, Excel, plus unduh flow chart.', c: C.green },
-    { t: 'Notifikasi', b: 'Kelola email penerima, kirim tes, riwayat terkirim/gagal.', c: C.purple },
+    { t: 'Detail laporan', b: 'Kategori, risiko, perihal PDF, centang tindakan, PIC, status, foto.', c: C.blue },
+    { t: 'Analitik', b: 'KPI vs target. Tombol Export Excel dan Unduh Flow Chart.', c: C.indigo },
+    { t: 'Log HSE', b: 'Grafik tracking siapa yang aktif menyelesaikan SOC (ringan–investigasi).', c: C.green },
+    { t: 'Pengguna', b: 'Super Admin: tambah akun, role, aktifkan/nonaktifkan, ganti password.', c: C.purple },
   ]
   boxes.forEach((b, i) => {
     const col = i % 3
@@ -592,11 +592,11 @@ function arrowRight(slide, x, y, w = 0.32) {
 {
   const slide = contentSlide('Fungsi tiap menu', 'Penjelasan singkat untuk orang yang baru pakai')
   const items = [
-    { t: 'Dashboard', b: 'Daftar laporan. Klik nama pelapor untuk buka detail, isi kategori, dan unduh PDF.', c: C.orange },
-    { t: 'Analitik', b: 'Lihat angka & grafik. Tombol Export Excel dan Unduh Flow Chart ada di sini.', c: C.indigo },
-    { t: 'Notifikasi', b: 'Daftar email yang dapat kabar otomatis saat ada laporan baru atau HiPo.', c: C.amber },
-    { t: 'Pengguna', b: 'Hanya Super Admin. Tambah orang yang boleh login, pilih role, ganti password.', c: C.red },
-    { t: 'PDF SOC', b: 'Surat Notice bilingual (Indonesia–Inggris) untuk PIC / manajemen.', c: C.blue },
+    { t: 'Dashboard', b: 'Daftar 10 laporan per halaman. Klik nama pelapor: isi kategori, perihal, centang tindakan, unduh PDF.', c: C.orange },
+    { t: 'Analitik', b: 'Angka & grafik. Export Excel + Unduh Flow Chart ada di kanan atas.', c: C.indigo },
+    { t: 'Log HSE', b: 'Grafik macam trading: HSE mana yang aktif, kasus ringan vs investigasi. Super Admin.', c: C.amber },
+    { t: 'Pengguna', b: 'Super Admin: tambah user, pilih role, aktifkan/nonaktifkan, ganti password.', c: C.red },
+    { t: 'Notifikasi', b: 'Daftar email yang dapat kabar otomatis saat ada laporan baru atau HiPo.', c: C.blue },
     { t: 'Form pelapor', b: 'Halaman HP tanpa login. Isi nama, lokasi, cerita, foto, lalu kirim.', c: C.green },
   ]
   items.forEach((f, i) => {
@@ -683,7 +683,7 @@ function arrowRight(slide, x, y, w = 0.32) {
 {
   const slide = contentSlide('Role & cara tambah pengguna', 'Menu Pengguna hanya muncul untuk Super Admin')
   const roles = [
-    { t: 'Super Admin', b: 'Semua akses + tambah/hapus user + ganti role.', c: C.red },
+    { t: 'Super Admin', b: 'Semua akses + kelola user (role, aktif/nonaktif, password).', c: C.red },
     { t: 'HSE Officer', b: 'Klasifikasi, investigasi, PDF, kelola email notifikasi.', c: C.orange },
     { t: 'PIC / Departemen', b: 'Follow-up laporan yang di-assign ke departemennya.', c: C.blue },
     { t: 'Viewer', b: 'Lihat dashboard saja. Tidak bisa ubah data.', c: C.slateLight },
@@ -718,20 +718,72 @@ function arrowRight(slide, x, y, w = 0.32) {
     fontFace: FONT,
   })
   slide.addText(
-    '1. Login sebagai Super Admin  →  2. Klik menu Pengguna  →  3. Isi email & password sementara\n4. Pilih role (kalau PIC, pilih departemen)  →  5. Klik Tambah pengguna\n6. Beri email + password itu ke orangnya. Mereka login di /admin/login',
+    '1. Login Super Admin  →  2. Menu Pengguna  →  3. Isi email + password sementara + role\n4. Kalau PIC, pilih departemen  →  5. Tambah pengguna  →  6. Beri akun itu ke orangnya (/admin/login)\nAktifkan / Nonaktifkan kapan saja. Nonaktif = tidak bisa login. Ganti password dari tombol di daftar.',
     {
       x: 0.5,
       y: 3.35,
       w: 9,
       h: 1.35,
-      fontSize: 14,
+      fontSize: 13,
       color: C.white,
       fontFace: FONT,
     },
   )
 }
 
-// 10 — Closing
+// 12 — PDF Notice & Investigasi
+{
+  const slide = contentSlide('PDF Notice & Investigasi', 'Diunduh dari detail laporan di dashboard')
+  const boxes = [
+    { t: 'Judul 1 baris', b: 'NOTICE OF SAFETY OBSERVATION atau INVESTIGATION REPORT di samping logo.', c: C.orange },
+    { t: 'Perihal / Subject', b: 'Isi di detail laporan. Jangan taruh nama pelapor di perihal.', c: C.blue },
+    { t: 'Pelapor / Reported by', b: 'Nama pelapor tampil di baris sendiri, terpisah dari perihal.', c: C.indigo },
+    { t: 'Document No.', b: 'Kolom kanan: nomor SOC (2 baris) + Effective Date. Tidak numpuk.', c: C.amber },
+    { t: 'Centang tindakan', b: 'Di detail laporan, centang aksi yang sudah dikerjakan. Muncul kotak centang di PDF.', c: C.green },
+    { t: 'Kapan investigasi', b: 'Hanya jika HSE centang lanjut investigasi (HiPo / High / Near Miss).', c: C.red },
+  ]
+  boxes.forEach((b, i) => {
+    const col = i % 3
+    const row = Math.floor(i / 3)
+    featureBox(slide, {
+      x: 0.35 + col * 3.15,
+      y: 1.15 + row * 1.85,
+      w: 3.0,
+      h: 1.7,
+      title: b.t,
+      body: b.b,
+      accent: b.c,
+    })
+  })
+}
+
+// 13 — Log HSE tracking
+{
+  const slide = contentSlide('Log HSE — tracking siapa yang aktif', 'Menu Log HSE  ·  Super Admin  ·  /admin/aktivitas')
+  const boxes = [
+    { t: 'Kartu trading', b: 'Aksi HSE, HSE aktif, SOC disentuh, kasus ringan, investigasi + sparkline.', c: C.orange },
+    { t: 'Grafik 14 hari', b: 'Volume aksi harian: semua aksi, ringan (hijau), investigasi (kuning).', c: C.green },
+    { t: 'Siapa yang close', b: 'Bar per orang: kasus ringan vs investigasi. Klik kartu HSE untuk filter log.', c: C.amber },
+    { t: 'Kasus ringan', b: 'Klasifikasi, close tanpa investigasi, follow-up / CAPA.', c: C.blue },
+    { t: 'Investigasi', b: 'Jejak 5W+1H, root cause, PDF investigasi. Dihitung terpisah.', c: C.red },
+    { t: 'Filter periode', b: 'Hari ini / 7 hari / 30 hari / semua. Daftar aktivitas tetap di bawah grafik.', c: C.purple },
+  ]
+  boxes.forEach((b, i) => {
+    const col = i % 3
+    const row = Math.floor(i / 3)
+    featureBox(slide, {
+      x: 0.35 + col * 3.15,
+      y: 1.15 + row * 1.85,
+      w: 3.0,
+      h: 1.7,
+      title: b.t,
+      body: b.b,
+      accent: b.c,
+    })
+  })
+}
+
+// 14 — Closing
 {
   const slide = pptx.addSlide()
   slide.background = { color: C.dark }

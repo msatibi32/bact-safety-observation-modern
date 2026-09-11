@@ -27,11 +27,20 @@ function callerRole(user: { user_metadata?: Record<string, unknown> } | null) {
   return String(user?.user_metadata?.role || '')
 }
 
+function isUserDisabled(user: { banned?: boolean; banned_until?: string | null }) {
+  if (user.banned === true) return true
+  const until = user.banned_until
+  if (!until || until === 'none') return false
+  const at = Date.parse(until)
+  return Number.isFinite(at) && at > Date.now()
+}
+
 function publicUser(user: {
   id: string
   email?: string
   created_at?: string
   last_sign_in_at?: string
+  banned?: boolean
   banned_until?: string
   user_metadata?: Record<string, unknown>
 }) {
@@ -42,7 +51,7 @@ function publicUser(user: {
     pic_department: String(user.user_metadata?.pic_department || ''),
     created_at: user.created_at || '',
     last_sign_in_at: user.last_sign_in_at || '',
-    disabled: Boolean(user.banned_until),
+    disabled: isUserDisabled(user),
   }
 }
 
@@ -78,6 +87,7 @@ Deno.serve(async (req) => {
     password?: string
     role?: string
     pic_department?: string
+    disabled?: boolean
   }
   try {
     body = await req.json()
@@ -91,7 +101,10 @@ Deno.serve(async (req) => {
     if (action === 'list') {
       const { data, error } = await admin.auth.admin.listUsers({ perPage: 200 })
       if (error) throw error
-      return jsonResponse({ ok: true, users: (data.users || []).map(publicUser) })
+      const users = (data.users || [])
+        .map(publicUser)
+        .sort((a, b) => Number(a.disabled) - Number(b.disabled) || a.email.localeCompare(b.email))
+      return jsonResponse({ ok: true, users })
     }
 
     if (action === 'create') {
@@ -123,13 +136,21 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'Tidak boleh menurunkan role akun sendiri.' }, 400)
       }
 
+      if (body.disabled === true && id === callerData.user.id) {
+        return jsonResponse({ error: 'Tidak boleh menonaktifkan akun sendiri.' }, 400)
+      }
+
       const patch: {
         password?: string
         user_metadata?: Record<string, unknown>
+        ban_duration?: string
       } = {}
       if (body.password) {
         if (body.password.length < 8) return jsonResponse({ error: 'Password minimal 8 karakter.' }, 400)
         patch.password = body.password
+      }
+      if (typeof body.disabled === 'boolean') {
+        patch.ban_duration = body.disabled ? '876000h' : 'none'
       }
       if (body.role) {
         if (!ALLOWED_ROLES.has(body.role)) return jsonResponse({ error: 'Role tidak dikenal.' }, 400)

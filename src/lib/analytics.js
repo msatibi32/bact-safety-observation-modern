@@ -133,6 +133,124 @@ export function investigationCount(observations) {
   ).length
 }
 
+function dayKey(value) {
+  return new Date(value).toISOString().slice(0, 10)
+}
+
+function logHaystack(log) {
+  return `${log.action || ''} ${log.details || ''}`.toLowerCase()
+}
+
+export function isStaffActor(email) {
+  return Boolean(email && String(email).includes('@'))
+}
+
+/** Klasifikasi jejak HSE: investigasi vs pekerjaan ringan (klasifikasi / close tanpa investigasi). */
+export function classifyHseLog(log) {
+  const text = logHaystack(log)
+  const investigation =
+    text.includes('investigasi') ||
+    text.includes('5 why') ||
+    text.includes('5w1h') ||
+    text.includes('root cause') ||
+    text.includes('akar masalah')
+  const closed =
+    text.includes('→ closed') ||
+    text.includes('status: closed') ||
+    (text.includes('closed') && (text.includes('status') || text.includes('ditutup')))
+  const classify =
+    text.includes('kategori') ||
+    text.includes('risiko') ||
+    text.includes('klasifikasi') ||
+    text.includes('tingkat_risiko')
+  const followUp =
+    text.includes('follow') ||
+    text.includes('tindak') ||
+    text.includes('capa') ||
+    /\bpic\b/.test(text)
+  return {
+    investigation,
+    closed,
+    classify,
+    light: !investigation && (closed || classify || followUp),
+  }
+}
+
+export function hseDailyCompletion(logs, days = 14) {
+  const staffLogs = (logs || []).filter((log) => isStaffActor(log.actor_email))
+  return lastNDays(days).map((day) => {
+    const key = day.toISOString().slice(0, 10)
+    const dayLogs = staffLogs.filter((log) => dayKey(log.created_at) === key)
+    let investigasi = 0
+    let ringan = 0
+    for (const log of dayLogs) {
+      const kind = classifyHseLog(log)
+      if (kind.investigation) investigasi++
+      else if (kind.light) ringan++
+    }
+    return {
+      date: key,
+      label: day.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+      aksi: dayLogs.length,
+      investigasi,
+      ringan,
+    }
+  })
+}
+
+export function hseOfficerTracking(logs, days = 14) {
+  const map = {}
+  for (const log of logs || []) {
+    const email = log.actor_email || ''
+    if (!isStaffActor(email)) continue
+    if (!map[email]) {
+      map[email] = {
+        email,
+        name: email.split('@')[0],
+        aksi: 0,
+        investigasi: 0,
+        ringan: 0,
+        klasifikasi: 0,
+        closed: 0,
+        obsIds: new Set(),
+        days: {},
+      }
+    }
+    const row = map[email]
+    row.aksi++
+    if (log.observation_id) row.obsIds.add(log.observation_id)
+    const kind = classifyHseLog(log)
+    if (kind.investigation) row.investigasi++
+    if (kind.closed) row.closed++
+    if (kind.classify) row.klasifikasi++
+    if (kind.light) row.ringan++
+    const key = dayKey(log.created_at)
+    row.days[key] = (row.days[key] || 0) + 1
+  }
+
+  return Object.values(map)
+    .map((row) => ({
+      email: row.email,
+      name: row.name,
+      aksi: row.aksi,
+      investigasi: row.investigasi,
+      ringan: row.ringan,
+      klasifikasi: row.klasifikasi,
+      closed: row.closed,
+      touched: row.obsIds.size,
+      spark: lastNDays(days).map((day) => row.days[day.toISOString().slice(0, 10)] || 0),
+    }))
+    .sort((a, b) => b.aksi - a.aksi || b.investigasi - a.investigasi)
+}
+
+export function hseActionTrend(daily) {
+  const last = (daily || []).slice(-7).reduce((sum, day) => sum + day.aksi, 0)
+  const prev = (daily || []).slice(-14, -7).reduce((sum, day) => sum + day.aksi, 0)
+  if (prev === 0) return { pct: last > 0 ? 100 : 0, up: last >= prev }
+  const pct = Math.round(((last - prev) / prev) * 100)
+  return { pct: Math.abs(pct), up: pct >= 0 }
+}
+
 /** Performa aktor HSE dari audit logs — Super Admin only. */
 export function hsePerformanceFromAudits(observations, auditLogs) {
   const byActor = {}
