@@ -211,7 +211,109 @@ function arrowRight(slide, x, y, w = 0.32) {
   })
 }
 
-// 2 — Latar
+// 2 — Flow Chart alur baru (untuk di-share)
+{
+  const slide = contentSlide('Flow Chart alur baru', 'Dari scan QR sampai Closed — siap dibagikan ke HSE')
+  const steps = [
+    { t: '1. Scan QR\n/ buka web', c: C.blue },
+    { t: '2. Isi form\npelapor', c: C.indigo },
+    { t: '3. Kirim\nlaporan', c: C.orange },
+    { t: '4. HSE\nklasifikasi', c: C.amber },
+    { t: '5. Assign\nPIC', c: C.green },
+  ]
+  steps.forEach((s, i) => {
+    const x = 0.32 + i * 1.94
+    flowBox(slide, { x, y: 1.12, w: 1.72, h: 0.82, text: s.t, fill: s.c, fontSize: 11 })
+    if (i < steps.length - 1) arrowRight(slide, x + 1.74, 1.45, 0.18)
+  })
+
+  slide.addText('Cabang setelah klasifikasi', {
+    x: 0.35,
+    y: 2.08,
+    w: 9.3,
+    h: 0.28,
+    fontSize: 12,
+    bold: true,
+    color: C.slate,
+    fontFace: FONT,
+  })
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.32,
+    y: 2.4,
+    w: 4.55,
+    h: 1.35,
+    fill: { color: C.slate },
+    rectRadius: 0.08,
+  })
+  slide.addText('Kasus biasa / Low–Medium', {
+    x: 0.48,
+    y: 2.48,
+    w: 4.25,
+    h: 0.28,
+    fontSize: 13,
+    bold: true,
+    color: C.white,
+    fontFace: FONT,
+  })
+  slide.addText('PDF Notice → tindakan & CAPA → verifikasi HSE → Closed.\nTidak semua SOC wajib investigasi.', {
+    x: 0.48,
+    y: 2.78,
+    w: 4.25,
+    h: 0.82,
+    fontSize: 12,
+    color: 'E2E8F0',
+    fontFace: FONT,
+  })
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 5.13,
+    y: 2.4,
+    w: 4.55,
+    h: 1.35,
+    fill: { color: C.red },
+    rectRadius: 0.08,
+  })
+  slide.addText('HiPo / High / Near Miss / Stop Work', {
+    x: 5.29,
+    y: 2.48,
+    w: 4.25,
+    h: 0.28,
+    fontSize: 13,
+    bold: true,
+    color: C.white,
+    fontFace: FONT,
+  })
+  slide.addText('Centang lanjut investigasi → 5W+1H → PDF Investigasi → CAPA → Closed.', {
+    x: 5.29,
+    y: 2.78,
+    w: 4.25,
+    h: 0.82,
+    fontSize: 12,
+    color: 'E2E8F0',
+    fontFace: FONT,
+  })
+
+  const docs = [
+    { t: 'PDF SOC (Notice)', b: 'Surat bilingual ke PIC / manajemen', c: C.orange },
+    { t: 'PDF Investigasi', b: 'Hanya jika ditandai investigasi', c: C.amber },
+    { t: 'Export Excel', b: 'Rekap laporan, kolom rapi', c: C.green },
+    { t: 'Notifikasi email', b: 'Laporan baru & HiPo ke HSE', c: C.indigo },
+  ]
+  docs.forEach((d, i) => {
+    featureBox(slide, {
+      x: 0.32 + i * 2.4,
+      y: 3.9,
+      w: 2.28,
+      h: 1.05,
+      title: d.t,
+      body: d.b,
+      accent: d.c,
+    })
+  })
+}
+
+// 3 — Latar
 {
   const slide = contentSlide('Mengapa & untuk apa', 'Digitalisasi observasi keselamatan di area terminal')
   slide.addShape(pptx.ShapeType.roundRect, {
@@ -318,7 +420,7 @@ function arrowRight(slide, x, y, w = 0.32) {
   const items = [
     { t: 'Perusahaan dulu', b: 'PT. BACT → lookup nama. Vendor → isi manual.', c: C.blue },
     { t: 'Nama & ID BACT', b: 'Ketik nama, pilih opsi. Departemen + ID BACT-xxxx terisi.', c: C.orange },
-    { t: 'Lokasi + GPS', b: 'Tulis lokasi + tombol ambil koordinat HP.', c: C.amber },
+    { t: 'Lokasi kejadian', b: 'Pilih dari daftar area terminal (Workshop, CY, Gate, dll).', c: C.amber },
     { t: 'Deskripsi + foto', b: 'Ceritakan kejadian. Bisa beberapa foto bukti.', c: C.indigo },
     { t: 'Stop Work', b: 'Centang jika pekerjaan sudah dihentikan. Jadi HiPo.', c: C.red },
     { t: 'Offline (PWA)', b: 'Bisa di-install. Offline tersimpan, sync otomatis.', c: C.green },
@@ -431,7 +533,7 @@ function arrowRight(slide, x, y, w = 0.32) {
     { t: 'Belum diklasifikasi', b: 'Filter antrian laporan yang menunggu HSE isi kategori/risiko.', c: C.amber },
     { t: 'Detail laporan', b: 'Dropdown kategori & risiko, PIC, status, foto, ID karyawan.', c: C.blue },
     { t: 'Analitik', b: 'KPI vs target. High/positif hanya dari yang sudah diklasifikasi.', c: C.indigo },
-    { t: 'Peta', b: 'Pin GPS hotspot area rawan di terminal.', c: C.green },
+    { t: 'PDF & Excel', b: 'Export Notice, Investigasi, Excel, plus unduh flow chart.', c: C.green },
     { t: 'Notifikasi', b: 'Kelola email penerima, kirim tes, riwayat terkirim/gagal.', c: C.purple },
   ]
   boxes.forEach((b, i) => {
@@ -486,42 +588,144 @@ function arrowRight(slide, x, y, w = 0.32) {
   })
 }
 
-// 9 — Email + tautan
+// 9 — Fungsi tiap menu (bahasa awam)
 {
-  const slide = contentSlide('Notifikasi & tautan', 'Email dikelola di dashboard — tanpa ubah kode')
-  const nodes = [
-    { t: 'Submit\nlaporan', c: C.orange },
-    { t: 'Antrian\nnotifikasi', c: C.indigo },
-    { t: 'Edge Function', c: C.blue },
-    { t: 'Brevo\nkirim email', c: C.green },
-    { t: 'Email Aktif\ndi daftar', c: C.amber },
+  const slide = contentSlide('Fungsi tiap menu', 'Penjelasan singkat untuk orang yang baru pakai')
+  const items = [
+    { t: 'Dashboard', b: 'Daftar laporan. Klik nama pelapor untuk buka detail, isi kategori, dan unduh PDF.', c: C.orange },
+    { t: 'Analitik', b: 'Lihat angka & grafik. Tombol Export Excel dan Unduh Flow Chart ada di sini.', c: C.indigo },
+    { t: 'Notifikasi', b: 'Daftar email yang dapat kabar otomatis saat ada laporan baru atau HiPo.', c: C.amber },
+    { t: 'Pengguna', b: 'Hanya Super Admin. Tambah orang yang boleh login, pilih role, ganti password.', c: C.red },
+    { t: 'PDF SOC', b: 'Surat Notice bilingual (Indonesia–Inggris) untuk PIC / manajemen.', c: C.blue },
+    { t: 'Form pelapor', b: 'Halaman HP tanpa login. Isi nama, lokasi, cerita, foto, lalu kirim.', c: C.green },
   ]
-  nodes.forEach((n, i) => {
-    const x = 0.35 + i * 1.9
-    flowBox(slide, { x, y: 1.15, w: 1.7, h: 0.85, text: n.t, fill: n.c, fontSize: 11 })
-    if (i < nodes.length - 1) arrowRight(slide, x + 1.72, 1.48, 0.16)
+  items.forEach((f, i) => {
+    const col = i % 3
+    const row = Math.floor(i / 3)
+    featureBox(slide, {
+      x: 0.35 + col * 3.15,
+      y: 1.15 + row * 1.85,
+      w: 3.0,
+      h: 1.7,
+      title: f.t,
+      body: f.b,
+      accent: f.c,
+    })
   })
-  slide.addText(
-    `Form     ${APP_URL}\nAdmin    ${APP_URL}/admin/login\nQR       ${APP_URL}/qr`,
-    {
-      x: 0.4,
-      y: 2.25,
-      w: 9.2,
-      h: 1.15,
+}
+
+// 10 — Cara email notifikasi (awam)
+{
+  const slide = contentSlide('Cara masukin email notifikasi', 'Supaya HSE dapat kabar otomatis — tanpa setting server')
+  const steps = [
+    { n: '1', t: 'Login admin', b: `${APP_URL}/admin/login` },
+    { n: '2', t: 'Buka menu Notifikasi', b: 'Di atas, klik Notifikasi.' },
+    { n: '3', t: 'Ketik email', b: 'Contoh: hse@bact.co.id' },
+    { n: '4', t: 'Klik Tambah email', b: 'Email masuk ke daftar.' },
+    { n: '5', t: 'Cek status Aktif', b: 'Kalau Nonaktif, klik Aktifkan.' },
+    { n: '6', t: 'Kirim tes (opsional)', b: 'Cek Inbox dan folder Spam.' },
+  ]
+  steps.forEach((s, i) => {
+    const col = i % 3
+    const row = Math.floor(i / 3)
+    const x = 0.35 + col * 3.15
+    const y = 1.15 + row * 1.7
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x,
+      y,
+      w: 3.0,
+      h: 1.52,
+      fill: { color: C.white },
+      line: { color: 'E2E8F0', width: 1 },
+      rectRadius: 0.08,
+    })
+    slide.addShape(pptx.ShapeType.ellipse, {
+      x: x + 0.14,
+      y: y + 0.18,
+      w: 0.38,
+      h: 0.38,
+      fill: { color: C.orange },
+    })
+    slide.addText(s.n, {
+      x: x + 0.14,
+      y: y + 0.2,
+      w: 0.38,
+      h: 0.34,
       fontSize: 14,
+      bold: true,
+      color: C.white,
+      align: 'center',
+      fontFace: FONT,
+    })
+    slide.addText(s.t, {
+      x: x + 0.62,
+      y: y + 0.18,
+      w: 2.2,
+      h: 0.38,
+      fontSize: 14,
+      bold: true,
       color: C.dark,
       fontFace: FONT,
-    },
-  )
-  slide.addText(
-    'Tambah penerima: Login admin → Notifikasi → ketik email → Tambah. Pastikan status Aktif.\nPengirim lewat Brevo. Penerima: Gmail / email kantor yang terdaftar.',
-    {
-      x: 0.4,
-      y: 3.55,
-      w: 9.2,
-      h: 1.2,
-      fontSize: 13,
+    })
+    slide.addText(s.b, {
+      x: x + 0.16,
+      y: y + 0.7,
+      w: 2.68,
+      h: 0.65,
+      fontSize: 12,
       color: C.slate,
+      fontFace: FONT,
+    })
+  })
+}
+
+// 11 — Role & tambah user
+{
+  const slide = contentSlide('Role & cara tambah pengguna', 'Menu Pengguna hanya muncul untuk Super Admin')
+  const roles = [
+    { t: 'Super Admin', b: 'Semua akses + tambah/hapus user + ganti role.', c: C.red },
+    { t: 'HSE Officer', b: 'Klasifikasi, investigasi, PDF, kelola email notifikasi.', c: C.orange },
+    { t: 'PIC / Departemen', b: 'Follow-up laporan yang di-assign ke departemennya.', c: C.blue },
+    { t: 'Viewer', b: 'Lihat dashboard saja. Tidak bisa ubah data.', c: C.slateLight },
+  ]
+  roles.forEach((r, i) => {
+    featureBox(slide, {
+      x: 0.32 + i * 2.4,
+      y: 1.12,
+      w: 2.28,
+      h: 1.55,
+      title: r.t,
+      body: r.b,
+      accent: r.c,
+    })
+  })
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.32,
+    y: 2.85,
+    w: 9.36,
+    h: 2.05,
+    fill: { color: C.dark },
+    rectRadius: 0.08,
+  })
+  slide.addText('Cara Super Admin menambah user', {
+    x: 0.5,
+    y: 2.97,
+    w: 9,
+    h: 0.3,
+    fontSize: 14,
+    bold: true,
+    color: C.orange,
+    fontFace: FONT,
+  })
+  slide.addText(
+    '1. Login sebagai Super Admin  →  2. Klik menu Pengguna  →  3. Isi email & password sementara\n4. Pilih role (kalau PIC, pilih departemen)  →  5. Klik Tambah pengguna\n6. Beri email + password itu ke orangnya. Mereka login di /admin/login',
+    {
+      x: 0.5,
+      y: 3.35,
+      w: 9,
+      h: 1.35,
+      fontSize: 14,
+      color: C.white,
       fontFace: FONT,
     },
   )

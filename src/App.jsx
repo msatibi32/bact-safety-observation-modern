@@ -5,6 +5,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminLogin from './pages/AdminLogin'
 import AdminSettings from './pages/AdminSettings'
 import AdminSummary from './pages/AdminSummary'
+import AdminUsers from './pages/AdminUsers'
 import QrPoster from './pages/QrPoster'
 import ReportForm from './pages/ReportForm'
 
@@ -18,6 +19,7 @@ export default function App() {
       <Route path="/admin/ringkasan" element={<RequireRole minRole="viewer"><AdminSummary /></RequireRole>} />
       <Route path="/admin/aktivitas" element={<RequireRole minRole="admin"><AdminActivity /></RequireRole>} />
       <Route path="/admin/pengaturan" element={<RequireRole minRole="hse"><AdminSettings /></RequireRole>} />
+      <Route path="/admin/pengguna" element={<RequireRole minRole="admin"><AdminUsers /></RequireRole>} />
     </Routes>
   )
 }

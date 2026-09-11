@@ -60,6 +60,22 @@ export function canViewActivityLog(user) {
   return isSuperAdmin(user)
 }
 
+export function canManageUsers(user) {
+  return isSuperAdmin(user)
+}
+
+export const ASSIGNABLE_ROLES = [
+  { value: 'super_admin', label: 'Super Admin' },
+  { value: 'hse', label: 'HSE Officer' },
+  { value: 'pic', label: 'PIC / Departemen' },
+  { value: 'viewer', label: 'Viewer (lihat saja)' },
+]
+
+export function displayRole(role) {
+  if (role === 'admin' || role === 'super_admin') return 'Super Admin'
+  return ROLE_LABELS[role] || role || '—'
+}
+
 export function filterObservationsForRole(observations, user) {
   const role = getUserRole(user)
   if (role === ROLES.PIC) {

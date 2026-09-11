@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '../lib/auth'
 import { BRANDING } from '../lib/branding'
-import { canViewActivityLog } from '../lib/roles'
+import { canManageUsers, canViewActivityLog } from '../lib/roles'
 import BrandLogo from './BrandLogo'
 import { ChartIcon, ClipboardIcon, LogoutIcon, UsersIcon } from './Icon'
 import { useUser } from './RequireRole'
@@ -22,6 +22,7 @@ export default function AdminLayout({ children }) {
   const navigate = useNavigate()
   const user = useUser()
   const showActivity = canViewActivityLog(user)
+  const showUsers = canManageUsers(user)
 
   async function handleLogout() {
     await logout()
@@ -60,6 +61,12 @@ export default function AdminLayout({ children }) {
               <UsersIcon className="h-4 w-4" />
               Notifikasi
             </NavLink>
+            {showUsers && (
+              <NavLink to="/admin/pengguna" className={desktopNavClass}>
+                <UsersIcon className="h-4 w-4" />
+                Pengguna
+              </NavLink>
+            )}
             <button
               type="button"
               onClick={handleLogout}
@@ -84,17 +91,21 @@ export default function AdminLayout({ children }) {
             <ChartIcon className="h-5 w-5" />
             Analitik
           </NavLink>
-          {showActivity ? (
+          <NavLink to="/admin/pengaturan" className={navLinkClass}>
+            <UsersIcon className="h-5 w-5" />
+            Notif
+          </NavLink>
+          {showUsers ? (
+            <NavLink to="/admin/pengguna" className={navLinkClass}>
+              <UsersIcon className="h-5 w-5" />
+              User
+            </NavLink>
+          ) : showActivity ? (
             <NavLink to="/admin/aktivitas" className={navLinkClass}>
               <UsersIcon className="h-5 w-5" />
               Log
             </NavLink>
-          ) : (
-            <NavLink to="/admin/pengaturan" className={navLinkClass}>
-              <UsersIcon className="h-5 w-5" />
-              Notif
-            </NavLink>
-          )}
+          ) : null}
           <button type="button" onClick={handleLogout} className="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium text-slate-500">
             <LogoutIcon className="h-5 w-5" />
             Keluar
