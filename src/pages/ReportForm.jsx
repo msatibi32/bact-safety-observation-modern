@@ -159,13 +159,15 @@ export default function ReportForm() {
       <div className="mx-auto max-w-xl px-4 pt-10">
         <BrandHeader
           className="mb-6"
-          title="Laporkan Observasi / Report an observation"
-          subtitle="Laporkan kondisi atau tindakan tidak aman di lapangan dalam hitungan menit. / Report an unsafe condition or act in minutes."
+          title="Laporkan Observasi"
+          titleEn="Report an observation"
+          subtitle="Laporkan kondisi atau tindakan tidak aman di lapangan dalam hitungan menit."
+          subtitleEn="Report an unsafe condition or act in a few minutes."
         />
 
         <form onSubmit={handleSubmit} className="card space-y-6 p-6">
-          <Section title="Informasi Pelapor / Reporter information">
-            <Field label="Nama perusahaan / Company" required>
+          <Section title="Informasi Pelapor" titleEn="Reporter information">
+            <Field label="Nama perusahaan" labelEn="Company name" required>
               <select
                 value={form.nama_perusahaan}
                 onChange={(e) => handleCompanyChange(e.target.value)}
@@ -190,12 +192,18 @@ export default function ReportForm() {
             </Field>
 
             <Field
-              label="Nama pelapor / Reporter name"
+              label="Nama pelapor"
+              labelEn="Reporter name"
               required
               hint={
                 bactEmployee
-                  ? 'Ketik nama, lalu pilih dari daftar karyawan BACT. Departemen dan ID terisi otomatis. / Type a name, then pick from the BACT list. Department and ID fill automatically.'
-                  : 'Isi nama lengkap secara manual (vendor / kontraktor / visitor). / Enter the full name manually (vendor / contractor / visitor).'
+                  ? 'Ketik nama, lalu pilih dari daftar karyawan BACT. Departemen dan ID terisi otomatis.'
+                  : 'Isi nama lengkap secara manual (vendor / kontraktor / visitor).'
+              }
+              hintEn={
+                bactEmployee
+                  ? 'Type the name, then pick from the BACT employee list. Department and ID fill automatically.'
+                  : 'Enter the full name manually (vendor / contractor / visitor).'
               }
             >
               {bactEmployee ? (

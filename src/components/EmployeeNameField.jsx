@@ -62,12 +62,13 @@ export default function EmployeeNameField({
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
         className="input"
-        placeholder="Ketik nama karyawan BACT"
+        placeholder="Ketik nama karyawan BACT / Type BACT employee name"
       />
 
       {selected && (
         <p className="mt-1.5 text-xs font-medium text-emerald-700">
           Terpilih dari data karyawan — ID {employeeId}
+          <span className="block font-normal text-emerald-600/80">Selected from employee data</span>
         </p>
       )}
 
@@ -92,6 +93,7 @@ export default function EmployeeNameField({
           ) : (
             <li className="px-3.5 py-2.5 text-xs text-slate-500">
               Nama tidak ditemukan di data karyawan BACT. Cek ejaan, atau isi manual.
+              <span className="mt-0.5 block">Name not found in BACT employees. Check the spelling, or type it manually.</span>
             </li>
           )}
         </ul>
