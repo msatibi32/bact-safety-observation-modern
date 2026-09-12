@@ -20,6 +20,7 @@ import { categoryLabel, isOpenStatus, isUnclassifiedObservation } from '../lib/c
 import { filterObservationsForRole } from '../lib/roles'
 import { useUser } from '../components/RequireRole'
 import { getObservations, getPendingNotifications, updateObservation } from '../lib/store'
+import { useChartTheme } from '../lib/theme'
 
 const PAGE_SIZE = 10
 
@@ -58,6 +59,7 @@ export default function AdminDashboard() {
   }, [])
 
   const selected = observations.find((o) => o.id === selectedId) || null
+  const chart = useChartTheme()
   const trend = useMemo(() => trendDelta(observations), [observations])
   const chartData = useMemo(() => dailyReportCounts(observations, 14), [observations])
   const spark = useMemo(() => sparklineValues(observations, 7), [observations])
@@ -158,12 +160,12 @@ export default function AdminDashboard() {
                     <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: chart.tick, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: chart.tick, fontSize: 10 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
                 <Tooltip
-                  contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }}
-                  labelStyle={{ color: '#94a3b8' }}
+                  contentStyle={chart.tooltip}
+                  labelStyle={chart.tooltipLabel}
                 />
                 <Area type="monotone" dataKey="count" name="Laporan" stroke="#f37021" strokeWidth={2} fill="url(#volGrad)" />
                 <Area type="monotone" dataKey="hipo" name="HiPo" stroke="#ef4444" strokeWidth={1.5} fill="url(#hipoGrad)" />

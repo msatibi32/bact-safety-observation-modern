@@ -187,7 +187,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   const invActive = requiresInvestigation || hasInvestigationContent(inv)
 
   return (
-    <div className="flex max-h-none flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 md:max-h-[calc(100vh-12rem)]">
+    <div className="admin-panel flex max-h-none flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 md:max-h-[calc(100vh-12rem)]">
       <div className="shrink-0 space-y-3 border-b border-slate-800 p-4 pb-3 md:p-5">
         <div className="flex items-start justify-between gap-2">
           <div>

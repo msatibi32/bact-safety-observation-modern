@@ -30,7 +30,7 @@ export function Sparkline({ data, up = true, id = 'spark' }) {
   )
 }
 
-export function TradingStatCard({ label, value, delta, up, sparkData, accent = 'text-white' }) {
+export function TradingStatCard({ label, value, delta, up, sparkData, accent = 'text-slate-100' }) {
   return (
     <div className="admin-stat-card min-w-[148px] shrink-0 rounded-2xl border border-slate-700/60 bg-slate-900/80 p-3.5 backdrop-blur sm:min-w-0">
       <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{label}</p>

@@ -14,7 +14,7 @@ export default function ReportCard({ obs, selected, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
+      className={`admin-panel w-full rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
         selected
           ? 'border-brand-500/60 bg-brand-500/10'
           : 'border-slate-700/60 bg-slate-900/60 hover:border-slate-600'

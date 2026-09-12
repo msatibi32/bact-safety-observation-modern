@@ -16,6 +16,7 @@ import { useUser } from '../components/RequireRole'
 import { hseActionTrend, hseDailyCompletion, hseOfficerTracking } from '../lib/analytics'
 import { canViewActivityLog } from '../lib/roles'
 import { getActivityLogs, getAllAuditLogs } from '../lib/store'
+import { useChartTheme } from '../lib/theme'
 
 const SCOPES = [
   { id: 'today', label: 'Hari ini' },
@@ -64,12 +65,10 @@ function inScope(log, scope) {
   return true
 }
 
-function tooltipStyle() {
-  return { background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }
-}
 
 export default function AdminActivity() {
   const user = useUser()
+  const chart = useChartTheme()
   const allowed = canViewActivityLog(user)
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -211,7 +210,7 @@ export default function AdminActivity() {
           </div>
 
           <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">
                 Volume aksi — 14 hari
               </p>
@@ -232,21 +231,21 @@ export default function AdminActivity() {
                         <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                    <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       dataKey="label"
-                      tick={{ fill: '#64748b', fontSize: 10 }}
+                      tick={{ fill: chart.tick, fontSize: 10 }}
                       axisLine={false}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fill: '#64748b', fontSize: 10 }}
+                      tick={{ fill: chart.tick, fontSize: 10 }}
                       axisLine={false}
                       tickLine={false}
                       width={28}
                       allowDecimals={false}
                     />
-                    <Tooltip contentStyle={tooltipStyle()} labelStyle={{ color: '#94a3b8' }} />
+                    <Tooltip contentStyle={chart.tooltip} labelStyle={chart.tooltipLabel} />
                     <Area
                       type="monotone"
                       dataKey="aksi"
@@ -276,7 +275,7 @@ export default function AdminActivity() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">
                 Siapa yang menyelesaikan — ringan vs investigasi
               </p>
@@ -288,15 +287,15 @@ export default function AdminActivity() {
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={barData} layout="vertical" margin={{ left: 8, right: 8 }}>
-                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" horizontal={false} />
-                      <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} allowDecimals={false} />
+                      <CartesianGrid stroke={chart.grid} strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" tick={{ fill: chart.tick, fontSize: 10 }} allowDecimals={false} />
                       <YAxis
                         type="category"
                         dataKey="name"
                         width={88}
-                        tick={{ fill: '#94a3b8', fontSize: 10 }}
+                        tick={{ fill: chart.tickMuted, fontSize: 10 }}
                       />
-                      <Tooltip contentStyle={tooltipStyle()} />
+                      <Tooltip contentStyle={chart.tooltip} />
                       <Bar dataKey="Ringan" stackId="hse" fill="#34d399" radius={[0, 0, 0, 0]} />
                       <Bar dataKey="Investigasi" stackId="hse" fill="#fbbf24" radius={[0, 4, 4, 0]} />
                     </BarChart>
@@ -380,7 +379,7 @@ export default function AdminActivity() {
             {listLogs.map((log) => (
               <li
                 key={`${log.source}-${log.id}`}
-                className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2.5"
+                className="admin-panel rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2.5"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-sm font-medium text-slate-200">{log.action}</p>

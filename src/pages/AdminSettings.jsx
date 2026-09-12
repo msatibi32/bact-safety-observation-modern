@@ -14,7 +14,7 @@ export default function AdminSettings() {
         Tentukan email mana yang menerima laporan baru &amp; HiPo. Tambah, matikan, atau hapus kapan saja dari sini.
       </p>
 
-      <div className="mb-5 rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
+      <div className="admin-panel mb-5 rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm text-slate-300">
         <p className="mb-2 font-medium text-slate-100">Cara masukin email (langkah awam)</p>
         <ol className="list-decimal space-y-1 pl-5 text-slate-400">
           <li>Ketik alamat email di kotak “Tambah email baru”, contoh <span className="text-slate-200">hse@bact.co.id</span>.</li>

@@ -3,6 +3,7 @@ import { logout } from '../lib/auth'
 import { BRANDING } from '../lib/branding'
 import { canManageUsers, canViewActivityLog } from '../lib/roles'
 import BrandLogo from './BrandLogo'
+import ThemeToggle from './ThemeToggle'
 import { ChartIcon, ClipboardIcon, LogoutIcon, UsersIcon } from './Icon'
 import { useUser } from './RequireRole'
 
@@ -42,8 +43,10 @@ export default function AdminLayout({ children }) {
               <p className="truncate text-sm font-semibold text-slate-100">Command Center</p>
             </div>
           </div>
-          <nav className="hidden items-center gap-1 md:flex">
-            <NavLink to="/admin" end className={desktopNavClass}>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <nav className="hidden items-center gap-1 md:flex">
+              <NavLink to="/admin" end className={desktopNavClass}>
               <ClipboardIcon className="h-4 w-4" />
               Dashboard
             </NavLink>
@@ -75,7 +78,8 @@ export default function AdminLayout({ children }) {
               <LogoutIcon className="h-4 w-4" />
               Keluar
             </button>
-          </nav>
+            </nav>
+          </div>
         </div>
       </header>
 

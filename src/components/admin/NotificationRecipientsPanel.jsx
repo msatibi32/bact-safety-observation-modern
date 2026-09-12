@@ -116,7 +116,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
   const activeCount = recipients.filter((r) => r.active).length
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+    <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-500">

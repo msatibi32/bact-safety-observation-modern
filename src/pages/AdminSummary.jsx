@@ -19,6 +19,7 @@ import { avgDaysToClose, countOverdueCapa, exportObservationsExcel } from '../li
 import { exportSocFlowchartPdf } from '../lib/pdfFlowchart'
 import { canViewHsePerformance } from '../lib/roles'
 import { getAllAuditLogs, getAllCapa, getKpiTargets, getObservations } from '../lib/store'
+import { useChartTheme } from '../lib/theme'
 
 const PIE_COLORS = ['#f37021', '#34d399', '#fbbf24', '#ef4444', '#818cf8', '#94a3b8']
 
@@ -33,6 +34,7 @@ function countBy(list, key) {
 
 export default function AdminSummary() {
   const user = useUser()
+  const chart = useChartTheme()
   const showHsePerf = canViewHsePerformance(user)
   const [observations, setObservations] = useState([])
   const [capaList, setCapaList] = useState([])
@@ -289,11 +291,9 @@ export default function AdminSummary() {
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={months}>
-                    <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} />
-                    <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} />
-                    <Tooltip
-                      contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }}
-                    />
+                    <XAxis dataKey="label" tick={{ fill: chart.tickMuted, fontSize: 10 }} axisLine={false} />
+                    <YAxis tick={{ fill: chart.tick, fontSize: 10 }} axisLine={false} />
+                    <Tooltip contentStyle={chart.tooltip} />
                     <Bar dataKey="count" name="SOC" fill="#f37021" radius={[6, 6, 0, 0]} />
                     <Bar dataKey="investigation" name="Investigasi" fill="#fbbf24" radius={[6, 6, 0, 0]} />
                   </BarChart>
@@ -392,9 +392,7 @@ export default function AdminSummary() {
                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }}
-                    />
+                    <Tooltip contentStyle={chart.tooltip} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -404,11 +402,9 @@ export default function AdminSummary() {
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byRisiko} layout="vertical">
-                    <XAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} width={48} />
-                    <Tooltip
-                      contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, fontSize: 12 }}
-                    />
+                    <XAxis type="number" tick={{ fill: chart.tick, fontSize: 10 }} axisLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: chart.tickMuted, fontSize: 11 }} axisLine={false} width={48} />
+                    <Tooltip contentStyle={chart.tooltip} />
                     <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                       {byRisiko.map((entry) => (
                         <Cell
@@ -438,7 +434,7 @@ export default function AdminSummary() {
 
 function KpiTile({ label, value, sub, accent }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+    <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
       <p className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{label}</p>
       <p className={`mt-1 font-mono text-xl font-bold tabular-nums ${accent}`}>{value}</p>
       <p className="text-xs text-slate-600">{sub}</p>
@@ -448,7 +444,7 @@ function KpiTile({ label, value, sub, accent }) {
 
 function ChartPanel({ title, children, className = '' }) {
   return (
-    <div className={`rounded-2xl border border-slate-800 bg-slate-900/50 p-4 ${className}`}>
+    <div className={`admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4 ${className}`}>
       <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">{title}</p>
       {children}
     </div>

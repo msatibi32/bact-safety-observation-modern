@@ -140,7 +140,7 @@ export default function AdminUsers() {
 
       <form
         onSubmit={handleCreate}
-        className="mb-6 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4"
+        className="admin-panel mb-6 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4"
       >
         <p className="text-sm font-medium text-slate-200">Tambah pengguna baru</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -224,7 +224,7 @@ export default function AdminUsers() {
         {users.map((u) => (
           <li
             key={u.id}
-            className={`rounded-2xl border px-4 py-3 ${
+            className={`admin-panel rounded-2xl border px-4 py-3 ${
               u.disabled
                 ? 'border-slate-800/70 bg-slate-950/40 opacity-80'
                 : 'border-slate-800 bg-slate-900/40'

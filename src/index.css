@@ -33,6 +33,121 @@ body {
   @apply bg-slate-50 text-slate-900;
 }
 
+.theme-toggle {
+  @apply inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition;
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+}
+
+.theme-toggle:hover {
+  border-color: #f37021;
+  color: #d95e10;
+}
+
+/* Light admin: remap the dark slate scale so existing admin classes stay readable. */
+[data-theme="light"] .admin-shell {
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #334155;
+  --color-slate-400: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-600: #94a3b8;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #ffffff;
+  --color-slate-950: #f8fafc;
+  background-color: #f4f6f8;
+  color: #0f172a;
+}
+
+[data-theme="light"] .admin-input {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="light"] .admin-input::placeholder {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .admin-stat-card,
+[data-theme="light"] .admin-panel {
+  background-color: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+}
+
+[data-theme="light"] .admin-shell header {
+  background-color: rgb(255 255 255 / 0.92);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .admin-shell nav.fixed {
+  background-color: rgb(255 255 255 / 0.96);
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .admin-shell .text-white {
+  color: #ffffff;
+}
+
+[data-theme="light"] .admin-shell .text-brand-300,
+[data-theme="light"] .admin-shell .text-brand-400 {
+  color: #c2410c;
+}
+
+[data-theme="light"] .admin-shell .text-amber-300 {
+  color: #b45309;
+}
+
+[data-theme="light"] .admin-shell .text-red-300 {
+  color: #b91c1c;
+}
+
+/* Login page only — public form at / is not .admin-auth / .admin-shell. */
+[data-theme="dark"] .admin-auth {
+  background: linear-gradient(180deg, #1a0f08 0%, #020617 42%, #020617 100%);
+}
+
+[data-theme="dark"] .admin-auth .card {
+  background-color: #0f172a;
+  border-color: #1e293b;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .admin-auth .input {
+  background-color: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .admin-auth .input::placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .admin-auth h1 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .admin-auth .text-slate-700,
+[data-theme="dark"] .admin-auth .text-slate-900 {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .admin-auth .text-slate-500,
+[data-theme="dark"] .admin-auth .text-slate-400 {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .admin-auth .theme-toggle,
+[data-theme="dark"] .admin-shell .theme-toggle {
+  border-color: #334155;
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;

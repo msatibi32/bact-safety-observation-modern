@@ -7,6 +7,14 @@
     <meta name="theme-color" content="#F37021" />
     <meta name="description" content="Safety Observation Card — PT. BACT Batu Ampar Container Terminal" />
     <title>Safety Observation Card · BACT</title>
+    <script>
+      try {
+        var theme = localStorage.getItem('soc_theme') || 'dark'
+        if (theme !== 'dark' && theme !== 'light') theme = 'dark'
+        document.documentElement.setAttribute('data-theme', theme)
+        document.documentElement.style.colorScheme = theme
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
