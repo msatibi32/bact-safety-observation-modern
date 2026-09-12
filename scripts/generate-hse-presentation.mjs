@@ -199,7 +199,7 @@ function arrowRight(slide, x, y, w = 0.32) {
     align: 'center',
     fontFace: FONT,
   })
-  slide.addText('Form bilingual  ·  Klasifikasi HSE  ·  Weekly/Monthly report  ·  Theme  ·  Super Admin / HSE / Viewer', {
+  slide.addText('Form bilingual  ·  Klasifikasi HSE  ·  Grafik Weekly/Monthly  ·  Theme  ·  Super Admin / HSE / Viewer', {
     x: 0.5,
     y: 4.55,
     w: 9,
@@ -538,7 +538,7 @@ function arrowRight(slide, x, y, w = 0.32) {
     { t: 'Live Traffic', b: 'Admin English. Kartu total, aktif, HiPo, closed + grafik 14 hari. Tema gelap/terang.', c: C.orange },
     { t: 'Unclassified', b: 'Filter antrian laporan yang menunggu HSE isi kategori/risiko.', c: C.amber },
     { t: 'Report detail', b: 'Kategori, risiko, perihal PDF, centang tindakan, assign PIC (departemen), status, foto.', c: C.blue },
-    { t: 'Analytics', b: 'Weekly & Monthly Report: pilih tanggal dari–sampai, export Excel. Import Excel/CSV lama.', c: C.indigo },
+    { t: 'Analytics', b: 'Grafik volume Weekly (7 hari) / Monthly (bulan berjalan). Satu Export Excel From–To. Import historis di bawah.', c: C.indigo },
     { t: 'HSE Log', b: 'Grafik tracking siapa yang aktif menyelesaikan SOC (ringan–investigasi). Super Admin.', c: C.green },
     { t: 'Users', b: 'Super Admin / HSE Officer / Viewer. Tambah akun, aktifkan/nonaktifkan, ganti password.', c: C.purple },
   ]
@@ -599,7 +599,7 @@ function arrowRight(slide, x, y, w = 0.32) {
   const slide = contentSlide('Fungsi tiap menu', 'Penjelasan singkat untuk orang yang baru pakai')
   const items = [
     { t: 'Dashboard', b: 'Daftar 10 laporan per halaman. Klik nama: klasifikasi, perihal, PDF Notice. Tema gelap/terang.', c: C.orange },
-    { t: 'Analytics', b: 'Weekly/Monthly Report (filter tanggal) + import Excel/CSV data lama HSE + flowchart.', c: C.indigo },
+    { t: 'Analytics', b: 'Grafik volume Weekly 7 hari / Monthly bulan berjalan, satu Export Excel From–To, import historis di bawah.', c: C.indigo },
     { t: 'HSE Log', b: 'Grafik: HSE mana yang aktif, kasus ringan vs investigasi. Super Admin.', c: C.amber },
     { t: 'Users', b: 'Super Admin: tambah user, pilih Super Admin / HSE / Viewer, aktifkan, ganti password.', c: C.red },
     { t: 'Notifications', b: 'Daftar email Resend — kabar otomatis laporan baru atau HiPo.', c: C.blue },
@@ -802,12 +802,12 @@ function arrowRight(slide, x, y, w = 0.32) {
 
 // 14 — Analytics period + import
 {
-  const slide = contentSlide('Analytics: Weekly & Monthly + import', '/admin/ringkasan  ·  English UI  ·  data tetap di Supabase')
+  const slide = contentSlide('Analytics: grafik periode + export', '/admin/ringkasan  ·  English UI  ·  data tetap di Supabase')
   const boxes = [
-    { t: 'Weekly report', b: 'Pilih rentang From–To (default minggu ini). Hitung jumlah laporan di periode itu.', c: C.orange },
-    { t: 'Monthly report', b: 'Sama, default bulan berjalan. Bisa digeser tanggalnya sebelum export.', c: C.indigo },
-    { t: 'Export Excel', b: 'Ringkasan + daftar SOC sesuai filter tanggal. Siap dilampirkan rapat HSE.', c: C.green },
-    { t: 'Import historis', b: 'Excel/CSV lama (HOC / kolom observasi) masuk ke database, bukan ketik ulang.', c: C.amber },
+    { t: 'Weekly chart', b: 'Grafik volume harian 7 hari terakhir (bukan tombol export). Total laporan + HiPo.', c: C.orange },
+    { t: 'Monthly chart', b: 'Grafik volume harian bulan berjalan (tanggal 1 sampai hari ini). Bukan mode export.', c: C.indigo },
+    { t: 'Export Excel', b: 'Satu tombol. Pilih From–To, unduh ringkasan + daftar SOC. Siap dilampirkan rapat HSE.', c: C.green },
+    { t: 'Import historis', b: 'Di bawah halaman Analytics. Excel/CSV lama (HOC) masuk ke database, bukan ketik ulang.', c: C.amber },
     { t: 'Grafik live', b: 'Kategori, risiko, lokasi, departemen, kontraktor, tren bulanan, KPI.', c: C.blue },
     { t: 'Tema gelap/terang', b: 'Toggle di header Command Center. Grafik ikut tema.', c: C.purple },
   ]

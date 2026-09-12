@@ -30,6 +30,66 @@ export function dailyReportCounts(observations, days = 14) {
   })
 }
 
+function toLocalDayKey(value) {
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function enumerateLocalDays(from, to) {
+  const start = from instanceof Date ? new Date(from) : new Date(`${from}T00:00:00`)
+  const end = to instanceof Date ? new Date(to) : new Date(`${to}T00:00:00`)
+  start.setHours(0, 0, 0, 0)
+  end.setHours(0, 0, 0, 0)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
+  const lo = start <= end ? start : end
+  const hi = start <= end ? end : start
+  const days = []
+  for (let d = new Date(lo); d <= hi; d.setDate(d.getDate() + 1)) {
+    days.push(new Date(d))
+  }
+  return days
+}
+
+/** Daily SOC + HiPo counts on local calendar days (observation date, then created_at). */
+export function dailyCountsBetween(observations, from, to) {
+  const list = observations || []
+  return enumerateLocalDays(from, to).map((day) => {
+    const key = toLocalDayKey(day)
+    let count = 0
+    let hipo = 0
+    for (const o of list) {
+      const raw = o.tanggal_waktu || o.created_at
+      if (!raw || toLocalDayKey(raw) !== key) continue
+      count++
+      if (o.is_hipo) hipo++
+    }
+    return {
+      date: key,
+      label: day.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+      count,
+      hipo,
+    }
+  })
+}
+
+/** Last 7 local days including today. */
+export function weeklyVolumeCounts(observations) {
+  const to = new Date()
+  const from = new Date()
+  from.setDate(from.getDate() - 6)
+  return dailyCountsBetween(observations, from, to)
+}
+
+/** Daily volume from the 1st of this month through today. */
+export function monthlyVolumeCounts(observations) {
+  const now = new Date()
+  return dailyCountsBetween(observations, new Date(now.getFullYear(), now.getMonth(), 1), now)
+}
+
 export function periodCount(observations, daysAgoStart, daysAgoEnd = 0) {
   const now = new Date()
   now.setHours(23, 59, 59, 999)

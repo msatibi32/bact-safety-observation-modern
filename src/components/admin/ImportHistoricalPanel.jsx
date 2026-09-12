@@ -82,7 +82,7 @@ export default function ImportHistoricalPanel({ onImported }) {
   }
 
   return (
-    <div className="admin-panel mb-5 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+    <div className="admin-panel mb-2 mt-8 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
       <p className="text-sm font-semibold text-slate-100">Import historical data</p>
       <p className="mt-1 text-xs text-slate-500">
         Upload the old HSE Excel/CSV (HOC sheet). Preview first, then confirm. Email alerts are not sent.

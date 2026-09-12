@@ -143,7 +143,6 @@ export default function AdminSummary() {
       </div>
 
       <PeriodReportPanel observations={observations} />
-      <ImportHistoricalPanel onImported={loadAll} />
 
       {loading && <p className="text-sm text-slate-500">Loading data…</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
@@ -376,7 +375,7 @@ export default function AdminSummary() {
             </ChartPanel>
           )}
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ChartPanel title="Category distribution">
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
@@ -431,6 +430,8 @@ export default function AdminSummary() {
           </div>
         </>
       )}
+
+      {!loading && <ImportHistoricalPanel onImported={loadAll} />}
     </AdminLayout>
   )
 }
