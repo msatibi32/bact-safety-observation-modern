@@ -13,7 +13,7 @@ export default function RequireRole({ children, minRole = 'hse' }) {
   if (session === undefined) {
     return (
       <div className="admin-shell flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
-        Memuat…
+        Loading…
       </div>
     )
   }
@@ -25,9 +25,9 @@ export default function RequireRole({ children, minRole = 'hse' }) {
   if (!hasMinRole(session.user, minRole)) {
     return (
       <div className="admin-shell flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center">
-        <p className="text-lg font-semibold text-slate-100">Akses ditolak</p>
-        <p className="text-sm text-slate-500">Role kamu tidak punya izin untuk halaman ini.</p>
-        <p className="text-xs text-slate-600">Role saat ini: cek di Supabase → Authentication → Users → User Metadata → role: admin atau hse</p>
+        <p className="text-lg font-semibold text-slate-100">Access denied</p>
+        <p className="text-sm text-slate-500">Your role cannot open this page.</p>
+        <p className="text-xs text-slate-600">Check Supabase → Authentication → Users → User Metadata → role: admin or hse</p>
       </div>
     )
   }

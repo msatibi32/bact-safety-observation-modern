@@ -52,22 +52,22 @@ export default function AdminLayout({ children }) {
             </NavLink>
             <NavLink to="/admin/ringkasan" className={desktopNavClass}>
               <ChartIcon className="h-4 w-4" />
-              Analitik
+              Analytics
             </NavLink>
             {showActivity && (
               <NavLink to="/admin/aktivitas" className={desktopNavClass}>
                 <UsersIcon className="h-4 w-4" />
-                Log HSE
+                HSE Log
               </NavLink>
             )}
             <NavLink to="/admin/pengaturan" className={desktopNavClass}>
               <UsersIcon className="h-4 w-4" />
-              Notifikasi
+              Notifications
             </NavLink>
             {showUsers && (
               <NavLink to="/admin/pengguna" className={desktopNavClass}>
                 <UsersIcon className="h-4 w-4" />
-                Pengguna
+                Users
               </NavLink>
             )}
             <button
@@ -76,7 +76,7 @@ export default function AdminLayout({ children }) {
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-red-500/10 hover:text-red-400"
             >
               <LogoutIcon className="h-4 w-4" />
-              Keluar
+              Sign out
             </button>
             </nav>
           </div>
@@ -93,16 +93,16 @@ export default function AdminLayout({ children }) {
           </NavLink>
           <NavLink to="/admin/ringkasan" className={navLinkClass}>
             <ChartIcon className="h-5 w-5" />
-            Analitik
+            Analytics
           </NavLink>
           <NavLink to="/admin/pengaturan" className={navLinkClass}>
             <UsersIcon className="h-5 w-5" />
-            Notif
+            Alerts
           </NavLink>
           {showUsers ? (
             <NavLink to="/admin/pengguna" className={navLinkClass}>
               <UsersIcon className="h-5 w-5" />
-              User
+              Users
             </NavLink>
           ) : showActivity ? (
             <NavLink to="/admin/aktivitas" className={navLinkClass}>
@@ -112,7 +112,7 @@ export default function AdminLayout({ children }) {
           ) : null}
           <button type="button" onClick={handleLogout} className="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium text-slate-500">
             <LogoutIcon className="h-5 w-5" />
-            Keluar
+            Out
           </button>
         </div>
       </nav>

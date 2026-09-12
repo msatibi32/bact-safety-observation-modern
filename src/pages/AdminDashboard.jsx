@@ -34,7 +34,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedId, setSelectedId] = useState(null)
-  const [filterStatus, setFilterStatus] = useState('Semua')
+  const [filterStatus, setFilterStatus] = useState('All')
   const [filterHiPo, setFilterHiPo] = useState(false)
   const [filterUnclassified, setFilterUnclassified] = useState(false)
   const [page, setPage] = useState(1)
@@ -48,7 +48,7 @@ export default function AdminDashboard() {
       setObservations(obs)
       setNotifications(queue)
     } catch (err) {
-      setError(err.message || 'Gagal memuat data.')
+      setError(err.message || 'Failed to load data.')
     } finally {
       setLoading(false)
     }
@@ -71,7 +71,7 @@ export default function AdminDashboard() {
 
   const filtered = useMemo(() => {
     let list = roleFiltered
-    if (filterStatus !== 'Semua') list = list.filter((o) => o.status === filterStatus)
+    if (filterStatus !== 'All') list = list.filter((o) => o.status === filterStatus)
     if (filterHiPo) list = list.filter((o) => o.is_hipo)
     if (filterUnclassified) list = list.filter((o) => isUnclassifiedObservation(o))
     return list
@@ -128,25 +128,25 @@ export default function AdminDashboard() {
       {escalations.length > 0 && (
         <div className="mb-4 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3">
           <p className="text-sm font-semibold text-red-300">
-            Eskalasi: {escalations.length} HiPo melewati deadline 24 jam
+            Escalation: {escalations.length} HiPo past the 24-hour deadline
           </p>
-          <p className="mt-1 text-xs text-red-400/80">Segera tindak lanjuti atau eskalasi ke supervisor.</p>
+          <p className="mt-1 text-xs text-red-400/80">Follow up now or escalate to a supervisor.</p>
         </div>
       )}
 
       <div className="-mx-1 mb-5 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none md:grid md:grid-cols-4 md:overflow-visible">
         <TradingStatCard label="Total" value={observations.length} sparkData={spark} delta={trend.pct} up={trend.up} />
-        <TradingStatCard label="Aktif" value={openCount} accent="text-brand-400" sparkData={spark} up={openCount > 0} />
+        <TradingStatCard label="Active" value={openCount} accent="text-brand-400" sparkData={spark} up={openCount > 0} />
         <TradingStatCard label="HiPo" value={hipoCount} accent="text-red-400" up={false} sparkData={spark} />
         <TradingStatCard label="Closed" value={closedCount} accent="text-emerald-400" up sparkData={spark} />
       </div>
 
       {/* Main chart */}
       <div className="admin-panel mb-5 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Volume Laporan — 14 Hari</p>
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">Report volume — 14 days</p>
         <div className="h-44 w-full md:h-52">
           {loading ? (
-            <div className="flex h-full items-center justify-center text-sm text-slate-500">Memuat chart…</div>
+            <div className="flex h-full items-center justify-center text-sm text-slate-500">Loading chart…</div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
@@ -167,7 +167,7 @@ export default function AdminDashboard() {
                   contentStyle={chart.tooltip}
                   labelStyle={chart.tooltipLabel}
                 />
-                <Area type="monotone" dataKey="count" name="Laporan" stroke="#f37021" strokeWidth={2} fill="url(#volGrad)" />
+                <Area type="monotone" dataKey="count" name="Reports" stroke="#f37021" strokeWidth={2} fill="url(#volGrad)" />
                 <Area type="monotone" dataKey="hipo" name="HiPo" stroke="#ef4444" strokeWidth={1.5} fill="url(#hipoGrad)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -176,30 +176,30 @@ export default function AdminDashboard() {
       </div>
 
       <div className="admin-panel mb-5 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Aktivitas Terbaru</p>
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Latest activity</p>
         <ActivityFeed items={recentFeed} onSelect={setSelectedId} />
       </div>
 
       {unclassifiedCount > 0 && (
         <p className="mb-3 rounded-xl border border-slate-600/40 bg-slate-800/60 px-3 py-2 text-xs text-slate-300">
-          {unclassifiedCount} laporan belum diklasifikasi (kategori & risiko). Buka detail, lalu isi sebagai HSE.
+          {unclassifiedCount} reports are unclassified (category & risk). Open the detail and classify as HSE.
         </p>
       )}
       {highCount > 0 && (
         <p className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-          {highCount} laporan risiko High membutuhkan perhatian segera.
+          {highCount} High-risk reports need immediate attention.
         </p>
       )}
 
       <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <p className="text-sm font-medium text-slate-300">
-          Daftar Laporan <span className="font-mono text-brand-400">({filtered.length})</span>
+          Report list <span className="font-mono text-brand-400">({filtered.length})</span>
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
-          <FilterChip active={filterStatus === 'Semua'} onClick={() => setFilterStatus('Semua')}>Semua</FilterChip>
+          <FilterChip active={filterStatus === 'All'} onClick={() => setFilterStatus('All')}>All</FilterChip>
           <FilterChip active={filterHiPo} onClick={() => setFilterHiPo((v) => !v)}>HiPo</FilterChip>
           <FilterChip active={filterUnclassified} onClick={() => setFilterUnclassified((v) => !v)}>
-            Belum diklasifikasi
+            Unclassified
           </FilterChip>
           {['Open', 'Under Review', 'In Progress', 'Closed'].map((s) => (
             <FilterChip key={s} active={filterStatus === s} onClick={() => setFilterStatus(s)}>{s}</FilterChip>
@@ -211,12 +211,12 @@ export default function AdminDashboard() {
 
       {/* Mobile: card list */}
       <div className="space-y-3 md:hidden">
-        {loading && <p className="text-center text-sm text-slate-500">Memuat…</p>}
+        {loading && <p className="text-center text-sm text-slate-500">Loading…</p>}
         {!loading && paged.map((obs) => (
           <ReportCard key={obs.id} obs={obs} selected={selectedId === obs.id} onClick={() => setSelectedId(obs.id)} />
         ))}
         {!loading && filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-slate-500">Belum ada laporan.</p>
+          <p className="py-8 text-center text-sm text-slate-500">No reports yet.</p>
         )}
         {!loading && filtered.length > PAGE_SIZE && (
           <ListPager
@@ -238,10 +238,10 @@ export default function AdminDashboard() {
             <table className="min-w-full text-sm">
               <thead className="bg-slate-900/80 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">Pelapor</th>
-                  <th className="px-4 py-3">Lokasi</th>
-                  <th className="px-4 py-3">Kategori</th>
-                  <th className="px-4 py-3">Risiko</th>
+                  <th className="px-4 py-3">Reporter</th>
+                  <th className="px-4 py-3">Location</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Risk</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
@@ -297,7 +297,7 @@ export default function AdminDashboard() {
             <ObservationDetailPanel observation={selected} onSave={handleSave} allObservations={observations} />
           ) : (
             <div className="flex min-h-[320px] items-center justify-center rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
-              Pilih laporan untuk detail & follow-up.
+              Select a report for detail and follow-up.
             </div>
           )}
         </div>
@@ -312,7 +312,7 @@ export default function AdminDashboard() {
               onClick={() => setSelectedId(null)}
               className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200"
             >
-              ← Kembali
+              ← Back
             </button>
             <span className="truncate text-sm font-semibold text-slate-100">{selected.nama_pelapor}</span>
           </div>
@@ -329,7 +329,7 @@ function ListPager({ rangeStart, rangeEnd, total, currentPage, totalPages, onPre
   return (
     <div className="flex items-center justify-between gap-3 border-t border-slate-800 px-4 py-3">
       <p className="text-xs text-slate-500">
-        {rangeStart}–{rangeEnd} dari {total}
+        {rangeStart}–{rangeEnd} of {total}
       </p>
       <div className="flex items-center gap-2">
         <button
@@ -338,7 +338,7 @@ function ListPager({ rangeStart, rangeEnd, total, currentPage, totalPages, onPre
           disabled={currentPage <= 1}
           className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-300 disabled:opacity-40"
         >
-          Sebelumnya
+          Previous
         </button>
         <span className="font-mono text-[11px] text-slate-400">
           {currentPage}/{totalPages}
@@ -349,7 +349,7 @@ function ListPager({ rangeStart, rangeEnd, total, currentPage, totalPages, onPre
           disabled={currentPage >= totalPages}
           className="rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-medium text-slate-300 disabled:opacity-40"
         >
-          Berikutnya
+          Next
         </button>
       </div>
     </div>

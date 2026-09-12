@@ -19,7 +19,7 @@ export default function AdminLogin() {
       await login(email, password)
       navigate('/admin')
     } catch {
-      setError('Email atau password salah.')
+      setError('Wrong email or password.')
     } finally {
       setLoading(false)
     }
@@ -30,7 +30,7 @@ export default function AdminLogin() {
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
-      <BrandHeader className="mb-6" title="Login Admin / HSE Officer" size="md" />
+      <BrandHeader className="mb-6" title="Admin / HSE Officer login" size="md" />
       <form onSubmit={handleSubmit} className="card w-full max-w-sm space-y-4 p-6">
         <label className="block">
           <span className="mb-1.5 block text-sm font-medium text-slate-700">Email</span>
@@ -56,7 +56,7 @@ export default function AdminLogin() {
         </label>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? 'Masuk…' : 'Masuk'}
+          {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
     </div>

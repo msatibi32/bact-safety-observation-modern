@@ -117,7 +117,7 @@ export function isUnclassifiedObservation(obs) {
 }
 
 export function categoryLabel(kategori) {
-  return isUnclassifiedCategory(kategori) ? UNCLASSIFIED_CATEGORY : kategori
+  return isUnclassifiedCategory(kategori) ? 'Unclassified' : kategori
 }
 
 export function computeIsHiPo({ kategori, tingkat_risiko, potensi_risiko, stop_work }) {

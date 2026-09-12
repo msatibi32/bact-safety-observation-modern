@@ -1,5 +1,6 @@
 import { PHOTO_BUCKET, supabase } from './supabase'
 import { investigationPlainSummary } from './investigation'
+import { isDummySeedObservation } from './dummySeed'
 
 function parseReporterPosition(raw) {
   const text = raw || ''
@@ -191,6 +192,74 @@ export async function addObservation(data) {
   triggerNotificationProcessingInBackground()
 
   return id
+}
+
+async function insertImportedObservation(data) {
+  const id = crypto.randomUUID()
+  const row = {
+    id,
+    reporter_name: data.nama_pelapor,
+    reporter_position: data.departemen || null,
+    company_name: data.nama_perusahaan,
+    is_anonymous: false,
+    incident_datetime: new Date(data.tanggal_waktu).toISOString(),
+    location_text: data.lokasi_teks,
+    category: data.kategori || 'Belum diklasifikasi',
+    description: data.deskripsi,
+    risk_level: data.tingkat_risiko || 'Unclassified',
+    is_hipo: false,
+    life_saving_rule: data.kategori ? 'Tidak terkait' : 'Belum diklasifikasi',
+    stop_work: false,
+    photo_urls: [],
+    immediate_action: data.tindakan_langsung || null,
+    recommendation: data.rekomendasi || null,
+    triage_notes: data.triage_notes || 'Imported from HSE Excel',
+    status: 'Open',
+  }
+  const attempts = [
+    row,
+    { ...row, risk_level: 'Low' },
+    { ...row, category: 'Unsafe Act', risk_level: 'Low' },
+  ]
+  let error = null
+  for (const candidate of attempts) {
+    const result = await supabase.from('observations').insert(candidate)
+    error = result.error
+    if (!error) break
+  }
+  if (error) throw new Error(error.message)
+  return id
+}
+
+/** Historical Excel/CSV import — no email/WA notifications. */
+export async function importHistoricalObservations(records) {
+  let inserted = 0
+  const failures = []
+  for (const data of records) {
+    try {
+      await insertImportedObservation(data)
+      inserted += 1
+    } catch (err) {
+      failures.push({
+        name: data.nama_pelapor || '—',
+        error: err.message || 'Insert failed',
+      })
+    }
+  }
+  return { inserted, skipped: failures.length, failures }
+}
+
+export async function deleteDummySeedObservations() {
+  const all = await getObservations()
+  const targets = all.filter(isDummySeedObservation)
+  if (!targets.length) return { deleted: 0 }
+  const ids = targets.map((o) => o.id)
+  for (let i = 0; i < ids.length; i += 20) {
+    const chunk = ids.slice(i, i + 20)
+    const { error } = await supabase.from('observations').delete().in('id', chunk)
+    if (error) throw new Error(error.message)
+  }
+  return { deleted: ids.length }
 }
 
 export async function updateObservation(id, patch, previous) {

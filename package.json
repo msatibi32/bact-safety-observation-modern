@@ -8,6 +8,7 @@
     "build": "vite build",
     "generate:qr": "node scripts/generate-qr.mjs",
     "generate:ppt": "node scripts/generate-hse-presentation.mjs",
+    "generate:ppt:hosting": "node scripts/generate-hosting-proposal.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -21,7 +22,8 @@
     "react-qr-code": "^2.2.0",
     "react-router-dom": "^7.18.2",
     "recharts": "^3.10.1",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite-plugin-pwa": "^1.3.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

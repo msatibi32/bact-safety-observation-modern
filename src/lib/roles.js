@@ -11,7 +11,7 @@ export const ROLE_LABELS = {
   admin: 'Super Admin',
   hse: 'HSE Officer',
   pic: 'PIC / Departemen',
-  viewer: 'Viewer (read-only)',
+  viewer: 'Viewer (view only)',
 }
 
 /** Hierarchy: higher index = more access. admin & super_admin = pantau semua. */
@@ -67,8 +67,7 @@ export function canManageUsers(user) {
 export const ASSIGNABLE_ROLES = [
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'hse', label: 'HSE Officer' },
-  { value: 'pic', label: 'PIC / Departemen' },
-  { value: 'viewer', label: 'Viewer (lihat saja)' },
+  { value: 'viewer', label: 'Viewer (view only)' },
 ]
 
 export function displayRole(role) {

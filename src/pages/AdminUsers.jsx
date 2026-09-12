@@ -8,7 +8,6 @@ import {
   setAdminUserDisabled,
   updateAdminUser,
 } from '../lib/adminUsers'
-import { DEPARTMENT_OPTIONS } from '../lib/constants'
 import { ASSIGNABLE_ROLES, canManageUsers, displayRole } from '../lib/roles'
 
 const emptyForm = { email: '', password: '', role: 'hse', pic_department: '' }
@@ -181,27 +180,9 @@ export default function AdminUsers() {
               ))}
             </select>
           </label>
-          {form.role === 'pic' && (
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-slate-400">Departemen PIC</span>
-              <select
-                value={form.pic_department}
-                onChange={(e) => setForm((f) => ({ ...f, pic_department: e.target.value }))}
-                className="admin-input"
-                required
-              >
-                <option value="">— Pilih departemen —</option>
-                {DEPARTMENT_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
         </div>
         <p className="text-[11px] text-slate-500">
-          Super Admin = semua akses. HSE = klasifikasi & investigasi. PIC = follow-up departemen. Viewer = lihat saja.
+          Super Admin = semua menu + kelola akun. HSE = klasifikasi, investigasi, notifikasi. Viewer = lihat saja.
         </p>
         <button type="submit" disabled={saving} className="btn-primary">
           {saving ? 'Menyimpan…' : 'Tambah pengguna'}
@@ -262,6 +243,7 @@ export default function AdminUsers() {
                   }
                   className="admin-input !w-auto !py-1.5 text-xs"
                 >
+                  {u.role === 'pic' && <option value="pic">PIC / Departemen (lama)</option>}
                   {ASSIGNABLE_ROLES.map((r) => (
                     <option key={r.value} value={r.value}>
                       {r.label}

@@ -24,7 +24,7 @@ import { canClassifyObservations, canEditObservations } from '../lib/roles'
 import { resolveSocNumber } from '../lib/socNumber'
 import { useUser } from './RequireRole'
 
-const TABS = ['Detail', 'Investigasi', 'Rekomendasi']
+const TABS = ['Detail', 'Investigation', 'Recommendation']
 
 export default function ObservationDetailPanel({ observation, onSave, allObservations = [] }) {
   const user = useUser()
@@ -99,7 +99,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   async function persist(patchExtra = {}) {
     setError('')
     if (canClassify && (kategori ? !risiko : Boolean(risiko))) {
-      setError('Isi kategori dan risiko bersama.')
+      setError('Set category and risk together.')
       return
     }
     setSaving(true)
@@ -142,7 +142,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
     } catch (err) {
-      setError(err.message || 'Gagal menyimpan.')
+      setError(err.message || 'Could not save.')
     } finally {
       setSaving(false)
     }
@@ -177,7 +177,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
       if (type === 'soc') await exportObservationPdf(enriched)
       else await exportInvestigationPdf(enriched)
     } catch {
-      setError('Gagal export PDF.')
+      setError('PDF export failed.')
     } finally {
       setPdfBusy('')
     }
@@ -204,7 +204,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
               )}
               {requiresInvestigation && (
                 <span className="rounded-full bg-amber-600/80 px-2 py-0.5 text-[10px] font-medium text-white">
-                  Investigasi
+                  Investigation
                 </span>
               )}
             </div>
@@ -232,7 +232,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                   disabled={Boolean(pdfBusy)}
                   className="rounded-lg border border-amber-700/50 px-2 py-1 text-[10px] font-medium text-amber-400 hover:border-amber-500"
                 >
-                  {pdfBusy === 'inv' ? '…' : 'PDF Investigasi'}
+                  {pdfBusy === 'inv' ? '…' : 'PDF Investigation'}
                 </button>
               )}
             </div>
@@ -252,7 +252,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
               }`}
             >
               {t}
-              {t === 'Investigasi' && requiresInvestigation && <span className="ml-1 text-amber-300">●</span>}
+              {t === 'Investigation' && requiresInvestigation && <span className="ml-1 text-amber-300">●</span>}
             </button>
           ))}
         </div>
@@ -262,12 +262,12 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
         {tab === 'Detail' && (
           <div className="space-y-4">
             <dl className="space-y-2.5 text-sm">
-              <DetailRow icon={<PinIcon className="h-3.5 w-3.5" />} label="Lokasi" value={observation.lokasi_teks} />
-              {observation.employee_id && <DetailRow label="ID karyawan" value={observation.employee_id} />}
+              <DetailRow icon={<PinIcon className="h-3.5 w-3.5" />} label="Location" value={observation.lokasi_teks} />
+              {observation.employee_id && <DetailRow label="Employee ID" value={observation.employee_id} />}
               {observation.life_saving_rule && observation.life_saving_rule !== 'Tidak terkait' && (
                 <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
               )}
-              <DetailRow label="Deskripsi" value={observation.deskripsi} />
+              <DetailRow label="Description" value={observation.deskripsi} />
             </dl>
 
             {observation.foto?.length > 0 && (
@@ -282,24 +282,24 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
 
             <form onSubmit={handleSubmit} className="space-y-3 border-t border-slate-800 pt-4">
               {!canEdit && (
-                <p className="text-xs text-amber-400">Mode viewer — tidak bisa mengubah laporan.</p>
+                <p className="text-xs text-amber-400">Viewer mode — reports cannot be edited.</p>
               )}
               <fieldset disabled={!canEdit} className="space-y-3 disabled:opacity-60">
                 {pendingClass && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                    Kategori & risiko belum diisi. Tentukan klasifikasi HSE di bawah.
+                    Category and risk are empty. Set the HSE classification below.
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-1 block text-xs font-medium text-slate-400">Kategori (HSE)</span>
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Category (HSE)</span>
                     <select
                       value={kategori}
                       onChange={(e) => setKategori(e.target.value)}
                       disabled={!canClassify}
                       className="admin-input"
                     >
-                      <option value="">— Belum diklasifikasi —</option>
+                      <option value="">— Unclassified —</option>
                       {KATEGORI_OPTIONS.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
@@ -308,14 +308,14 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                     </select>
                   </label>
                   <label className="block">
-                    <span className="mb-1 block text-xs font-medium text-slate-400">Risiko (HSE)</span>
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Risk (HSE)</span>
                     <select
                       value={risiko}
                       onChange={(e) => setRisiko(e.target.value)}
                       disabled={!canClassify}
                       className="admin-input"
                     >
-                      <option value="">— Belum diklasifikasi —</option>
+                      <option value="">— Unclassified —</option>
                       {RISIKO_OPTIONS.map((opt) => (
                         <option key={opt} value={opt}>
                           {opt}
@@ -326,9 +326,9 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                 </div>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Departemen follow-up</span>
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Follow-up department</span>
                   <select value={pic} onChange={(e) => setPic(e.target.value)} className="admin-input">
-                    <option value="">— Belum di-assign —</option>
+                    <option value="">— Not assigned —</option>
                     {DEPARTMENT_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
                         {opt}
@@ -345,11 +345,11 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                     className="mt-0.5"
                   />
                   <span className="text-xs text-slate-300">
-                    <span className="font-medium text-slate-100">Lanjut ke tahap investigasi</span>
+                    <span className="font-medium text-slate-100">Continue to investigation</span>
                     <span className="mt-0.5 block text-slate-500">
-                      Tidak semua SOC wajib diinvestigasi. Centang hanya jika butuh laporan investigasi mendalam.
+                      Not every SOC needs an investigation. Check only if a full investigation report is required.
                       {suggestedInvestigate && !requiresInvestigation
-                        ? ' (HiPo/High — disarankan investigasi.)'
+                        ? ' (HiPo/High — investigation recommended.)'
                         : ''}
                     </span>
                   </span>
@@ -394,13 +394,13 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                     })}
                   />
                   <span className="mt-1 block text-[10px] text-slate-500">
-                    Nama pelapor tidak masuk perihal — ada kolom Pelapor / Reported by di PDF.
+                    Reporter name is not in the subject — the PDF has a Reporter / Reported by column.
                   </span>
                 </label>
 
                 <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5">
                   <p className="mb-2 text-xs font-medium text-slate-300">
-                    Tindakan yang telah dilakukan (centang untuk PDF)
+                    Actions already taken (check for PDF)
                   </p>
                   <ul className="space-y-1.5">
                     {noticeActions.id.map((text, i) => (
@@ -437,32 +437,32 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Catatan triage HSE</span>
+                  <span className="mb-1 block text-xs font-medium text-slate-400">HSE triage notes</span>
                   <textarea
                     rows={2}
                     value={triageNotes}
                     onChange={(e) => setTriageNotes(e.target.value)}
                     className="admin-input"
-                    placeholder="Review awal severity & prioritas…"
+                    placeholder="Initial severity and priority review…"
                   />
                 </label>
 
                 {(status === 'Closed' || status === 'Pending Verification') && (
                   <label className="block">
-                    <span className="mb-1 block text-xs font-medium text-slate-400">Catatan penutupan</span>
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Closing notes</span>
                     <textarea
                       rows={2}
                       value={catatan}
                       onChange={(e) => setCatatan(e.target.value)}
                       className="admin-input"
-                      placeholder="Tindakan yang sudah dilakukan…"
+                      placeholder="Actions already completed…"
                     />
                   </label>
                 )}
 
                 {status === 'Pending Verification' && (
                   <label className="block">
-                    <span className="mb-1 block text-xs font-medium text-slate-400">Verifikasi efektivitas</span>
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Effectiveness verification</span>
                     <textarea
                       rows={2}
                       value={verificationNotes}

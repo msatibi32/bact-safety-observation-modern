@@ -152,13 +152,13 @@ export default function ReportForm() {
       <div className="mx-auto max-w-xl px-4 pt-10">
         <BrandHeader
           className="mb-6"
-          title="Laporkan Observasi"
-          subtitle="Laporkan kondisi atau tindakan tidak aman di lapangan dalam hitungan menit."
+          title="Laporkan Observasi / Report an observation"
+          subtitle="Laporkan kondisi atau tindakan tidak aman di lapangan dalam hitungan menit. / Report an unsafe condition or act in minutes."
         />
 
         <form onSubmit={handleSubmit} className="card space-y-6 p-6">
-          <Section title="Informasi Pelapor">
-            <Field label="Nama perusahaan" required>
+          <Section title="Informasi Pelapor / Reporter information">
+            <Field label="Nama perusahaan / Company" required>
               <select
                 value={form.nama_perusahaan}
                 onChange={(e) => handleCompanyChange(e.target.value)}
@@ -183,12 +183,12 @@ export default function ReportForm() {
             </Field>
 
             <Field
-              label="Nama pelapor"
+              label="Nama pelapor / Reporter name"
               required
               hint={
                 bactEmployee
-                  ? 'Ketik nama, lalu pilih dari daftar karyawan BACT. Departemen dan ID terisi otomatis.'
-                  : 'Isi nama lengkap secara manual (vendor / kontraktor / visitor).'
+                  ? 'Ketik nama, lalu pilih dari daftar karyawan BACT. Departemen dan ID terisi otomatis. / Type a name, then pick from the BACT list. Department and ID fill automatically.'
+                  : 'Isi nama lengkap secara manual (vendor / kontraktor / visitor). / Enter the full name manually (vendor / contractor / visitor).'
               }
             >
               {bactEmployee ? (
@@ -210,7 +210,7 @@ export default function ReportForm() {
               )}
             </Field>
 
-            <Field label="Departemen" required>
+            <Field label="Departemen / Department" required>
               {bactEmployee && form.employee_id ? (
                 <input type="text" readOnly value={form.departemen} className="input bg-slate-50 text-slate-700" />
               ) : bactEmployee ? (
@@ -242,8 +242,8 @@ export default function ReportForm() {
             </Field>
           </Section>
 
-          <Section title="Detail Kejadian">
-            <Field label="Tanggal & waktu kejadian" required>
+          <Section title="Detail Kejadian / Incident details">
+            <Field label="Tanggal & waktu kejadian / Date & time" required>
               <input
                 type="datetime-local"
                 required
@@ -253,7 +253,7 @@ export default function ReportForm() {
               />
             </Field>
 
-            <Field label="Lokasi kejadian" required>
+            <Field label="Lokasi kejadian / Location" required>
               <select
                 required
                 value={form.lokasi_teks}
@@ -279,7 +279,7 @@ export default function ReportForm() {
               )}
             </Field>
 
-            <Field label="Deskripsi kejadian" required>
+            <Field label="Deskripsi kejadian / Description" required>
               <textarea
                 required
                 rows={4}
@@ -298,8 +298,10 @@ export default function ReportForm() {
                 className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
               <div>
-                <span className="text-sm font-medium text-slate-900">Stop Work / pekerjaan dihentikan</span>
-                <p className="text-xs text-slate-500">Centang jika pekerjaan di area tersebut sudah dihentikan sementara.</p>
+                <span className="text-sm font-medium text-slate-900">Stop Work / Work stopped</span>
+                <p className="text-xs text-slate-500">
+                  Centang jika pekerjaan di area tersebut sudah dihentikan sementara. / Tick if work in that area has been stopped.
+                </p>
               </div>
             </label>
 
@@ -310,12 +312,12 @@ export default function ReportForm() {
             )}
           </Section>
 
-          <Section title="Bukti">
-            <Field label="Foto bukti">
+          <Section title="Bukti / Evidence">
+            <Field label="Foto bukti / Photo evidence">
               <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition hover:border-brand-300 hover:bg-brand-50/60">
                 <CameraIcon className="h-6 w-6 text-slate-400" />
-                <span className="text-sm font-medium text-slate-600">Tap untuk ambil / pilih foto</span>
-                <span className="text-xs text-slate-400">Bisa lebih dari satu foto</span>
+                <span className="text-sm font-medium text-slate-600">Tap untuk ambil / pilih foto · Take or choose photos</span>
+                <span className="text-xs text-slate-400">Bisa lebih dari satu foto · Multiple photos allowed</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -347,7 +349,7 @@ export default function ReportForm() {
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
           <button type="submit" disabled={submitting} className="btn-primary w-full">
-            {submitting ? 'Mengirim…' : 'Kirim Laporan'}
+            {submitting ? 'Mengirim… / Sending…' : 'Kirim Laporan / Submit report'}
           </button>
         </form>
       </div>

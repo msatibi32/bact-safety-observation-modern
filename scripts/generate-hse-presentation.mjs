@@ -199,7 +199,7 @@ function arrowRight(slide, x, y, w = 0.32) {
     align: 'center',
     fontFace: FONT,
   })
-  slide.addText('Form ringkas  ·  Klasifikasi HSE  ·  Log HSE  ·  Kelola user  ·  Notifikasi email', {
+  slide.addText('Form bilingual  ·  Klasifikasi HSE  ·  Weekly/Monthly report  ·  Theme  ·  Super Admin / HSE / Viewer', {
     x: 0.5,
     y: 4.55,
     w: 9,
@@ -366,7 +366,7 @@ function arrowRight(slide, x, y, w = 0.32) {
   slide.addText(
     [
       { text: 'Lapor dari HP, tanpa login, lewat QR.', options: { bullet: true, breakLine: true } },
-      { text: 'Form pendek: identitas, lokasi, cerita, foto.', options: { bullet: true, breakLine: true } },
+      { text: 'Form bilingual ID + EN: identitas, lokasi, cerita, foto.', options: { bullet: true, breakLine: true } },
       { text: 'Nama karyawan BACT terisi dari data HR.', options: { bullet: true, breakLine: true } },
       { text: 'HSE yang tentukan kategori & risiko di dashboard.', options: { bullet: true, breakLine: true } },
     ],
@@ -380,8 +380,8 @@ function arrowRight(slide, x, y, w = 0.32) {
   const actors = [
     { t: 'Pelapor BACT', b: 'Ketik nama → pilih dari daftar. Departemen & ID otomatis.', c: C.blue },
     { t: 'Vendor / visitor', b: 'Pilih perusahaan, isi nama & departemen manual.', c: C.indigo },
-    { t: 'HSE Officer', b: 'Klasifikasi kategori/risiko, investigasi, CAPA, email.', c: C.orange },
-    { t: 'PIC / Admin', b: 'Tindak lanjut laporan yang di-assign. Admin akses penuh.', c: C.purple },
+    { t: 'HSE Officer', b: 'Klasifikasi kategori/risiko, investigasi, CAPA, email Resend.', c: C.orange },
+    { t: 'Super Admin', b: 'Semua menu HSE + kelola akun, Log HSE, pantau performa.', c: C.purple },
   ]
   actors.forEach((a, i) => {
     featureBox(slide, {
@@ -394,31 +394,37 @@ function arrowRight(slide, x, y, w = 0.32) {
       accent: a.c,
     })
   })
-  slide.addText('Pelapor tidak mengisi kategori, risiko, atau IOGP. Itu wewenang HSE setelah laporan masuk.', {
-    x: 0.4,
-    y: 3.8,
-    w: 9.2,
-    h: 0.45,
-    fontSize: 13,
-    color: C.slate,
-    fontFace: FONT,
-  })
-  slide.addText('Lookup otomatis: 173 karyawan BACT. Security / vendor tetap input manual.', {
-    x: 0.4,
-    y: 4.3,
-    w: 9.2,
-    h: 0.35,
-    fontSize: 12,
-    color: C.slateLight,
-    fontFace: FONT,
-  })
+  slide.addText(
+    'Login admin hanya 3 role: Super Admin, HSE Officer, Viewer. PIC = assign departemen di laporan, bukan akun login.',
+    {
+      x: 0.4,
+      y: 3.7,
+      w: 9.2,
+      h: 0.4,
+      fontSize: 13,
+      color: C.slate,
+      fontFace: FONT,
+    },
+  )
+  slide.addText(
+    'Pelapor tidak mengisi kategori, risiko, IOGP, atau laporan anonim. Viewer hanya lihat. Lookup: 173 karyawan BACT.',
+    {
+      x: 0.4,
+      y: 4.2,
+      w: 9.2,
+      h: 0.45,
+      fontSize: 12,
+      color: C.slateLight,
+      fontFace: FONT,
+    },
+  )
 }
 
 // 4 — Form
 {
-  const slide = contentSlide('Form lapangan (tanpa login)', APP_URL)
+  const slide = contentSlide('Form lapangan (tanpa login)', `${APP_URL}  ·  bilingual Indonesia + English`)
   const items = [
-    { t: 'Perusahaan dulu', b: 'PT. BACT → lookup nama. Vendor → isi manual.', c: C.blue },
+    { t: 'Bilingual ID + EN', b: 'Label Indonesia utama, ada terjemahan Inggris di bawahnya.', c: C.blue },
     { t: 'Nama & ID BACT', b: 'Ketik nama, pilih opsi. Departemen + ID BACT-xxxx terisi.', c: C.orange },
     { t: 'Lokasi kejadian', b: 'Pilih dari daftar area terminal (Workshop, CY, Gate, dll).', c: C.amber },
     { t: 'Deskripsi + foto', b: 'Ceritakan kejadian. Bisa beberapa foto bukti.', c: C.indigo },
@@ -529,12 +535,12 @@ function arrowRight(slide, x, y, w = 0.32) {
 {
   const slide = contentSlide('Dashboard HSE (Command Center)', '/admin  ·  login email & password')
   const boxes = [
-    { t: 'Live Traffic', b: 'Kartu total, aktif, HiPo, closed + grafik 14 hari. Daftar laporan 10 per halaman.', c: C.orange },
-    { t: 'Belum diklasifikasi', b: 'Filter antrian laporan yang menunggu HSE isi kategori/risiko.', c: C.amber },
-    { t: 'Detail laporan', b: 'Kategori, risiko, perihal PDF, centang tindakan, PIC, status, foto.', c: C.blue },
-    { t: 'Analitik', b: 'KPI vs target. Tombol Export Excel dan Unduh Flow Chart.', c: C.indigo },
-    { t: 'Log HSE', b: 'Grafik tracking siapa yang aktif menyelesaikan SOC (ringan–investigasi).', c: C.green },
-    { t: 'Pengguna', b: 'Super Admin: tambah akun, role, aktifkan/nonaktifkan, ganti password.', c: C.purple },
+    { t: 'Live Traffic', b: 'Admin English. Kartu total, aktif, HiPo, closed + grafik 14 hari. Tema gelap/terang.', c: C.orange },
+    { t: 'Unclassified', b: 'Filter antrian laporan yang menunggu HSE isi kategori/risiko.', c: C.amber },
+    { t: 'Report detail', b: 'Kategori, risiko, perihal PDF, centang tindakan, assign PIC (departemen), status, foto.', c: C.blue },
+    { t: 'Analytics', b: 'Weekly & Monthly Report: pilih tanggal dari–sampai, export Excel. Import Excel/CSV lama.', c: C.indigo },
+    { t: 'HSE Log', b: 'Grafik tracking siapa yang aktif menyelesaikan SOC (ringan–investigasi). Super Admin.', c: C.green },
+    { t: 'Users', b: 'Super Admin / HSE Officer / Viewer. Tambah akun, aktifkan/nonaktifkan, ganti password.', c: C.purple },
   ]
   boxes.forEach((b, i) => {
     const col = i % 3
@@ -592,12 +598,12 @@ function arrowRight(slide, x, y, w = 0.32) {
 {
   const slide = contentSlide('Fungsi tiap menu', 'Penjelasan singkat untuk orang yang baru pakai')
   const items = [
-    { t: 'Dashboard', b: 'Daftar 10 laporan per halaman. Klik nama pelapor: isi kategori, perihal, centang tindakan, unduh PDF.', c: C.orange },
-    { t: 'Analitik', b: 'Angka & grafik. Export Excel + Unduh Flow Chart ada di kanan atas.', c: C.indigo },
-    { t: 'Log HSE', b: 'Grafik macam trading: HSE mana yang aktif, kasus ringan vs investigasi. Super Admin.', c: C.amber },
-    { t: 'Pengguna', b: 'Super Admin: tambah user, pilih role, aktifkan/nonaktifkan, ganti password.', c: C.red },
-    { t: 'Notifikasi', b: 'Daftar email yang dapat kabar otomatis saat ada laporan baru atau HiPo.', c: C.blue },
-    { t: 'Form pelapor', b: 'Halaman HP tanpa login. Isi nama, lokasi, cerita, foto, lalu kirim.', c: C.green },
+    { t: 'Dashboard', b: 'Daftar 10 laporan per halaman. Klik nama: klasifikasi, perihal, PDF Notice. Tema gelap/terang.', c: C.orange },
+    { t: 'Analytics', b: 'Weekly/Monthly Report (filter tanggal) + import Excel/CSV data lama HSE + flowchart.', c: C.indigo },
+    { t: 'HSE Log', b: 'Grafik: HSE mana yang aktif, kasus ringan vs investigasi. Super Admin.', c: C.amber },
+    { t: 'Users', b: 'Super Admin: tambah user, pilih Super Admin / HSE / Viewer, aktifkan, ganti password.', c: C.red },
+    { t: 'Notifications', b: 'Daftar email Resend — kabar otomatis laporan baru atau HiPo.', c: C.blue },
+    { t: 'Reporter form', b: 'HP tanpa login, bilingual ID+EN. Nama, lokasi, cerita, foto, lalu kirim.', c: C.green },
   ]
   items.forEach((f, i) => {
     const col = i % 3
@@ -681,19 +687,30 @@ function arrowRight(slide, x, y, w = 0.32) {
 
 // 11 — Role & tambah user
 {
-  const slide = contentSlide('Role & cara tambah pengguna', 'Menu Pengguna hanya muncul untuk Super Admin')
+  const slide = contentSlide('Role & akses login admin', 'Menu Pengguna hanya muncul untuk Super Admin')
   const roles = [
-    { t: 'Super Admin', b: 'Semua akses + kelola user (role, aktif/nonaktif, password).', c: C.red },
-    { t: 'HSE Officer', b: 'Klasifikasi, investigasi, PDF, kelola email notifikasi.', c: C.orange },
-    { t: 'PIC / Departemen', b: 'Follow-up laporan yang di-assign ke departemennya.', c: C.blue },
-    { t: 'Viewer', b: 'Lihat dashboard saja. Tidak bisa ubah data.', c: C.slateLight },
+    {
+      t: 'Super Admin',
+      b: 'Semua menu: Dashboard, Analitik, Log HSE, Notifikasi, Pengguna. Ubah laporan + kelola akun.',
+      c: C.red,
+    },
+    {
+      t: 'HSE Officer',
+      b: 'Dashboard, Analitik, Notifikasi. Klasifikasi, investigasi, PDF, email. Tidak kelola user.',
+      c: C.orange,
+    },
+    {
+      t: 'Viewer',
+      b: 'Dashboard & Analitik. Lihat saja — tidak bisa ubah laporan, PDF, atau pengaturan.',
+      c: C.slateLight,
+    },
   ]
   roles.forEach((r, i) => {
     featureBox(slide, {
-      x: 0.32 + i * 2.4,
+      x: 0.35 + i * 3.15,
       y: 1.12,
-      w: 2.28,
-      h: 1.55,
+      w: 3.02,
+      h: 1.7,
       title: r.t,
       body: r.b,
       accent: r.c,
@@ -701,15 +718,15 @@ function arrowRight(slide, x, y, w = 0.32) {
   })
   slide.addShape(pptx.ShapeType.roundRect, {
     x: 0.32,
-    y: 2.85,
+    y: 3.0,
     w: 9.36,
-    h: 2.05,
+    h: 1.9,
     fill: { color: C.dark },
     rectRadius: 0.08,
   })
   slide.addText('Cara Super Admin menambah user', {
     x: 0.5,
-    y: 2.97,
+    y: 3.12,
     w: 9,
     h: 0.3,
     fontSize: 14,
@@ -718,13 +735,13 @@ function arrowRight(slide, x, y, w = 0.32) {
     fontFace: FONT,
   })
   slide.addText(
-    '1. Login Super Admin  →  2. Menu Pengguna  →  3. Isi email + password sementara + role\n4. Kalau PIC, pilih departemen  →  5. Tambah pengguna  →  6. Beri akun itu ke orangnya (/admin/login)\nAktifkan / Nonaktifkan kapan saja. Nonaktif = tidak bisa login. Ganti password dari tombol di daftar.',
+    '1. Login Super Admin  →  2. Menu Pengguna  →  3. Isi email + password sementara + role\n4. Tambah pengguna  →  5. Beri akun itu ke orangnya (/admin/login)\nAktifkan / Nonaktifkan kapan saja. Nonaktif = tidak bisa login. Ganti password dari daftar.\nAssign PIC di laporan = pilih departemen follow-up, bukan role login.',
     {
       x: 0.5,
-      y: 3.35,
+      y: 3.46,
       w: 9,
-      h: 1.35,
-      fontSize: 13,
+      h: 1.3,
+      fontSize: 12,
       color: C.white,
       fontFace: FONT,
     },

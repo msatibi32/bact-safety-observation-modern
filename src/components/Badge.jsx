@@ -23,7 +23,7 @@ function Badge({ children, className = '' }) {
 
 export function RiskBadge({ level, pending = false }) {
   if (pending || !RISK_STYLES[level]) {
-    return <Badge className="bg-slate-800 text-slate-400">Belum diklasifikasi</Badge>
+    return <Badge className="bg-slate-800 text-slate-400">Unclassified</Badge>
   }
   return <Badge className={RISK_STYLES[level]}>{level}</Badge>
 }

@@ -15,7 +15,9 @@ import {
   topLocations,
   trendDelta,
 } from '../lib/analytics'
-import { avgDaysToClose, countOverdueCapa, exportObservationsExcel } from '../lib/export'
+import ImportHistoricalPanel from '../components/admin/ImportHistoricalPanel'
+import PeriodReportPanel from '../components/admin/PeriodReportPanel'
+import { avgDaysToClose, countOverdueCapa } from '../lib/export'
 import { exportSocFlowchartPdf } from '../lib/pdfFlowchart'
 import { canViewHsePerformance } from '../lib/roles'
 import { getAllAuditLogs, getAllCapa, getKpiTargets, getObservations } from '../lib/store'
@@ -43,8 +45,10 @@ export default function AdminSummary() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    Promise.all([
+  function loadAll() {
+    setLoading(true)
+    setError('')
+    return Promise.all([
       getObservations(),
       getAllCapa().catch(() => []),
       getKpiTargets(),
@@ -56,8 +60,12 @@ export default function AdminSummary() {
         setKpiTargets(kpi || [])
         setAuditLogs(audits || [])
       })
-      .catch((err) => setError(err.message || 'Gagal memuat data.'))
+      .catch((err) => setError(err.message || 'Failed to load data.'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadAll()
   }, [showHsePerf])
 
   const total = observations.length
@@ -86,7 +94,7 @@ export default function AdminSummary() {
     () =>
       countBy(
         observations.map((o) => ({
-          tingkat_risiko: isUnclassifiedObservation(o) ? 'Belum diklasifikasi' : o.tingkat_risiko,
+          tingkat_risiko: isUnclassifiedObservation(o) ? 'Unclassified' : o.tingkat_risiko,
         })),
         'tingkat_risiko',
       ).map(([name, value]) => ({ name, value })),
@@ -103,7 +111,7 @@ export default function AdminSummary() {
   )
 
   const topKategori = byKategori[0]
-  const topRisiko = byRisiko.find((r) => r.name !== 'Belum diklasifikasi') || byRisiko[0]
+  const topRisiko = byRisiko.find((r) => r.name !== 'Unclassified') || byRisiko[0]
 
   const kpiActuals = useMemo(() => {
     const monthly = monthlyReportCount(observations)
@@ -121,7 +129,7 @@ export default function AdminSummary() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <LivePulse />
-          <h1 className="text-base font-semibold text-slate-100 md:text-lg">Analitik HSE</h1>
+          <h1 className="text-base font-semibold text-slate-100 md:text-lg">HSE Analytics</h1>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -129,79 +137,74 @@ export default function AdminSummary() {
             onClick={() => exportSocFlowchartPdf()}
             className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 hover:border-brand-500 hover:text-brand-400"
           >
-            Unduh Flow Chart
-          </button>
-          <button
-            type="button"
-            onClick={() => exportObservationsExcel(observations)}
-            disabled={!observations.length}
-            className="btn-primary text-sm"
-          >
-            Export Excel
+            Download Flowchart
           </button>
         </div>
       </div>
 
-      {loading && <p className="text-sm text-slate-500">Memuat data…</p>}
+      <PeriodReportPanel observations={observations} />
+      <ImportHistoricalPanel onImported={loadAll} />
+
+      {loading && <p className="text-sm text-slate-500">Loading data…</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && (
         <>
           <div className="-mx-1 mb-5 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none md:grid md:grid-cols-3 lg:grid-cols-7">
             <TradingStatCard label="Total" value={total} sparkData={spark} delta={trend.pct} up={trend.up} />
-            <TradingStatCard label="Aktif / Open" value={open} accent="text-brand-400" sparkData={spark} up />
+            <TradingStatCard label="Active / Open" value={open} accent="text-brand-400" sparkData={spark} up />
             <TradingStatCard label="Closed" value={closed} accent="text-emerald-400" sparkData={spark} up />
             <TradingStatCard label="HiPo" value={hipo} accent="text-red-400" sparkData={spark} up={false} />
             <TradingStatCard label="High" value={highRisk} accent="text-red-400" sparkData={spark} up={false} />
-            <TradingStatCard label="Positif" value={positive} accent="text-emerald-400" sparkData={spark} up />
-            <TradingStatCard label="Investigasi" value={invCount} accent="text-amber-400" sparkData={spark} up />
+            <TradingStatCard label="Positive" value={positive} accent="text-emerald-400" sparkData={spark} up />
+            <TradingStatCard label="Investigation" value={invCount} accent="text-amber-400" sparkData={spark} up />
           </div>
 
           <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiTile
-              label="Kategori terbanyak"
+              label="Top category"
               value={topKategori?.name || '—'}
-              sub={topKategori ? `${topKategori.value} laporan` : ''}
+              sub={topKategori ? `${topKategori.value} reports` : ''}
               accent="text-slate-100"
             />
             <KpiTile
-              label="Rasio risiko terbanyak"
+              label="Top risk"
               value={topRisiko?.name || '—'}
-              sub={topRisiko ? `${topRisiko.value} laporan` : ''}
+              sub={topRisiko ? `${topRisiko.value} reports` : ''}
               accent="text-slate-100"
             />
             <KpiTile
-              label="Bulan paling banyak SOC"
+              label="Peak SOC month"
               value={topMonth?.label || '—'}
               sub={topMonth ? `${topMonth.count} SOC` : ''}
               accent="text-brand-400"
             />
             <KpiTile
-              label="Lanjut investigasi"
+              label="Investigation follow-up"
               value={String(invCount)}
-              sub={`dari ${total} SOC`}
+              sub={`of ${total} SOC`}
               accent="text-amber-400"
             />
           </div>
 
           <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <KpiTile
-              label="Rasio Positif"
+              label="Positive ratio"
               value={`${classified.length ? Math.round((positive / classified.length) * 100) : 0}%`}
-              sub={`${positive} positif / ${negative} negatif`}
+              sub={`${positive} positive / ${negative} negative`}
               accent="text-emerald-400"
             />
-            <KpiTile label="Avg. Tutup" value={avgClose ?? '—'} sub="hari" accent="text-slate-100" />
+            <KpiTile label="Avg. close" value={avgClose ?? '—'} sub="days" accent="text-slate-100" />
             <KpiTile
-              label="CAPA Overdue"
+              label="CAPA overdue"
               value={overdueCapa}
-              sub="terlambat"
+              sub="overdue"
               accent={overdueCapa > 0 ? 'text-red-400' : 'text-emerald-400'}
             />
           </div>
 
           {kpiTargets.length > 0 && (
-            <ChartPanel title="Target KPI vs Aktual (Bulan Ini)" className="mb-5">
+            <ChartPanel title="KPI target vs actual (this month)" className="mb-5">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {kpiTargets
                   .filter((t) => t.metric !== 'hipo_response_hours')
@@ -223,7 +226,7 @@ export default function AdminSummary() {
                         <p
                           className={`mt-1 text-xs ${ok ? 'text-emerald-400' : actual != null ? 'text-amber-400' : 'text-slate-600'}`}
                         >
-                          {actual == null ? 'Belum ada data' : ok ? 'On target' : 'Di bawah target'}
+                          {actual == null ? 'No data yet' : ok ? 'On target' : 'Below target'}
                         </p>
                       </div>
                     )
@@ -233,12 +236,12 @@ export default function AdminSummary() {
           )}
 
           <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ChartPanel title="Departemen — total / open / close">
+            <ChartPanel title="Department — total / open / close">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
-                      <th className="pb-2 pr-3">Departemen</th>
+                      <th className="pb-2 pr-3">Department</th>
                       <th className="pb-2 pr-3 text-right">Total</th>
                       <th className="pb-2 pr-3 text-right">Open</th>
                       <th className="pb-2 text-right">Close</th>
@@ -256,7 +259,7 @@ export default function AdminSummary() {
                     {deptStats.length === 0 && (
                       <tr>
                         <td colSpan={4} className="py-3 text-slate-500">
-                          Belum ada data
+                          No data yet
                         </td>
                       </tr>
                     )}
@@ -265,7 +268,7 @@ export default function AdminSummary() {
               </div>
             </ChartPanel>
 
-            <ChartPanel title="Lokasi top SOC">
+            <ChartPanel title="Top SOC locations">
               <ul className="space-y-3">
                 {locations.map((loc) => (
                   <li key={loc.name}>
@@ -281,13 +284,13 @@ export default function AdminSummary() {
                     </div>
                   </li>
                 ))}
-                {locations.length === 0 && <p className="text-sm text-slate-500">Belum ada data</p>}
+                {locations.length === 0 && <p className="text-sm text-slate-500">No data yet</p>}
               </ul>
             </ChartPanel>
           </div>
 
           {months.length > 0 && (
-            <ChartPanel title="Tren SOC per bulan" className="mb-5">
+            <ChartPanel title="SOC trend by month" className="mb-5">
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={months}>
@@ -295,7 +298,7 @@ export default function AdminSummary() {
                     <YAxis tick={{ fill: chart.tick, fontSize: 10 }} axisLine={false} />
                     <Tooltip contentStyle={chart.tooltip} />
                     <Bar dataKey="count" name="SOC" fill="#f37021" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="investigation" name="Investigasi" fill="#fbbf24" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="investigation" name="Investigation" fill="#fbbf24" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -303,19 +306,19 @@ export default function AdminSummary() {
           )}
 
           {showHsePerf && (
-            <ChartPanel title="Performa HSE (Super Admin)" className="mb-5">
+            <ChartPanel title="HSE performance (Super Admin)" className="mb-5">
               <p className="mb-3 text-xs text-slate-500">
-                Aktivitas akun HSE dari audit trail — laporan disentuh, close, dan investigasi.
+                HSE account activity from the audit trail — reports touched, closed, and investigated.
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
-                      <th className="pb-2 pr-3">Akun</th>
-                      <th className="pb-2 pr-3 text-right">Aksi</th>
-                      <th className="pb-2 pr-3 text-right">Laporan</th>
-                      <th className="pb-2 pr-3 text-right">Close*</th>
-                      <th className="pb-2 text-right">Investigasi*</th>
+                      <th className="pb-2 pr-3">Account</th>
+                      <th className="pb-2 pr-3 text-right">Actions</th>
+                      <th className="pb-2 pr-3 text-right">Reports</th>
+                      <th className="pb-2 pr-3 text-right">Closed*</th>
+                      <th className="pb-2 text-right">Investigation*</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -331,28 +334,28 @@ export default function AdminSummary() {
                     {hsePerf.length === 0 && (
                       <tr>
                         <td colSpan={5} className="py-3 text-slate-500">
-                          Belum ada jejak aktivitas HSE.
+                          No HSE activity yet.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-[10px] text-slate-600">* Dihitung dari teks perubahan status / audit.</p>
+              <p className="mt-2 text-[10px] text-slate-600">* Counted from status-change / audit text.</p>
             </ChartPanel>
           )}
 
           {contractors.length > 0 && (
-            <ChartPanel title="Scorecard Kontraktor" className="mb-5">
+            <ChartPanel title="Contractor scorecard" className="mb-5">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
-                      <th className="pb-2 pr-3">Perusahaan</th>
+                      <th className="pb-2 pr-3">Company</th>
                       <th className="pb-2 pr-3 text-right">Total</th>
                       <th className="pb-2 pr-3 text-right">HiPo</th>
-                      <th className="pb-2 pr-3 text-right">Aktif</th>
-                      <th className="pb-2 text-right">Positif</th>
+                      <th className="pb-2 pr-3 text-right">Active</th>
+                      <th className="pb-2 text-right">Positive</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -374,7 +377,7 @@ export default function AdminSummary() {
           )}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ChartPanel title="Distribusi Kategori">
+            <ChartPanel title="Category distribution">
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -398,7 +401,7 @@ export default function AdminSummary() {
               </div>
             </ChartPanel>
 
-            <ChartPanel title="Tingkat Risiko">
+            <ChartPanel title="Risk level">
               <div className="h-52">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={byRisiko} layout="vertical">
