@@ -424,11 +424,11 @@ function arrowRight(slide, x, y, w = 0.32) {
 {
   const slide = contentSlide('Form lapangan (tanpa login)', `${APP_URL}  ·  bilingual Indonesia + English`)
   const items = [
-    { t: 'Bilingual ID + EN', b: 'Label Indonesia utama, ada terjemahan Inggris di bawahnya.', c: C.blue },
+    { t: 'Bilingual ID + EN', b: 'Label di form: Indonesia / English. Tidak ada anonim, kategori, risiko, atau IOGP.', c: C.blue },
     { t: 'Nama & ID BACT', b: 'Ketik nama, pilih opsi. Departemen + ID BACT-xxxx terisi.', c: C.orange },
-    { t: 'Lokasi kejadian', b: 'Pilih dari daftar area terminal (Workshop, CY, Gate, dll).', c: C.amber },
-    { t: 'Deskripsi + foto', b: 'Ceritakan kejadian. Bisa beberapa foto bukti.', c: C.indigo },
-    { t: 'Stop Work', b: 'Centang jika pekerjaan sudah dihentikan. Jadi HiPo.', c: C.red },
+    { t: 'Lokasi / Location', b: 'Pilih dari daftar area terminal (Workshop, CY, Gate, dll).', c: C.amber },
+    { t: 'Deskripsi + foto', b: 'Ceritakan kejadian. Bisa beberapa foto bukti. Klasifikasi menyusul di HSE.', c: C.indigo },
+    { t: 'Stop Work', b: 'Centang jika pekerjaan sudah dihentikan. Jadi HiPo otomatis.', c: C.red },
     { t: 'Offline (PWA)', b: 'Bisa di-install. Offline tersimpan, sync otomatis.', c: C.green },
   ]
   items.forEach((f, i) => {
@@ -533,7 +533,7 @@ function arrowRight(slide, x, y, w = 0.32) {
 
 // 7 — Dashboard
 {
-  const slide = contentSlide('Dashboard HSE (Command Center)', '/admin  ·  login email & password')
+  const slide = contentSlide('Dashboard HSE (Command Center)', '/admin  ·  English UI  ·  dark / light theme toggle')
   const boxes = [
     { t: 'Live Traffic', b: 'Admin English. Kartu total, aktif, HiPo, closed + grafik 14 hari. Tema gelap/terang.', c: C.orange },
     { t: 'Unclassified', b: 'Filter antrian laporan yang menunggu HSE isi kategori/risiko.', c: C.amber },
@@ -622,12 +622,12 @@ function arrowRight(slide, x, y, w = 0.32) {
 
 // 10 — Cara email notifikasi (awam)
 {
-  const slide = contentSlide('Cara masukin email notifikasi', 'Supaya HSE dapat kabar otomatis — tanpa setting server')
+  const slide = contentSlide('Cara masukin email notifikasi', 'Pengirim = Resend  ·  mailbox perusahaan hanya untuk menerima')
   const steps = [
     { n: '1', t: 'Login admin', b: `${APP_URL}/admin/login` },
-    { n: '2', t: 'Buka menu Notifikasi', b: 'Di atas, klik Notifikasi.' },
+    { n: '2', t: 'Menu Notifications', b: 'Di header, klik Notifications.' },
     { n: '3', t: 'Ketik email', b: 'Contoh: hse@bact.co.id' },
-    { n: '4', t: 'Klik Tambah email', b: 'Email masuk ke daftar.' },
+    { n: '4', t: 'Klik Tambah email', b: 'Email masuk ke daftar Resend.' },
     { n: '5', t: 'Cek status Aktif', b: 'Kalau Nonaktif, klik Aktifkan.' },
     { n: '6', t: 'Kirim tes (opsional)', b: 'Cek Inbox dan folder Spam.' },
   ]
@@ -687,21 +687,21 @@ function arrowRight(slide, x, y, w = 0.32) {
 
 // 11 — Role & tambah user
 {
-  const slide = contentSlide('Role & akses login admin', 'Menu Pengguna hanya muncul untuk Super Admin')
+  const slide = contentSlide('Role & akses login admin', 'Menu Users hanya Super Admin  ·  PIC bukan role login')
   const roles = [
     {
       t: 'Super Admin',
-      b: 'Semua menu: Dashboard, Analitik, Log HSE, Notifikasi, Pengguna. Ubah laporan + kelola akun.',
+      b: 'Semua menu: Dashboard, Analytics, HSE Log, Notifications, Users. Ubah laporan + kelola akun.',
       c: C.red,
     },
     {
       t: 'HSE Officer',
-      b: 'Dashboard, Analitik, Notifikasi. Klasifikasi, investigasi, PDF, email. Tidak kelola user.',
+      b: 'Dashboard, Analytics, Notifications. Klasifikasi, investigasi, PDF, email Resend. Tidak kelola user.',
       c: C.orange,
     },
     {
       t: 'Viewer',
-      b: 'Dashboard & Analitik. Lihat saja — tidak bisa ubah laporan, PDF, atau pengaturan.',
+      b: 'Dashboard & Analytics. Lihat saja — tidak bisa ubah laporan, PDF, atau pengaturan.',
       c: C.slateLight,
     },
   ]
@@ -735,7 +735,7 @@ function arrowRight(slide, x, y, w = 0.32) {
     fontFace: FONT,
   })
   slide.addText(
-    '1. Login Super Admin  →  2. Menu Pengguna  →  3. Isi email + password sementara + role\n4. Tambah pengguna  →  5. Beri akun itu ke orangnya (/admin/login)\nAktifkan / Nonaktifkan kapan saja. Nonaktif = tidak bisa login. Ganti password dari daftar.\nAssign PIC di laporan = pilih departemen follow-up, bukan role login.',
+    '1. Login Super Admin  →  2. Menu Users  →  3. Isi email + password sementara + role\n4. Tambah pengguna  →  5. Beri akun itu ke orangnya (/admin/login)\nAktifkan / Nonaktifkan kapan saja. Nonaktif = tidak bisa login. Ganti password dari daftar.\nAssign PIC di laporan = pilih departemen follow-up, bukan role login.',
     {
       x: 0.5,
       y: 3.46,

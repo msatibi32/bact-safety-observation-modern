@@ -468,34 +468,34 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                       value={verificationNotes}
                       onChange={(e) => setVerificationNotes(e.target.value)}
                       className="admin-input"
-                      placeholder="Bukti tindakan efektif…"
+                      placeholder="Evidence the action worked…"
                     />
                   </label>
                 )}
 
                 {error && <p className="text-sm text-red-400">{error}</p>}
                 <button type="submit" disabled={saving || !canEdit} className="btn-primary w-full">
-                  {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan perubahan'}
+                  {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
                 </button>
               </fieldset>
             </form>
           </div>
         )}
 
-        {tab === 'Investigasi' && (
+        {tab === 'Investigation' && (
           <form
             onSubmit={handleSubmit}
             className="space-y-3"
           >
             {!requiresInvestigation && (
               <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-xs text-slate-400">
-                SOC ini belum ditandai lanjut investigasi. Centang di tab Detail jika perlu laporan investigasi
-                mendalam (harian biasanya cukup PDF SOC saja).
+                This SOC is not marked for investigation. Check the box on the Detail tab if a full investigation
+                report is needed (daily cases usually only need the SOC PDF).
               </div>
             )}
             {requiresInvestigation && suggestedInvestigate && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                HiPo / High — isi 5W+1H dan 5 Whys secara lengkap agar draft laporan seragam.
+                HiPo / High — complete 5W+1H and 5 Whys so the investigation draft stays consistent.
               </div>
             )}
             <InvestigationForm data={inv} onChange={setInv} disabled={!canEdit} />
