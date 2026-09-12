@@ -501,12 +501,12 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
             <InvestigationForm data={inv} onChange={setInv} disabled={!canEdit} />
             {error && <p className="text-sm text-red-400">{error}</p>}
             <button type="submit" disabled={saving || !canEdit} className="btn-primary w-full">
-              {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan investigasi'}
+              {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save investigation'}
             </button>
           </form>
         )}
 
-        {tab === 'Rekomendasi' && (
+        {tab === 'Recommendation' && (
           <RecommendationPanel
             observationId={observation.id}
             finding={finding}

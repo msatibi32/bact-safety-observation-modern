@@ -88,7 +88,7 @@ export default function ReportForm() {
       const lokasiResolved =
         form.lokasi_teks === 'Other' ? form.lokasi_lainnya.trim() : form.lokasi_teks
       if (!lokasiResolved) {
-        setSubmitError('Isi lokasi kejadian.')
+        setSubmitError('Isi lokasi kejadian. / Enter the incident location.')
         setSubmitting(false)
         return
       }
@@ -113,7 +113,7 @@ export default function ReportForm() {
       await addObservation(payload)
       setSubmitted(true)
     } catch (err) {
-      setSubmitError(err.message || 'Gagal mengirim laporan, coba lagi.')
+      setSubmitError(err.message || 'Gagal mengirim laporan, coba lagi. / Could not send the report. Try again.')
     } finally {
       setSubmitting(false)
     }
@@ -134,13 +134,20 @@ export default function ReportForm() {
             <CheckCircleIcon className="h-9 w-9" />
           </div>
           <h1 className="text-xl font-semibold text-slate-900">Laporan terkirim</h1>
+          <p className="text-xs font-medium text-slate-400">Report submitted</p>
           <p className="text-sm text-slate-500">
             {offlineQueued
               ? 'Laporan disimpan offline. Akan terkirim otomatis saat koneksi kembali (buka app lagi).'
               : 'Terima kasih, laporan observasi keselamatan kamu sudah masuk dan akan ditindaklanjuti tim HSE.'}
           </p>
+          <p className="text-xs text-slate-400">
+            {offlineQueued
+              ? 'Saved offline. It will send automatically when you are back online (open the app again).'
+              : 'Thank you. HSE will follow up your safety observation.'}
+          </p>
           <button onClick={handleReportAnother} className="btn-primary mt-2 w-full">
             Buat laporan lain
+            <span className="mt-0.5 block text-[11px] font-normal opacity-80">Submit another report</span>
           </button>
         </div>
       </div>
@@ -177,7 +184,7 @@ export default function ReportForm() {
                   value={form.nama_perusahaan_lainnya}
                   onChange={(e) => update('nama_perusahaan_lainnya', e.target.value)}
                   className="input mt-2"
-                  placeholder="Tulis nama perusahaan"
+                  placeholder="Tulis nama perusahaan / Enter company name"
                 />
               )}
             </Field>
@@ -205,7 +212,7 @@ export default function ReportForm() {
                   value={form.nama_pelapor}
                   onChange={(e) => update('nama_pelapor', e.target.value)}
                   className="input"
-                  placeholder="Nama lengkap"
+                  placeholder="Nama lengkap / Full name"
                 />
               )}
             </Field>
@@ -221,7 +228,7 @@ export default function ReportForm() {
                   className="input"
                 >
                   <option value="" disabled>
-                    Pilih departemen
+                    Pilih departemen / Select department
                   </option>
                   {DEPARTMENT_OPTIONS.filter((opt) => opt !== 'CONTRACTOR/ TEMPORARY WORKER/ VISITOR').map((opt) => (
                     <option key={opt} value={opt}>
@@ -260,7 +267,7 @@ export default function ReportForm() {
                 onChange={(e) => update('lokasi_teks', e.target.value)}
                 className="input"
               >
-                <option value="">— Pilih lokasi —</option>
+                <option value="">— Pilih lokasi / Select location —</option>
                 {LOCATION_OPTIONS.map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
@@ -274,7 +281,7 @@ export default function ReportForm() {
                   value={form.lokasi_lainnya}
                   onChange={(e) => update('lokasi_lainnya', e.target.value)}
                   className="input mt-2"
-                  placeholder="Tulis lokasi lainnya"
+                  placeholder="Tulis lokasi lainnya / Enter other location"
                 />
               )}
             </Field>
@@ -286,7 +293,7 @@ export default function ReportForm() {
                 value={form.deskripsi}
                 onChange={(e) => update('deskripsi', e.target.value)}
                 className="input"
-                placeholder="Ceritakan apa yang terjadi..."
+                placeholder="Ceritakan apa yang terjadi… / Describe what happened…"
               />
             </Field>
 
@@ -308,6 +315,7 @@ export default function ReportForm() {
             {form.stop_work && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 <strong>High Potential (HiPo)</strong> — laporan ini akan diprioritaskan dan ditinjau HSE segera.
+                <span className="mt-1 block text-xs font-normal">This report will be prioritized and reviewed by HSE immediately.</span>
               </div>
             )}
           </Section>
@@ -357,24 +365,29 @@ export default function ReportForm() {
   )
 }
 
-function Section({ title, children }) {
+function Section({ title, titleEn, children }) {
   return (
     <div className="space-y-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-brand-600">{title}</h2>
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-brand-600">{title}</h2>
+        {titleEn && <p className="text-[11px] font-medium text-slate-400">{titleEn}</p>}
+      </div>
       <div className="space-y-4">{children}</div>
     </div>
   )
 }
 
-function Field({ label, required, hint, children }) {
+function Field({ label, labelEn, required, hint, hintEn, children }) {
   return (
     <div className="block">
-      <span className="mb-1.5 block text-sm font-medium text-slate-700">
+      <span className="mb-0.5 block text-sm font-medium text-slate-700">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </span>
+      {labelEn && <span className="mb-1.5 block text-xs font-normal text-slate-400">{labelEn}</span>}
       {children}
       {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
+      {hintEn && <p className="text-xs text-slate-400">{hintEn}</p>}
     </div>
   )
 }

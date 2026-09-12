@@ -800,7 +800,33 @@ function arrowRight(slide, x, y, w = 0.32) {
   })
 }
 
-// 14 — Closing
+// 14 — Analytics period + import
+{
+  const slide = contentSlide('Analytics: Weekly & Monthly + import', '/admin/ringkasan  ·  English UI  ·  data tetap di Supabase')
+  const boxes = [
+    { t: 'Weekly report', b: 'Pilih rentang From–To (default minggu ini). Hitung jumlah laporan di periode itu.', c: C.orange },
+    { t: 'Monthly report', b: 'Sama, default bulan berjalan. Bisa digeser tanggalnya sebelum export.', c: C.indigo },
+    { t: 'Export Excel', b: 'Ringkasan + daftar SOC sesuai filter tanggal. Siap dilampirkan rapat HSE.', c: C.green },
+    { t: 'Import historis', b: 'Excel/CSV lama (HOC / kolom observasi) masuk ke database, bukan ketik ulang.', c: C.amber },
+    { t: 'Grafik live', b: 'Kategori, risiko, lokasi, departemen, kontraktor, tren bulanan, KPI.', c: C.blue },
+    { t: 'Tema gelap/terang', b: 'Toggle di header Command Center. Grafik ikut tema.', c: C.purple },
+  ]
+  boxes.forEach((b, i) => {
+    const col = i % 3
+    const row = Math.floor(i / 3)
+    featureBox(slide, {
+      x: 0.35 + col * 3.15,
+      y: 1.15 + row * 1.85,
+      w: 3.0,
+      h: 1.7,
+      title: b.t,
+      body: b.b,
+      accent: b.c,
+    })
+  })
+}
+
+// 15 — Closing
 {
   const slide = pptx.addSlide()
   slide.background = { color: C.dark }
@@ -831,19 +857,29 @@ function arrowRight(slide, x, y, w = 0.32) {
     },
   )
   slide.addText(
-    'Pelapor hanya cerita + foto.\nHSE yang menentukan kategori dan risiko.',
+    'Pelapor hanya cerita + foto (label ID + English).\nHSE yang menentukan kategori dan risiko.',
     {
       x: 0.5,
-      y: 2.6,
+      y: 2.5,
       w: 9,
-      h: 0.7,
+      h: 0.65,
       fontSize: 15,
       color: C.muted,
       align: 'center',
       fontFace: FONT,
     },
   )
-  addLogo(slide, { x: 3.55, y: 3.55, w: 2.9, h: 0.9 })
+  addLogo(slide, { x: 3.55, y: 3.3, w: 2.9, h: 0.9 })
+  slide.addText(APP_URL, {
+    x: 0.5,
+    y: 4.28,
+    w: 9,
+    h: 0.28,
+    fontSize: 13,
+    color: C.orange,
+    align: 'center',
+    fontFace: FONT,
+  })
   slide.addText('PT. BACT — Batu Ampar Container Terminal', {
     x: 0.5,
     y: 4.7,
