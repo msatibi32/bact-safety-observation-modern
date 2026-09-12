@@ -225,7 +225,7 @@ export default function ReportForm() {
               )}
             </Field>
 
-            <Field label="Departemen / Department" required>
+            <Field label="Departemen" labelEn="Department" required>
               {bactEmployee && form.employee_id ? (
                 <input type="text" readOnly value={form.departemen} className="input bg-slate-50 text-slate-700" />
               ) : bactEmployee ? (
@@ -257,8 +257,8 @@ export default function ReportForm() {
             </Field>
           </Section>
 
-          <Section title="Detail Kejadian / Incident details">
-            <Field label="Tanggal & waktu kejadian / Date & time" required>
+          <Section title="Detail Kejadian" titleEn="Incident details">
+            <Field label="Tanggal & waktu kejadian" labelEn="Date & time of incident" required>
               <input
                 type="datetime-local"
                 required
@@ -268,7 +268,7 @@ export default function ReportForm() {
               />
             </Field>
 
-            <Field label="Lokasi kejadian / Location" required>
+            <Field label="Lokasi kejadian" labelEn="Incident location" required>
               <select
                 required
                 value={form.lokasi_teks}
@@ -294,7 +294,7 @@ export default function ReportForm() {
               )}
             </Field>
 
-            <Field label="Deskripsi kejadian / Description" required>
+            <Field label="Deskripsi kejadian" labelEn="Incident description" required>
               <textarea
                 required
                 rows={4}
@@ -313,10 +313,10 @@ export default function ReportForm() {
                 className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
               />
               <div>
-                <span className="text-sm font-medium text-slate-900">Stop Work / Work stopped</span>
-                <p className="text-xs text-slate-500">
-                  Centang jika pekerjaan di area tersebut sudah dihentikan sementara. / Tick if work in that area has been stopped.
-                </p>
+                <span className="text-sm font-medium text-slate-900">Stop Work / pekerjaan dihentikan</span>
+                <p className="text-xs text-slate-400">Stop Work / work was stopped</p>
+                <p className="text-xs text-slate-500">Centang jika pekerjaan di area tersebut sudah dihentikan sementara.</p>
+                <p className="text-xs text-slate-400">Check if work in that area was temporarily stopped.</p>
               </div>
             </label>
 
@@ -328,12 +328,12 @@ export default function ReportForm() {
             )}
           </Section>
 
-          <Section title="Bukti / Evidence">
-            <Field label="Foto bukti / Photo evidence">
+          <Section title="Bukti" titleEn="Evidence">
+            <Field label="Foto bukti" labelEn="Photo evidence">
               <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition hover:border-brand-300 hover:bg-brand-50/60">
                 <CameraIcon className="h-6 w-6 text-slate-400" />
-                <span className="text-sm font-medium text-slate-600">Tap untuk ambil / pilih foto · Take or choose photos</span>
-                <span className="text-xs text-slate-400">Bisa lebih dari satu foto · Multiple photos allowed</span>
+                <span className="text-sm font-medium text-slate-600">Tap untuk ambil / pilih foto</span>
+                <span className="text-xs text-slate-400">Tap to take or choose photos · more than one is OK</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -365,7 +365,10 @@ export default function ReportForm() {
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
           <button type="submit" disabled={submitting} className="btn-primary w-full">
-            {submitting ? 'Mengirim… / Sending…' : 'Kirim Laporan / Submit report'}
+            {submitting ? 'Mengirim… / Sending…' : 'Kirim Laporan'}
+            {!submitting && (
+              <span className="mt-0.5 block text-[11px] font-normal opacity-80">Submit report</span>
+            )}
           </button>
         </form>
       </div>
