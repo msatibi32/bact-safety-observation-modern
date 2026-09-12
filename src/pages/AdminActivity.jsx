@@ -19,10 +19,10 @@ import { getActivityLogs, getAllAuditLogs } from '../lib/store'
 import { useChartTheme } from '../lib/theme'
 
 const SCOPES = [
-  { id: 'today', label: 'Hari ini' },
-  { id: '7d', label: '7 hari' },
-  { id: '30d', label: '30 hari' },
-  { id: 'all', label: 'Semua' },
+  { id: 'today', label: 'Today' },
+  { id: '7d', label: '7 days' },
+  { id: '30d', label: '30 days' },
+  { id: 'all', label: 'All' },
 ]
 
 function startOfToday() {
@@ -88,7 +88,7 @@ export default function AdminActivity() {
       getAllAuditLogs({ since, limit: 800 }).catch(() => []),
     ])
       .then(([activity, audits]) => setLogs(mergeLogs(activity, audits)))
-      .catch((err) => setError(err.message || 'Gagal memuat log.'))
+      .catch((err) => setError(err.message || 'Failed to load log.'))
       .finally(() => setLoading(false))
   }, [allowed, scope])
 
@@ -101,8 +101,8 @@ export default function AdminActivity() {
       officers.map((o) => ({
         name: o.name,
         email: o.email,
-        Ringan: o.ringan,
-        Investigasi: o.investigasi,
+        Light: o.ringan,
+        Investigation: o.investigasi,
       })),
     [officers],
   )
@@ -130,7 +130,7 @@ export default function AdminActivity() {
   if (!allowed) {
     return (
       <AdminLayout>
-        <p className="text-sm text-amber-400">Hanya Super Admin yang dapat melihat activity log HSE.</p>
+        <p className="text-sm text-amber-400">Only Super Admin can view the HSE activity log.</p>
       </AdminLayout>
     )
   }
@@ -143,7 +143,7 @@ export default function AdminActivity() {
           <div>
             <h1 className="text-base font-semibold text-slate-100 md:text-lg">Activity Log HSE</h1>
             <p className="text-xs text-slate-500">
-              Tracking HSE yang aktif menyelesaikan SOC — dari kasus ringan sampai investigasi.
+              Track HSE officers closing SOC — from light cases to investigation.
             </p>
           </div>
         </div>
@@ -166,42 +166,42 @@ export default function AdminActivity() {
         </div>
       </div>
 
-      {loading && <p className="text-sm text-slate-500">Memuat…</p>}
+      {loading && <p className="text-sm text-slate-500">Loading…</p>}
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!loading && !error && (
         <>
           <div className="-mx-1 mb-5 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none md:grid md:grid-cols-2 lg:grid-cols-5">
             <TradingStatCard
-              label="Aksi HSE"
+              label="HSE actions"
               value={totals.aksi}
               sparkData={daily.map((d) => d.aksi)}
               delta={trend.pct}
               up={trend.up}
             />
             <TradingStatCard
-              label="HSE aktif"
+              label="Active HSE"
               value={officers.length}
               accent="text-brand-400"
               sparkData={daily.map((d) => d.aksi)}
               up={officers.length > 0}
             />
             <TradingStatCard
-              label="SOC disentuh"
+              label="SOC touched"
               value={totals.touched}
               accent="text-slate-100"
               sparkData={daily.map((d) => d.aksi)}
               up
             />
             <TradingStatCard
-              label="Kasus ringan"
+              label="Light cases"
               value={totals.ringan}
               accent="text-emerald-400"
               sparkData={daily.map((d) => d.ringan)}
               up
             />
             <TradingStatCard
-              label="Investigasi"
+              label="Investigation"
               value={totals.investigasi}
               accent="text-amber-400"
               sparkData={daily.map((d) => d.investigasi)}
@@ -212,7 +212,7 @@ export default function AdminActivity() {
           <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">
-                Volume aksi — 14 hari
+                Action volume — 14 days
               </p>
               <div className="h-48 w-full md:h-56">
                 <ResponsiveContainer width="100%" height="100%">
@@ -249,7 +249,7 @@ export default function AdminActivity() {
                     <Area
                       type="monotone"
                       dataKey="aksi"
-                      name="Semua aksi"
+                      name="All actions"
                       stroke="#f37021"
                       strokeWidth={2}
                       fill="url(#hseAksiGrad)"
@@ -257,7 +257,7 @@ export default function AdminActivity() {
                     <Area
                       type="monotone"
                       dataKey="ringan"
-                      name="Ringan"
+                      name="Light"
                       stroke="#34d399"
                       strokeWidth={1.5}
                       fill="url(#hseRinganGrad)"
@@ -265,7 +265,7 @@ export default function AdminActivity() {
                     <Area
                       type="monotone"
                       dataKey="investigasi"
-                      name="Investigasi"
+                      name="Investigation"
                       stroke="#fbbf24"
                       strokeWidth={1.5}
                       fill="url(#hseInvGrad)"
@@ -277,12 +277,12 @@ export default function AdminActivity() {
 
             <div className="admin-panel rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">
-                Siapa yang menyelesaikan — ringan vs investigasi
+                Who closed work — light vs investigation
               </p>
               <div className="h-48 w-full md:h-56">
                 {barData.length === 0 ? (
                   <p className="flex h-full items-center justify-center text-sm text-slate-500">
-                    Belum ada jejak HSE di periode ini.
+                    No HSE activity in this period.
                   </p>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
@@ -296,8 +296,8 @@ export default function AdminActivity() {
                         tick={{ fill: chart.tickMuted, fontSize: 10 }}
                       />
                       <Tooltip contentStyle={chart.tooltip} />
-                      <Bar dataKey="Ringan" stackId="hse" fill="#34d399" radius={[0, 0, 0, 0]} />
-                      <Bar dataKey="Investigasi" stackId="hse" fill="#fbbf24" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="Light" stackId="hse" fill="#34d399" radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="Investigation" stackId="hse" fill="#fbbf24" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -308,7 +308,7 @@ export default function AdminActivity() {
           {officers.length > 0 && (
             <div className="mb-5">
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">
-                Per HSE — klik kartu untuk filter log
+                Per HSE — tap a card to filter the log
               </p>
               <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 scrollbar-none md:grid md:grid-cols-2 xl:grid-cols-3">
                 {officers.map((officer) => {
@@ -333,10 +333,10 @@ export default function AdminActivity() {
                       </div>
                       <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
                         <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 font-mono text-emerald-400">
-                          Ringan {officer.ringan}
+                          Light {officer.ringan}
                         </span>
                         <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 font-mono text-amber-400">
-                          Investigasi {officer.investigasi}
+                          Investigation {officer.investigasi}
                         </span>
                         <span className="rounded-md bg-slate-800 px-1.5 py-0.5 font-mono text-slate-400">
                           SOC {officer.touched}
@@ -364,14 +364,14 @@ export default function AdminActivity() {
                 onClick={() => setSelectedOfficer('')}
                 className="text-brand-400 hover:underline"
               >
-                tampilkan semua
+                show all
               </button>
             </p>
           )}
 
           {listLogs.length === 0 && (
             <p className="text-sm text-slate-500">
-              Belum ada aktivitas{scope === 'today' ? ' hari ini' : ' di periode ini'}.
+              No activity{scope === 'today' ? ' today' : ' in this period'}.
             </p>
           )}
 

@@ -40,10 +40,10 @@ export default function AdminMap() {
 
   return (
     <AdminLayout>
-      <h1 className="mb-1 text-lg font-semibold text-slate-100">Peta Hotspot Lokasi</h1>
-      <p className="mb-4 text-xs text-slate-500">{pinned.length} laporan dengan koordinat GPS</p>
+      <h1 className="mb-1 text-lg font-semibold text-slate-100">Location hotspot map</h1>
+      <p className="mb-4 text-xs text-slate-500">{pinned.length} reports with GPS coordinates</p>
 
-      {loading && <p className="text-sm text-slate-500">Memuat peta…</p>}
+      {loading && <p className="text-sm text-slate-500">Loading map…</p>}
 
       {!loading && pinned.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-slate-800">
@@ -56,7 +56,7 @@ export default function AdminMap() {
               <Marker key={obs.id} position={[obs.lokasi_gps.lat, obs.lokasi_gps.lng]}>
                 <Popup>
                   <div className="text-sm">
-                    <p className="font-semibold">{obs.is_anonymous ? 'Anonim' : obs.nama_pelapor}</p>
+                    <p className="font-semibold">{obs.is_anonymous ? 'Anonymous' : obs.nama_pelapor}</p>
                     <p className="text-xs text-slate-600">{obs.lokasi_teks}</p>
                     <p className="mt-1 text-xs">{categoryLabel(obs.kategori)}</p>
                   </div>
@@ -69,7 +69,7 @@ export default function AdminMap() {
 
       {!loading && pinned.length === 0 && (
         <p className="mt-4 text-center text-sm text-slate-500">
-          Belum ada laporan dengan GPS. Aktifkan lokasi saat submit form.
+          No reports with GPS yet. Turn on location when submitting the form.
         </p>
       )}
     </AdminLayout>

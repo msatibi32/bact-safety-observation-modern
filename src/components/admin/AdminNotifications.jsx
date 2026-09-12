@@ -40,10 +40,10 @@ export default function AdminNotifications({ observations = [], queueItems = [],
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-brand-300">
-            {lastVisit ? 'Ada laporan baru sejak kunjungan terakhir' : 'Selamat datang di Command Center'}
+            {lastVisit ? 'New reports since your last visit' : 'Welcome to Command Center'}
           </p>
           <p className="mt-1 text-xs text-slate-400">
-            <span className="font-mono text-brand-400">{newReports.length}</span> laporan baru
+            <span className="font-mono text-brand-400">{newReports.length}</span> new reports
             {hipoNew.length > 0 && (
               <>
                 {' '}
@@ -53,7 +53,7 @@ export default function AdminNotifications({ observations = [], queueItems = [],
             {pendingQueue.length > 0 && (
               <>
                 {' '}
-                · <span className="text-slate-500">{pendingQueue.length} menunggu kirim email/WA</span>
+                · <span className="text-slate-500">{pendingQueue.length} waiting to send email/WA</span>
               </>
             )}
           </p>
@@ -70,7 +70,7 @@ export default function AdminNotifications({ observations = [], queueItems = [],
                     className={`h-1.5 w-1.5 shrink-0 rounded-full ${obs.is_hipo ? 'bg-red-500' : 'bg-brand-500'}`}
                   />
                   <span className="truncate text-slate-300">
-                    {obs.is_anonymous ? 'Anonim' : obs.nama_pelapor} — {obs.lokasi_teks}
+                    {obs.is_anonymous ? 'Anonymous' : obs.nama_pelapor} — {obs.lokasi_teks}
                   </span>
                   <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-500">
                     {new Date(obs.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
@@ -86,7 +86,7 @@ export default function AdminNotifications({ observations = [], queueItems = [],
           onClick={() => setDismissed(true)}
           className="shrink-0 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-800 hover:text-slate-300"
         >
-          Tutup
+          Dismiss
         </button>
       </div>
     </div>

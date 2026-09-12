@@ -12,12 +12,12 @@ export default function AuditTrail({ observationId }) {
       .finally(() => setLoading(false))
   }, [observationId])
 
-  if (loading) return <p className="text-sm text-slate-400">Memuat riwayat…</p>
+  if (loading) return <p className="text-sm text-slate-400">Loading history…</p>
 
   if (logs.length === 0) {
     return (
       <p className="text-sm text-slate-400">
-        Belum ada riwayat audit. Submit laporan baru atau ubah status untuk mencatat riwayat.
+        No audit history yet. Submit a report or change status to record history.
       </p>
     )
   }

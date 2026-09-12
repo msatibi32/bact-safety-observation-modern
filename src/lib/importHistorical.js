@@ -24,24 +24,24 @@ function parseLooseDate(value, timeHint = '') {
   }
   const raw = norm(value)
   if (!raw) return null
-  const parsed = Date.parse(raw)
-  if (!Number.isNaN(parsed)) {
-    const d = new Date(parsed)
-    return applyTimeHint(d, timeHint)
-  }
+  // Prefer slash dates as local calendar days (Date.parse would shift UTC-7).
   const m = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/)
-  if (!m) return null
-  let a = Number(m[1])
-  let b = Number(m[2])
-  let y = Number(m[3])
-  if (y < 100) y += 2000
-  // File uses M/D/YY (US Forms). If first part > 12, treat as D/M/YY.
-  const month = a > 12 ? b : a
-  const day = a > 12 ? a : b
-  const hour = m[4] != null ? Number(m[4]) : null
-  const minute = m[5] != null ? Number(m[5]) : 0
-  const d = new Date(y, month - 1, day, hour ?? 8, minute)
-  return Number.isNaN(d.getTime()) ? null : applyTimeHint(d, hour == null ? timeHint : '')
+  if (m) {
+    let a = Number(m[1])
+    let b = Number(m[2])
+    let y = Number(m[3])
+    if (y < 100) y += 2000
+    // File uses M/D/YY (US Forms). If first part > 12, treat as D/M/YY.
+    const month = a > 12 ? b : a
+    const day = a > 12 ? a : b
+    const hour = m[4] != null ? Number(m[4]) : null
+    const minute = m[5] != null ? Number(m[5]) : 0
+    const d = new Date(y, month - 1, day, hour ?? 8, minute)
+    return Number.isNaN(d.getTime()) ? null : applyTimeHint(d, hour == null ? timeHint : '')
+  }
+  const parsed = Date.parse(raw)
+  if (Number.isNaN(parsed)) return null
+  return applyTimeHint(new Date(parsed), timeHint)
 }
 
 function applyTimeHint(date, timeHint) {

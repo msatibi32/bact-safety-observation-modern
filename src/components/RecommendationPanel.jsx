@@ -77,7 +77,7 @@ export default function RecommendationPanel({
             value={finding}
             onChange={(e) => onFindingChange(e.target.value)}
             className="admin-input"
-            placeholder="Temuan observasi yang dikonfirmasi HSE…"
+            placeholder="Finding confirmed by HSE…"
           />
         </label>
         <label className="block">
@@ -87,22 +87,22 @@ export default function RecommendationPanel({
             value={recommendation}
             onChange={(e) => onRecommendationChange(e.target.value)}
             className="admin-input"
-            placeholder="Rekomendasi tindak lanjut…"
+            placeholder="Follow-up recommendation…"
           />
         </label>
         {(error || capaError) && <p className="text-sm text-red-400">{error || capaError}</p>}
         <button type="button" disabled={saving || !canEdit} onClick={onSaveText} className="btn-primary w-full">
-          {saving ? 'Menyimpan…' : saved ? 'Tersimpan ✓' : 'Simpan finding & rekomendasi'}
+          {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save finding & recommendation'}
         </button>
       </fieldset>
 
       <div className="border-t border-slate-800 pt-4">
         <h3 className="mb-1 text-sm font-semibold text-slate-100">CAPA</h3>
-        <p className="mb-3 text-xs text-slate-500">Corrective & Preventive Actions — PIC = departemen.</p>
+        <p className="mb-3 text-xs text-slate-500">Corrective & Preventive Actions — PIC is a department.</p>
 
-        {loading && <p className="text-sm text-slate-400">Memuat CAPA…</p>}
+        {loading && <p className="text-sm text-slate-400">Loading CAPA…</p>}
         {!loading && items.length === 0 && (
-          <p className="mb-3 text-sm text-slate-400">Belum ada CAPA.</p>
+          <p className="mb-3 text-sm text-slate-400">No CAPA yet.</p>
         )}
 
         <ul className="mb-4 space-y-3">
@@ -117,11 +117,11 @@ export default function RecommendationPanel({
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="font-medium text-slate-100">{capa.title}</p>
-                    <p className="text-xs text-slate-500">Departemen: {capa.owner}</p>
+                    <p className="text-xs text-slate-500">Department: {capa.owner}</p>
                     {capa.due_date && (
                       <p className={`text-xs ${overdue ? 'font-medium text-red-400' : 'text-slate-400'}`}>
                         Due: {capa.due_date}
-                        {overdue ? ' (terlambat)' : ''}
+                        {overdue ? ' (overdue)' : ''}
                       </p>
                     )}
                     {capa.description && <p className="mt-1 text-xs text-slate-400">{capa.description}</p>}
@@ -152,14 +152,14 @@ export default function RecommendationPanel({
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               className="admin-input"
-              placeholder="Judul CAPA"
+              placeholder="CAPA title"
             />
             <textarea
               rows={2}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="admin-input"
-              placeholder="Deskripsi"
+              placeholder="Description"
             />
             <div className="grid grid-cols-2 gap-2">
               <select
@@ -181,7 +181,7 @@ export default function RecommendationPanel({
               />
             </div>
             <button type="submit" disabled={adding} className="btn-primary w-full text-sm">
-              {adding ? 'Menambah…' : 'Tambah CAPA'}
+              {adding ? 'Adding…' : 'Add CAPA'}
             </button>
           </form>
         )}

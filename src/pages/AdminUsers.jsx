@@ -31,7 +31,7 @@ export default function AdminUsers() {
     try {
       setUsers(await listAdminUsers())
     } catch (err) {
-      setError(err.message || 'Gagal memuat daftar pengguna.')
+      setError(err.message || 'Failed to load users.')
     } finally {
       setLoading(false)
     }
@@ -48,11 +48,11 @@ export default function AdminUsers() {
     setMessage('')
     try {
       await createAdminUser(form)
-      setMessage(`Akun ${form.email} sudah dibuat. Orang itu bisa login di halaman admin.`)
+      setMessage(`Account ${form.email} created. They can sign in on the admin page.`)
       setForm(emptyForm)
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal menambah pengguna.')
+      setError(err.message || 'Could not add user.')
     } finally {
       setSaving(false)
     }
@@ -64,36 +64,36 @@ export default function AdminUsers() {
       await updateAdminUser(id, { role, pic_department })
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal mengubah role.')
+      setError(err.message || 'Could not change role.')
     }
   }
 
   async function handleReset(id) {
     if (resetPassword.length < 8) {
-      setError('Password baru minimal 8 karakter.')
+      setError('New password must be at least 8 characters.')
       return
     }
     setError('')
     setMessage('')
     try {
       await updateAdminUser(id, { password: resetPassword })
-      setMessage('Password sudah diganti.')
+      setMessage('Password updated.')
       setResetId('')
       setResetPassword('')
     } catch (err) {
-      setError(err.message || 'Gagal ganti password.')
+      setError(err.message || 'Could not change password.')
     }
   }
 
   async function handleToggle(target) {
     if (target.id === user?.id) {
-      setError('Tidak boleh menonaktifkan akun sendiri.')
+      setError('You cannot disable your own account.')
       return
     }
     const nextDisabled = !target.disabled
     if (
       nextDisabled &&
-      !confirm(`Nonaktifkan ${target.email}? Orang ini tidak bisa login sampai diaktifkan lagi.`)
+      !confirm(`Disable ${target.email}? They cannot sign in until you enable the account again.`)
     ) {
       return
     }
@@ -101,22 +101,22 @@ export default function AdminUsers() {
     setMessage('')
     try {
       await setAdminUserDisabled(target.id, nextDisabled)
-      setMessage(nextDisabled ? `${target.email} dinonaktifkan.` : `${target.email} diaktifkan lagi.`)
+      setMessage(nextDisabled ? `${target.email} disabled.` : `${target.email} enabled again.`)
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal mengubah status akun.')
+      setError(err.message || 'Could not change account status.')
     }
   }
 
   async function handleDelete(target) {
-    if (!confirm(`Hapus akun ${target.email}? Orang ini tidak bisa login lagi.`)) return
+    if (!confirm(`Delete account ${target.email}? They will not be able to sign in.`)) return
     setError('')
     try {
       await deleteAdminUser(target.id)
-      setMessage(`Akun ${target.email} dihapus.`)
+      setMessage(`Account ${target.email} deleted.`)
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal menghapus pengguna.')
+      setError(err.message || 'Could not delete user.')
     }
   }
 
@@ -124,7 +124,7 @@ export default function AdminUsers() {
     return (
       <AdminLayout>
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-          Menu ini hanya untuk Super Admin.
+          This menu is Super Admin only.
         </p>
       </AdminLayout>
     )
@@ -132,19 +132,19 @@ export default function AdminUsers() {
 
   return (
     <AdminLayout>
-      <h1 className="mb-1 text-lg font-semibold text-slate-100">Pengguna & Role</h1>
+      <h1 className="mb-1 text-lg font-semibold text-slate-100">Users & roles</h1>
       <p className="mb-5 text-sm text-slate-500">
-        Semua akun terdaftar. Super Admin bisa tambah, ganti role/password, atau aktifkan/nonaktifkan kapan saja.
+        All registered accounts. Super Admin can add users, change role/password, or enable/disable anytime.
       </p>
 
       <form
         onSubmit={handleCreate}
         className="admin-panel mb-6 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4"
       >
-        <p className="text-sm font-medium text-slate-200">Tambah pengguna baru</p>
+        <p className="text-sm font-medium text-slate-200">Add new user</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-400">Email login</span>
+            <span className="mb-1 block text-xs font-medium text-slate-400">Login email</span>
             <input
               type="email"
               required
@@ -155,7 +155,7 @@ export default function AdminUsers() {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-slate-400">Password sementara</span>
+            <span className="mb-1 block text-xs font-medium text-slate-400">Temporary password</span>
             <input
               type="text"
               required
@@ -163,7 +163,7 @@ export default function AdminUsers() {
               value={form.password}
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               className="admin-input"
-              placeholder="Minimal 8 karakter"
+              placeholder="At least 8 characters"
             />
           </label>
           <label className="block">
@@ -182,22 +182,22 @@ export default function AdminUsers() {
           </label>
         </div>
         <p className="text-[11px] text-slate-500">
-          Super Admin = semua menu + kelola akun. HSE = klasifikasi, investigasi, notifikasi. Viewer = lihat saja.
+          Super Admin = all menus + manage accounts. HSE = classification, investigation, notifications. Viewer = view only.
         </p>
         <button type="submit" disabled={saving} className="btn-primary">
-          {saving ? 'Menyimpan…' : 'Tambah pengguna'}
+          {saving ? 'Saving…' : 'Add user'}
         </button>
       </form>
 
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
       {message && <p className="mb-3 text-sm text-emerald-400">{message}</p>}
 
-      {loading && <p className="text-sm text-slate-500">Memuat daftar pengguna…</p>}
+      {loading && <p className="text-sm text-slate-500">Loading users…</p>}
 
       {!loading && users.length > 0 && (
         <p className="mb-3 text-xs text-slate-500">
-          {users.length} akun terdaftar · {users.filter((u) => !u.disabled).length} aktif ·{' '}
-          {users.filter((u) => u.disabled).length} nonaktif
+          {users.length} accounts · {users.filter((u) => !u.disabled).length} active ·{' '}
+          {users.filter((u) => u.disabled).length} disabled
         </p>
       )}
 
@@ -222,16 +222,16 @@ export default function AdminUsers() {
                         : 'bg-emerald-500/15 text-emerald-400'
                     }`}
                   >
-                    {u.disabled ? 'Nonaktif' : 'Aktif'}
+                    {u.disabled ? 'Disabled' : 'Active'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">
                   {displayRole(u.role)}
                   {u.pic_department ? ` · ${u.pic_department}` : ''}
-                  {u.id === user?.id ? ' · akun kamu' : ''}
+                  {u.id === user?.id ? ' · you' : ''}
                   {u.last_sign_in_at
-                    ? ` · login terakhir ${new Date(u.last_sign_in_at).toLocaleString('id-ID')}`
-                    : ' · belum pernah login'}
+                    ? ` · last login ${new Date(u.last_sign_in_at).toLocaleString('en-GB')}`
+                    : ' · never signed in'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -243,7 +243,7 @@ export default function AdminUsers() {
                   }
                   className="admin-input !w-auto !py-1.5 text-xs"
                 >
-                  {u.role === 'pic' && <option value="pic">PIC / Departemen (lama)</option>}
+                  {u.role === 'pic' && <option value="pic">PIC / Department (legacy)</option>}
                   {ASSIGNABLE_ROLES.map((r) => (
                     <option key={r.value} value={r.value}>
                       {r.label}
@@ -260,7 +260,7 @@ export default function AdminUsers() {
                         : 'text-amber-300 hover:bg-amber-500/10'
                     }`}
                   >
-                    {u.disabled ? 'Aktifkan' : 'Nonaktifkan'}
+                    {u.disabled ? 'Enable' : 'Disable'}
                   </button>
                 )}
                 <button
@@ -271,7 +271,7 @@ export default function AdminUsers() {
                   }}
                   className="rounded-lg px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
                 >
-                  Ganti password
+                  Change password
                 </button>
                 {u.id !== user?.id && (
                   <button
@@ -279,7 +279,7 @@ export default function AdminUsers() {
                     onClick={() => handleDelete(u)}
                     className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-red-500/10"
                   >
-                    Hapus
+                    Delete
                   </button>
                 )}
               </div>
@@ -293,7 +293,7 @@ export default function AdminUsers() {
                     value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)}
                     className="admin-input"
-                    placeholder="Minimal 8 karakter"
+                    placeholder="At least 8 characters"
                   />
                 </label>
                 <button
@@ -301,14 +301,14 @@ export default function AdminUsers() {
                   onClick={() => handleReset(u.id)}
                   className="btn-primary !py-2 text-sm"
                 >
-                  Simpan password
+                  Save password
                 </button>
                 <button
                   type="button"
                   onClick={() => setResetId('')}
                   className="rounded-lg px-3 py-2 text-xs text-slate-400"
                 >
-                  Batal
+                  Cancel
                 </button>
               </div>
             )}

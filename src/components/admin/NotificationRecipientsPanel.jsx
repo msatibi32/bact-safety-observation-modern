@@ -32,7 +32,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
     try {
       setRecipients(await getNotificationRecipients())
     } catch (err) {
-      setError(err.message || 'Gagal memuat daftar email.')
+      setError(err.message || 'Failed to load email list.')
     } finally {
       setLoading(false)
     }
@@ -52,10 +52,10 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
       await addNotificationRecipient({ email, label })
       setEmail('')
       setLabel('')
-      setMessage(`Email ${email.trim().toLowerCase()} ditambahkan. Laporan berikutnya akan dikirim ke alamat ini.`)
+      setMessage(`Added ${email.trim().toLowerCase()}. Future reports will go to this address.`)
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal menambah email.')
+      setError(err.message || 'Could not add email.')
     } finally {
       setSaving(false)
     }
@@ -68,7 +68,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
       await toggleNotificationRecipient(id, !active)
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal mengubah status.')
+      setError(err.message || 'Could not change status.')
     }
   }
 
@@ -79,19 +79,19 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
       await updateNotificationRecipient(id, { [field]: value })
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal mengubah jenis notifikasi.')
+      setError(err.message || 'Could not change notification type.')
     }
   }
 
   async function handleRemove(id) {
     if (!canManage) return
-    if (!confirm('Hapus email ini dari daftar notifikasi?')) return
+    if (!confirm('Remove this email from the notification list?')) return
     setError('')
     try {
       await removeNotificationRecipient(id)
       await load()
     } catch (err) {
-      setError(err.message || 'Gagal menghapus email.')
+      setError(err.message || 'Could not remove email.')
     }
   }
 
@@ -104,10 +104,10 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
       const result = await sendTestNotification(recipient.email)
       const idNote = result?.resend_id ? ` ID Resend: ${result.resend_id}.` : ''
       setMessage(
-        `Resend menerima tes ke ${recipient.email}.${idNote} Cek inbox, folder Spam, dan resend.com/emails.`,
+        `Resend accepted a test to ${recipient.email}.${idNote} Check Inbox, Spam, and resend.com/emails.`,
       )
     } catch (err) {
-      setError(err.message || 'Gagal mengirim tes.')
+      setError(err.message || 'Could not send test.')
     } finally {
       setTestingId(null)
     }
@@ -121,12 +121,12 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-slate-500">
             <MailIcon className="h-3.5 w-3.5" />
-            Tujuan email notifikasi
+            Notification email list
           </p>
           <p className="mt-1 text-sm text-slate-400">
             {activeCount > 0
-              ? `Laporan baru & HiPo dikirim ke ${activeCount} email aktif.`
-              : 'Belum ada email aktif. Tambahkan alamat di bawah.'}
+              ? `New reports and HiPo go to ${activeCount} active email${activeCount === 1 ? '' : 's'}.`
+              : 'No active emails yet. Add an address below.'}
           </p>
         </div>
         {compact && (
@@ -134,7 +134,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
             to="/admin/pengaturan"
             className="shrink-0 rounded-lg px-2 py-1 text-xs text-brand-400 hover:bg-slate-800"
           >
-            Kelola lengkap
+            Manage all
           </Link>
         )}
       </div>
@@ -142,7 +142,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
       {canManage && (
         <form onSubmit={handleAdd} className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="flex-1">
-            <span className="mb-1 block text-xs font-medium text-slate-400">Tambah email baru</span>
+            <span className="mb-1 block text-xs font-medium text-slate-400">Add new email</span>
             <input
               type="email"
               required
@@ -154,7 +154,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
           </label>
           {!compact && (
             <label className="flex-1">
-              <span className="mb-1 block text-xs font-medium text-slate-400">Label (opsional)</span>
+              <span className="mb-1 block text-xs font-medium text-slate-400">Label (optional)</span>
               <input
                 type="text"
                 value={label}
@@ -165,7 +165,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
             </label>
           )}
           <button type="submit" disabled={saving} className="btn-primary shrink-0 !py-2.5">
-            {saving ? 'Menyimpan…' : 'Tambah email'}
+            {saving ? 'Saving…' : 'Add email'}
           </button>
         </form>
       )}
@@ -173,10 +173,10 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
       {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
       {message && <p className="mb-3 text-sm text-emerald-400">{message}</p>}
 
-      {loading && <p className="text-sm text-slate-500">Memuat daftar email…</p>}
+      {loading && <p className="text-sm text-slate-500">Loading email list…</p>}
 
       {!loading && recipients.length === 0 && (
-        <p className="text-sm text-slate-500">Belum ada email. Tambahkan minimal satu penerima.</p>
+        <p className="text-sm text-slate-500">No emails yet. Add at least one recipient.</p>
       )}
 
       <ul className="space-y-2">
@@ -197,7 +197,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
                       disabled={!canManage}
                       onChange={(e) => handleFlag(r.id, 'notify_new_report', e.target.checked)}
                     />
-                    Laporan baru
+                    New reports
                   </label>
                   <label className="inline-flex items-center gap-1.5">
                     <input
@@ -213,7 +213,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={`text-xs font-medium ${r.active ? 'text-emerald-400' : 'text-slate-500'}`}>
-                {r.active ? 'Aktif' : 'Nonaktif'}
+                {r.active ? 'Active' : 'Disabled'}
               </span>
               {canManage && (
                 <>
@@ -222,7 +222,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
                     onClick={() => handleToggle(r.id, r.active)}
                     className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
                   >
-                    {r.active ? 'Matikan' : 'Aktifkan'}
+                    {r.active ? 'Disable' : 'Enable'}
                   </button>
                   {!compact && (
                     <button
@@ -231,7 +231,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
                       disabled={testingId === r.id}
                       className="rounded-lg px-2 py-1 text-xs text-brand-400 hover:bg-slate-800 disabled:opacity-50"
                     >
-                      {testingId === r.id ? 'Mengirim…' : 'Kirim tes'}
+                      {testingId === r.id ? 'Sending…' : 'Send test'}
                     </button>
                   )}
                   <button
@@ -239,7 +239,7 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
                     onClick={() => handleRemove(r.id)}
                     className="rounded-lg px-2 py-1 text-xs text-red-400 hover:bg-red-500/10"
                   >
-                    Hapus
+                    Remove
                   </button>
                 </>
               )}

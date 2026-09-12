@@ -4,7 +4,7 @@ import { HiPoBadge, RiskBadge, StatusBadge } from '../Badge'
 
 export default function ActivityFeed({ items, onSelect }) {
   if (!items.length) {
-    return <p className="py-6 text-center text-sm text-slate-500">Belum ada aktivitas laporan.</p>
+    return <p className="py-6 text-center text-sm text-slate-500">No report activity yet.</p>
   }
 
   return (

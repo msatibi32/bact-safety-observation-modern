@@ -10,7 +10,7 @@ export const ROLE_LABELS = {
   super_admin: 'Super Admin',
   admin: 'Super Admin',
   hse: 'HSE Officer',
-  pic: 'PIC / Departemen',
+  pic: 'PIC / Department',
   viewer: 'Viewer (view only)',
 }
 
