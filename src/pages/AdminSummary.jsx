@@ -17,6 +17,7 @@ import {
 } from '../lib/analytics'
 import ImportHistoricalPanel from '../components/admin/ImportHistoricalPanel'
 import PeriodReportPanel from '../components/admin/PeriodReportPanel'
+import Top10SocCasesPanel from '../components/admin/Top10SocCasesPanel'
 import { avgDaysToClose, countOverdueCapa } from '../lib/export'
 import { exportSocFlowchartPdf } from '../lib/pdfFlowchart'
 import { canViewHsePerformance } from '../lib/roles'
@@ -303,6 +304,8 @@ export default function AdminSummary() {
               </div>
             </ChartPanel>
           )}
+
+          <Top10SocCasesPanel observations={observations} capaList={capaList} />
 
           {showHsePerf && (
             <ChartPanel title="HSE performance (Super Admin)" className="mb-5">

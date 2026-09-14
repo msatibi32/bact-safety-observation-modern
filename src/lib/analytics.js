@@ -1,4 +1,5 @@
 // Helpers untuk chart & KPI trend di dashboard admin.
+import { isUnclassifiedObservation } from './constants'
 
 export function lastNDays(n = 14) {
   const days = []
@@ -383,4 +384,86 @@ export function hsePerformanceFromAudits(observations, auditLogs) {
       closed: a.closed,
     }))
     .sort((a, b) => b.changes - a.changes)
+}
+
+const SOC_CASE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Parse a date; reject Excel-epoch junk like 0-Jan-00. */
+function parsePlausibleDate(value) {
+  if (!value) return null
+  let date = null
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const [y, m, d] = value.slice(0, 10).split('-').map(Number)
+    date = new Date(y, m - 1, d)
+  } else {
+    date = new Date(value)
+  }
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null
+  const year = date.getFullYear()
+  if (year < 2000 || year > 2100) return null
+  return date
+}
+
+export function formatSocCaseDate(value) {
+  const date = parsePlausibleDate(value)
+  if (!date) return '—'
+  return `${date.getDate()}-${SOC_CASE_MONTHS[date.getMonth()]}-${String(date.getFullYear()).slice(-2)}`
+}
+
+function observationTime(obs) {
+  const date = parsePlausibleDate(obs?.tanggal_waktu) || parsePlausibleDate(obs?.created_at)
+  return date ? date.getTime() : 0
+}
+
+function truncateFinding(text, max = 160) {
+  const value = String(text || '').replace(/\s+/g, ' ').trim()
+  if (!value) return '—'
+  if (value.length <= max) return value
+  return `${value.slice(0, max - 1).trimEnd()}…`
+}
+
+function capaByObservation(capaList) {
+  const map = new Map()
+  for (const capa of capaList || []) {
+    if (!capa?.observation_id) continue
+    if (!map.has(capa.observation_id)) map.set(capa.observation_id, [])
+    map.get(capa.observation_id).push(capa)
+  }
+  return map
+}
+
+function pickActionBy(obs, capas) {
+  const pic = String(obs?.pic_assigned || '').trim()
+  if (pic) return pic
+  const owner = (capas || []).map((c) => String(c.owner || '').trim()).find(Boolean)
+  return owner || '—'
+}
+
+function pickDueDate(capas) {
+  const dates = (capas || [])
+    .map((c) => parsePlausibleDate(c.due_date))
+    .filter(Boolean)
+    .sort((a, b) => a.getTime() - b.getTime())
+  return dates.length ? formatSocCaseDate(dates[0]) : '—'
+}
+
+/** Latest N SOC rows by observation date — for the Analytics Top 10 table. */
+export function latestSocCases(observations, capaList = [], limit = 10) {
+  const capaMap = capaByObservation(capaList)
+  return [...(observations || [])]
+    .sort((a, b) => observationTime(b) - observationTime(a) || String(b.id || '').localeCompare(String(a.id || '')))
+    .slice(0, limit)
+    .map((obs) => {
+      const capas = capaMap.get(obs.id) || []
+      return {
+        id: obs.id,
+        date: formatSocCaseDate(obs.tanggal_waktu || obs.created_at),
+        source: String(obs.nama_perusahaan || '').trim() || '—',
+        location: String(obs.lokasi_teks || '').trim() || '—',
+        finding: truncateFinding(obs.deskripsi || obs.finding_observation),
+        riskLevel: isUnclassifiedObservation(obs) ? 'Unclassified' : obs.tingkat_risiko || 'Unclassified',
+        actionBy: pickActionBy(obs, capas),
+        dueDate: pickDueDate(capas),
+      }
+    })
 }
