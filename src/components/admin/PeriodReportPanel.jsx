@@ -8,7 +8,13 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { monthlyVolumeCounts, weeklyVolumeCounts } from '../../lib/analytics'
+import {
+  currentYearMonthKey,
+  currentYearMonthOptions,
+  monthlyVolumeCaption,
+  monthlyVolumeCounts,
+  weeklyVolumeCounts,
+} from '../../lib/analytics'
 import {
   defaultWeeklyRange,
   exportPeriodReportExcel,
@@ -19,11 +25,16 @@ import { useChartTheme } from '../../lib/theme'
 export default function PeriodReportPanel({ observations }) {
   const chart = useChartTheme()
   const [chartPeriod, setChartPeriod] = useState('weekly')
+  const [selectedMonth, setSelectedMonth] = useState(currentYearMonthKey)
   const [range, setRange] = useState(defaultWeeklyRange)
   const [message, setMessage] = useState('')
 
+  const monthOptions = useMemo(() => currentYearMonthOptions(), [])
   const weeklyData = useMemo(() => weeklyVolumeCounts(observations), [observations])
-  const monthlyData = useMemo(() => monthlyVolumeCounts(observations), [observations])
+  const monthlyData = useMemo(
+    () => monthlyVolumeCounts(observations, selectedMonth),
+    [observations, selectedMonth],
+  )
   const chartData = chartPeriod === 'monthly' ? monthlyData : weeklyData
 
   const chartTotals = useMemo(
@@ -60,7 +71,9 @@ export default function PeriodReportPanel({ observations }) {
           <div>
             <p className="text-sm font-semibold text-slate-100">Period volume</p>
             <p className="text-xs text-slate-500">
-              {chartPeriod === 'monthly' ? 'Daily volume — this month' : 'Daily volume — last 7 days'}
+              {chartPeriod === 'monthly'
+                ? monthlyVolumeCaption(selectedMonth)
+                : 'Daily volume — last 7 days'}
             </p>
             <p className="mt-1 font-mono text-xs text-slate-400">
               <span className="text-slate-200">{chartTotals.reports}</span> reports
@@ -70,25 +83,41 @@ export default function PeriodReportPanel({ observations }) {
               </span>
             </p>
           </div>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={() => setChartPeriod('weekly')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                chartPeriod === 'weekly' ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              Weekly
-            </button>
-            <button
-              type="button"
-              onClick={() => setChartPeriod('monthly')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                chartPeriod === 'monthly' ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              Monthly
-            </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {chartPeriod === 'monthly' && (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="admin-input !w-auto !py-1.5 text-xs"
+                aria-label="Month"
+              >
+                {monthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            )}
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setChartPeriod('weekly')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                  chartPeriod === 'weekly' ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'
+                }`}
+              >
+                Weekly
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartPeriod('monthly')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+                  chartPeriod === 'monthly' ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'
+                }`}
+              >
+                Monthly
+              </button>
+            </div>
           </div>
         </div>
         <div className="h-44 w-full md:h-52">

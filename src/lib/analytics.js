@@ -84,10 +84,54 @@ export function weeklyVolumeCounts(observations) {
   return dailyCountsBetween(observations, from, to)
 }
 
-/** Daily volume from the 1st of this month through today. */
-export function monthlyVolumeCounts(observations) {
-  const now = new Date()
-  return dailyCountsBetween(observations, new Date(now.getFullYear(), now.getMonth(), 1), now)
+/** `YYYY-MM` for the given local date (defaults to today). */
+export function currentYearMonthKey(now = new Date()) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** January of this calendar year through the actual current month. No future months. */
+export function currentYearMonthOptions(now = new Date()) {
+  const year = now.getFullYear()
+  const lastMonth = now.getMonth()
+  const options = []
+  for (let month = 0; month <= lastMonth; month++) {
+    options.push({
+      value: `${year}-${String(month + 1).padStart(2, '0')}`,
+      label: new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    })
+  }
+  return options
+}
+
+function parseYearMonth(yearMonth, now = new Date()) {
+  const match = String(yearMonth || '').match(/^(\d{4})-(\d{2})$/)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  if (year !== now.getFullYear() || month < 1 || month > now.getMonth() + 1) return null
+  return { year, month }
+}
+
+/** English caption for the monthly daily-volume chart. */
+export function monthlyVolumeCaption(yearMonth, now = new Date()) {
+  const parsed = parseYearMonth(yearMonth, now) || parseYearMonth(currentYearMonthKey(now), now)
+  const label = new Date(parsed.year, parsed.month - 1, 1).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  })
+  return `Daily volume — ${label}`
+}
+
+/**
+ * Daily volume for a calendar month (`YYYY-MM`).
+ * Current month: 1st through today. Past months this year: the full month.
+ */
+export function monthlyVolumeCounts(observations, yearMonth, now = new Date()) {
+  const parsed = parseYearMonth(yearMonth, now) || parseYearMonth(currentYearMonthKey(now), now)
+  const from = new Date(parsed.year, parsed.month - 1, 1)
+  const isCurrentMonth = parsed.year === now.getFullYear() && parsed.month - 1 === now.getMonth()
+  const to = isCurrentMonth ? now : new Date(parsed.year, parsed.month, 0)
+  return dailyCountsBetween(observations, from, to)
 }
 
 export function periodCount(observations, daysAgoStart, daysAgoEnd = 0) {
