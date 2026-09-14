@@ -4,6 +4,7 @@ import EmployeeNameField from '../components/EmployeeNameField'
 import { CameraIcon, CheckCircleIcon } from '../components/Icon'
 import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../lib/constants'
 import { isBactCompany } from '../lib/employees'
+import { FIELD_LIMITS, PHOTO_MAX_COUNT, validatePhotoFile } from '../lib/limits'
 import { addObservation } from '../lib/store'
 import { flushOfflineQueue, isOnline, saveOfflineReport } from '../lib/offlineQueue'
 
@@ -73,7 +74,22 @@ export default function ReportForm() {
 
   function handlePhotoChange(e) {
     const files = Array.from(e.target.files || [])
-    setPhotos((prev) => [...prev, ...files.map((file) => ({ file, preview: URL.createObjectURL(file) }))])
+    e.target.value = ''
+    setSubmitError('')
+    const next = [...photos]
+    for (const file of files) {
+      if (next.length >= PHOTO_MAX_COUNT) {
+        setSubmitError(`Maksimal ${PHOTO_MAX_COUNT} foto per laporan. / Up to ${PHOTO_MAX_COUNT} photos.`)
+        break
+      }
+      const invalid = validatePhotoFile(file)
+      if (invalid) {
+        setSubmitError(`${invalid} / Use JPG, PNG, WEBP, or HEIC (max 10 MB).`)
+        continue
+      }
+      next.push({ file, preview: URL.createObjectURL(file) })
+    }
+    setPhotos(next)
   }
 
   function removePhoto(index) {
@@ -184,6 +200,7 @@ export default function ReportForm() {
                   type="text"
                   required
                   value={form.nama_perusahaan_lainnya}
+                  maxLength={FIELD_LIMITS.company}
                   onChange={(e) => update('nama_perusahaan_lainnya', e.target.value)}
                   className="input mt-2"
                   placeholder="Tulis nama perusahaan / Enter company name"
@@ -217,6 +234,7 @@ export default function ReportForm() {
                 <input
                   type="text"
                   required
+                  maxLength={FIELD_LIMITS.name}
                   value={form.nama_pelapor}
                   onChange={(e) => update('nama_pelapor', e.target.value)}
                   className="input"
@@ -248,6 +266,7 @@ export default function ReportForm() {
                 <input
                   type="text"
                   required
+                  maxLength={FIELD_LIMITS.department}
                   value={form.departemen}
                   onChange={(e) => update('departemen', e.target.value)}
                   className="input"
@@ -286,6 +305,7 @@ export default function ReportForm() {
                 <input
                   type="text"
                   required
+                  maxLength={FIELD_LIMITS.location}
                   value={form.lokasi_lainnya}
                   onChange={(e) => update('lokasi_lainnya', e.target.value)}
                   className="input mt-2"
@@ -298,6 +318,7 @@ export default function ReportForm() {
               <textarea
                 required
                 rows={4}
+                maxLength={FIELD_LIMITS.description}
                 value={form.deskripsi}
                 onChange={(e) => update('deskripsi', e.target.value)}
                 className="input"
@@ -333,10 +354,12 @@ export default function ReportForm() {
               <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition hover:border-brand-300 hover:bg-brand-50/60">
                 <CameraIcon className="h-6 w-6 text-slate-400" />
                 <span className="text-sm font-medium text-slate-600">Tap untuk ambil / pilih foto</span>
-                <span className="text-xs text-slate-400">Tap to take or choose photos · more than one is OK</span>
+                <span className="text-xs text-slate-400">
+                  Tap to take or choose photos · JPG/PNG/WEBP/HEIC · max {PHOTO_MAX_COUNT} files · 10 MB each
+                </span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                   capture="environment"
                   multiple
                   onChange={handlePhotoChange}

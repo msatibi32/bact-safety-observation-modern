@@ -11,6 +11,7 @@
 //   NOTIFY_WA_TO         — opsional WA
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
 const BREVO_SENDER_EMAIL = Deno.env.get('BREVO_SENDER_EMAIL') || ''
@@ -23,17 +24,27 @@ const PUBLIC_APP_URL = Deno.env.get('PUBLIC_APP_URL') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
   })
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}
+
+function staffRole(user: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> } | null) {
+  return String(user?.app_metadata?.role || user?.user_metadata?.role || '')
+}
+
+function isHseStaff(role: string) {
+  return role === 'hse' || role === 'admin' || role === 'super_admin'
 }
 
 type Payload = {
@@ -194,7 +205,7 @@ async function sendWhatsApp(message: string) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders(req) })
   }
 
   let body: Record<string, unknown> = {}
@@ -207,8 +218,16 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   if (body.action === 'test' && typeof body.email === 'string') {
+    const authHeader = req.headers.get('Authorization') || ''
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    if (!token) return jsonResponse(req, { ok: false, error: 'Login dulu untuk tes email.' }, 401)
+    const { data: caller, error: callerError } = await supabase.auth.getUser(token)
+    if (callerError || !caller.user || !isHseStaff(staffRole(caller.user))) {
+      return jsonResponse(req, { ok: false, error: 'Hanya HSE / Super Admin yang boleh tes email.' }, 403)
+    }
+
     const email = body.email.trim().toLowerCase()
-    if (!email) return jsonResponse({ ok: false, error: 'Email tes kosong' }, 400)
+    if (!email) return jsonResponse(req, { ok: false, error: 'Email tes kosong' }, 400)
     const text = [
       'Tes notifikasi — BACT SOC',
       '',
@@ -220,14 +239,14 @@ Deno.serve(async (req) => {
     const result = await sendEmailToOne(
       email,
       '[BACT SOC] Tes notifikasi',
-      `<p>${text.replace(/\n/g, '<br>')}</p>`,
+      `<p>${escapeHtml(text).replaceAll('\n', '<br>')}</p>`,
       text,
     )
     if (result.ok) {
-      return jsonResponse({ ok: true, sent: true, to: email, resend_id: result.id || null })
+      return jsonResponse(req, { ok: true, sent: true, to: email, resend_id: result.id || null })
     }
     // 200 + ok:false supaya dashboard bisa menampilkan pesan Resend, bukan "non-2xx"
-    return jsonResponse({ ok: false, error: result.error || 'Gagal kirim tes' })
+    return jsonResponse(req, { ok: false, error: result.error || 'Gagal kirim tes' })
   }
 
   const { data: pending, error } = await supabase
@@ -239,7 +258,7 @@ Deno.serve(async (req) => {
     .limit(20)
 
   if (error) {
-    return jsonResponse({ ok: false, error: error.message }, 500)
+    return jsonResponse(req, { ok: false, error: error.message }, 500)
   }
 
   let processed = 0
@@ -253,7 +272,7 @@ Deno.serve(async (req) => {
     const subject = isHiPo
       ? `[BACT SOC] HiPo — ${p.category || 'Observasi'}`
       : `[BACT SOC] Laporan Baru — ${p.category || 'Observasi'}`
-    const html = `<p>${text.replace(/\n/g, '<br>')}</p>`
+    const html = `<p>${escapeHtml(text).replaceAll('\n', '<br>')}</p>`
 
     if (recipients.length === 0 && !FONNTE_TOKEN) {
       results.push({ id: row.id, error: 'Tidak ada email penerima aktif. Tambahkan di dashboard.' })
@@ -316,5 +335,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return jsonResponse({ ok: true, processed, results })
+  return jsonResponse(req, { ok: true, processed, results })
 })

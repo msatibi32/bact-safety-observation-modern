@@ -18,11 +18,13 @@ export const ROLE_LABELS = {
 const RANK = { viewer: 0, pic: 1, hse: 2, admin: 3, super_admin: 4 }
 
 export function getUserRole(user) {
-  return user?.user_metadata?.role || ROLES.HSE
+  const role = user?.app_metadata?.role || user?.user_metadata?.role
+  if (role && RANK[role] != null) return role
+  return ROLES.VIEWER
 }
 
 export function getUserPicDepartment(user) {
-  return user?.user_metadata?.pic_department || ''
+  return user?.app_metadata?.pic_department || user?.user_metadata?.pic_department || ''
 }
 
 export function hasMinRole(user, minRole) {
@@ -37,7 +39,7 @@ export function isSuperAdmin(user) {
 }
 
 export function canEditObservations(user) {
-  return hasMinRole(user, ROLES.PIC)
+  return hasMinRole(user, ROLES.HSE)
 }
 
 export function canClassifyObservations(user) {

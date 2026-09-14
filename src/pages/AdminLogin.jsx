@@ -1,25 +1,44 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BrandHeader from '../components/BrandHeader'
 import ThemeToggle from '../components/ThemeToggle'
-import { login } from '../lib/auth'
+import { login, loginLockMessage } from '../lib/auth'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [lockLeft, setLockLeft] = useState(loginLockMessage())
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!lockLeft) return undefined
+    const id = setInterval(() => {
+      const next = loginLockMessage()
+      setLockLeft(next)
+      if (!next) clearInterval(id)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [lockLeft])
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+    const locked = loginLockMessage()
+    if (locked) {
+      setLockLeft(locked)
+      setError(locked)
+      return
+    }
     setLoading(true)
     try {
       await login(email, password)
       navigate('/admin')
     } catch {
-      setError('Wrong email or password.')
+      const wait = loginLockMessage()
+      setLockLeft(wait)
+      setError(wait || 'Wrong email or password.')
     } finally {
       setLoading(false)
     }
@@ -37,6 +56,7 @@ export default function AdminLogin() {
           <input
             type="email"
             required
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="input"
@@ -48,6 +68,7 @@ export default function AdminLogin() {
           <input
             type="password"
             required
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="input"
@@ -55,7 +76,7 @@ export default function AdminLogin() {
           />
         </label>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={loading} className="btn-primary w-full">
+        <button type="submit" disabled={loading || Boolean(lockLeft)} className="btn-primary w-full">
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

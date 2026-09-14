@@ -63,6 +63,7 @@ export default function EmployeeNameField({
         onKeyDown={handleKeyDown}
         className="input"
         placeholder="Ketik nama karyawan BACT / Type BACT employee name"
+        maxLength={120}
       />
 
       {selected && (

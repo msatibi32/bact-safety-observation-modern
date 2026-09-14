@@ -234,6 +234,7 @@ on conflict (id) do update set
   allowed_mime_types = excluded.allowed_mime_types;
 
 -- ─── 8. Row Level Security ───────────────────────────────────────────────────
+-- Kebijakan ketat ada di schema-v10-security.sql (jalankan juga di project yang sudah jalan).
 
 alter table public.observations enable row level security;
 alter table public.capa_actions enable row level security;
@@ -242,11 +243,43 @@ alter table public.kpi_targets enable row level security;
 alter table public.notification_queue enable row level security;
 alter table public.notification_recipients enable row level security;
 
--- observations
+create or replace function public.app_role()
+returns text
+language sql
+stable
+as $$
+  select lower(coalesce(
+    nullif(auth.jwt() -> 'app_metadata' ->> 'role', ''),
+    nullif(auth.jwt() -> 'user_metadata' ->> 'role', ''),
+    'viewer'
+  ));
+$$;
+
+create or replace function public.is_hse_staff()
+returns boolean
+language sql
+stable
+as $$
+  select public.app_role() in ('hse', 'admin', 'super_admin');
+$$;
+
+create or replace function public.is_super_admin()
+returns boolean
+language sql
+stable
+as $$
+  select public.app_role() in ('admin', 'super_admin');
+$$;
+
+-- observations: publik kirim; baca/ubah hanya akun masuk
 drop policy if exists "Public can submit observations" on public.observations;
 create policy "Public can submit observations"
 on public.observations for insert to anon, authenticated
-with check (true);
+with check (
+  status in ('Open', 'Under Review')
+  and assigned_pic is null
+  and closed_date is null
+);
 
 drop policy if exists "Authenticated can read observations" on public.observations;
 create policy "Authenticated can read observations"
@@ -254,15 +287,36 @@ on public.observations for select to authenticated
 using (true);
 
 drop policy if exists "Authenticated can update observations" on public.observations;
-create policy "Authenticated can update observations"
+drop policy if exists "HSE can update observations" on public.observations;
+create policy "HSE can update observations"
 on public.observations for update to authenticated
-using (true) with check (true);
+using (public.is_hse_staff())
+with check (public.is_hse_staff());
+
+drop policy if exists "Super Admin can delete observations" on public.observations;
+create policy "Super Admin can delete observations"
+on public.observations for delete to authenticated
+using (public.is_super_admin());
 
 -- capa
 drop policy if exists "Authenticated can manage capa" on public.capa_actions;
-create policy "Authenticated can manage capa"
-on public.capa_actions for all to authenticated
-using (true) with check (true);
+drop policy if exists "Authenticated can read capa" on public.capa_actions;
+create policy "Authenticated can read capa"
+on public.capa_actions for select to authenticated
+using (true);
+drop policy if exists "HSE can write capa" on public.capa_actions;
+create policy "HSE can write capa"
+on public.capa_actions for insert to authenticated
+with check (public.is_hse_staff());
+drop policy if exists "HSE can update capa" on public.capa_actions;
+create policy "HSE can update capa"
+on public.capa_actions for update to authenticated
+using (public.is_hse_staff())
+with check (public.is_hse_staff());
+drop policy if exists "HSE can delete capa" on public.capa_actions;
+create policy "HSE can delete capa"
+on public.capa_actions for delete to authenticated
+using (public.is_hse_staff());
 
 -- audit (penting untuk tab Audit!)
 drop policy if exists "Authenticated can view audit logs" on public.audit_logs;
@@ -287,41 +341,80 @@ on public.kpi_targets for select to authenticated
 using (true);
 
 drop policy if exists "Authenticated can update kpi" on public.kpi_targets;
-create policy "Authenticated can update kpi"
-on public.kpi_targets for all to authenticated
-using (true) with check (true);
+drop policy if exists "Super Admin can write kpi" on public.kpi_targets;
+create policy "Super Admin can write kpi"
+on public.kpi_targets for update to authenticated
+using (public.is_super_admin())
+with check (public.is_super_admin());
 
 -- notification queue
 drop policy if exists "Authenticated can read notifications" on public.notification_queue;
-create policy "Authenticated can read notifications"
+drop policy if exists "HSE can read notifications" on public.notification_queue;
+create policy "HSE can read notifications"
 on public.notification_queue for select to authenticated
-using (true);
+using (public.is_hse_staff());
 
 -- notification recipients
 drop policy if exists "Authenticated can read notification recipients" on public.notification_recipients;
-create policy "Authenticated can read notification recipients"
-on public.notification_recipients for select to authenticated
-using (true);
-
 drop policy if exists "Authenticated can manage notification recipients" on public.notification_recipients;
-create policy "Authenticated can manage notification recipients"
-on public.notification_recipients for all to authenticated
-using (true) with check (true);
+drop policy if exists "HSE can read notification recipients" on public.notification_recipients;
+create policy "HSE can read notification recipients"
+on public.notification_recipients for select to authenticated
+using (public.is_hse_staff());
+drop policy if exists "HSE can insert notification recipients" on public.notification_recipients;
+create policy "HSE can insert notification recipients"
+on public.notification_recipients for insert to authenticated
+with check (public.is_hse_staff());
+drop policy if exists "HSE can update notification recipients" on public.notification_recipients;
+create policy "HSE can update notification recipients"
+on public.notification_recipients for update to authenticated
+using (public.is_hse_staff())
+with check (public.is_hse_staff());
+drop policy if exists "HSE can delete notification recipients" on public.notification_recipients;
+create policy "HSE can delete notification recipients"
+on public.notification_recipients for delete to authenticated
+using (public.is_hse_staff());
 
 -- storage foto
 drop policy if exists "Public can upload evidence photos" on storage.objects;
 create policy "Public can upload evidence photos"
 on storage.objects for insert to anon, authenticated
-with check (bucket_id = 'evidence-photos');
+with check (
+  bucket_id = 'evidence-photos'
+  and lower(coalesce(storage.extension(name), '')) in ('jpg', 'jpeg', 'png', 'webp', 'heic', 'heif')
+);
 
 drop policy if exists "Public can read evidence photos" on storage.objects;
 create policy "Public can read evidence photos"
 on storage.objects for select to public
 using (bucket_id = 'evidence-photos');
 
--- ─── 9. Role user (set manual di Supabase Auth) ──────────────────────────────
--- Authentication → Users → User Metadata:
---   { "role": "admin" }  |  "hse"  |  "pic"  |  "viewer"
--- PIC: { "role": "pic", "pic_department": "HSE" }
+-- ─── 9. Role user (app_metadata, disalin dari user_metadata jika belum ada)
+-- Super Admin / HSE / Viewer. PIC adalah penugasan laporan, bukan peran login.
+
+create or replace function public.enforce_observation_insert_rate()
+returns trigger
+language plpgsql
+as $$
+declare
+  n int;
+begin
+  if auth.role() = 'authenticated' then
+    return new;
+  end if;
+  select count(*) into n
+  from public.observations
+  where created_at > now() - interval '1 minute';
+  if n >= 20 then
+    raise exception 'Terlalu banyak laporan dalam waktu singkat. Coba lagi sebentar.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_observation_insert_rate on public.observations;
+create trigger trg_observation_insert_rate
+before insert on public.observations
+for each row execute function public.enforce_observation_insert_rate();
 
 -- Selesai ✓

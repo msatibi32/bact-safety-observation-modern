@@ -1,6 +1,8 @@
 import { PHOTO_BUCKET, supabase } from './supabase'
 import { investigationPlainSummary } from './investigation'
 import { isDummySeedObservation } from './dummySeed'
+import { clipText, FIELD_LIMITS, photoStoragePath, validatePhotoFile, PHOTO_MAX_COUNT } from './limits'
+import { getUserRole } from './roles'
 
 function parseReporterPosition(raw) {
   const text = raw || ''
@@ -101,11 +103,19 @@ async function logAudit(observationId, action, details, actorEmail) {
 }
 
 async function uploadPhotos(files) {
+  const list = Array.isArray(files) ? files.filter(Boolean) : []
+  if (list.length > PHOTO_MAX_COUNT) {
+    throw new Error(`Maksimal ${PHOTO_MAX_COUNT} foto per laporan.`)
+  }
   const urls = []
-  for (const file of files) {
-    const ext = file.name.split('.').pop()
-    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file)
+  for (const file of list) {
+    const invalid = validatePhotoFile(file)
+    if (invalid) throw new Error(invalid)
+    const path = photoStoragePath(file)
+    const { error } = await supabase.storage.from(PHOTO_BUCKET).upload(path, file, {
+      contentType: file.type || 'image/jpeg',
+      upsert: false,
+    })
     if (error) throw new Error(error.message)
     const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path)
     urls.push(data.publicUrl)
@@ -136,17 +146,19 @@ export async function addObservation(data) {
   const employeeId = data.employee_id || null
   const row = {
     id,
-    reporter_name: data.nama_pelapor,
-    reporter_position: employeeId ? `${data.departemen} · ${employeeId}` : data.departemen,
+    reporter_name: clipText(data.nama_pelapor, FIELD_LIMITS.name),
+    reporter_position: employeeId
+      ? `${clipText(data.departemen, FIELD_LIMITS.department)} · ${employeeId}`
+      : clipText(data.departemen, FIELD_LIMITS.department),
     reporter_employee_id: employeeId,
-    company_name: data.nama_perusahaan,
+    company_name: clipText(data.nama_perusahaan, FIELD_LIMITS.company),
     is_anonymous: false,
     incident_datetime: new Date(data.tanggal_waktu).toISOString(),
-    location_text: data.lokasi_teks,
+    location_text: clipText(data.lokasi_teks, FIELD_LIMITS.location),
     latitude: data.lokasi_gps?.lat ?? null,
     longitude: data.lokasi_gps?.lng ?? null,
     category: data.kategori || 'Belum diklasifikasi',
-    description: data.deskripsi,
+    description: clipText(data.deskripsi, FIELD_LIMITS.description),
     risk_level: data.tingkat_risiko || 'Unclassified',
     potential_risk_level: data.potensi_risiko || data.tingkat_risiko || null,
     is_hipo: data.is_hipo ?? false,
@@ -358,7 +370,7 @@ export async function logActivity(action, details = '', observationId = null) {
   try {
     const { data: auth } = await supabase.auth.getUser()
     const email = auth.user?.email || 'Admin'
-    const role = auth.user?.user_metadata?.role || 'hse'
+    const role = getUserRole(auth.user)
     await supabase.from('activity_logs').insert({
       action,
       details,

@@ -9,6 +9,14 @@ const NOTIFY_EMAIL_TO = Deno.env.get('NOTIFY_EMAIL_TO') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+}
+
 Deno.serve(async () => {
   if (!RESEND_API_KEY || !NOTIFY_EMAIL_TO) {
     return new Response(JSON.stringify({ ok: false, error: 'Missing RESEND_API_KEY or NOTIFY_EMAIL_TO' }), {
@@ -35,11 +43,11 @@ Deno.serve(async () => {
     const subject = `[BACT SOC] HiPo Alert — ${p.category || 'Observasi'}`
     const html = `
       <h2>High Potential Incident (HiPo)</h2>
-      <p><b>Kategori:</b> ${p.category}</p>
-      <p><b>Risiko:</b> ${p.risk_level}</p>
-      <p><b>Lokasi:</b> ${p.location}</p>
-      <p><b>Pelapor:</b> ${p.reporter}</p>
-      <p>ID: ${p.observation_id}</p>
+      <p><b>Kategori:</b> ${escapeHtml(p.category)}</p>
+      <p><b>Risiko:</b> ${escapeHtml(p.risk_level)}</p>
+      <p><b>Lokasi:</b> ${escapeHtml(p.location)}</p>
+      <p><b>Pelapor:</b> ${escapeHtml(p.reporter)}</p>
+      <p>ID: ${escapeHtml(p.observation_id)}</p>
     `
 
     const res = await fetch('https://api.resend.com/emails', {
