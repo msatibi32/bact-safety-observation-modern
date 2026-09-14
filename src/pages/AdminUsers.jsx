@@ -182,7 +182,7 @@ export default function AdminUsers() {
           </label>
         </div>
         <p className="text-[11px] text-slate-500">
-          Super Admin = all menus + manage accounts. HSE = classification, investigation, notifications. Viewer = view only.
+          Super Admin = all menus + manage accounts. HSE = reports, investigation, and analytics export. Viewer = view only.
         </p>
         <button type="submit" disabled={saving} className="btn-primary">
           {saving ? 'Saving…' : 'Add user'}

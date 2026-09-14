@@ -7,6 +7,16 @@ export default function AdminSettings() {
   const user = useUser()
   const canManage = canManageNotifications(user)
 
+  if (!canManage) {
+    return (
+      <AdminLayout>
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+          This menu is Super Admin only.
+        </p>
+      </AdminLayout>
+    )
+  }
+
   return (
     <AdminLayout>
       <h1 className="mb-1 text-lg font-semibold text-slate-100">Notification settings</h1>
@@ -36,12 +46,6 @@ export default function AdminSettings() {
           Active emails get a message when a new report or HiPo case arrives. No code or server change needed.
         </p>
       </div>
-
-      {!canManage && (
-        <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-          Only Super Admin / HSE can change the notification email list.
-        </p>
-      )}
 
       <NotificationRecipientsPanel variant="full" />
     </AdminLayout>

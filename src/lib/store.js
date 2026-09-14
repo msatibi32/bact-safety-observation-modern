@@ -2,7 +2,7 @@ import { PHOTO_BUCKET, supabase } from './supabase'
 import { investigationPlainSummary } from './investigation'
 import { isDummySeedObservation } from './dummySeed'
 import { clipText, FIELD_LIMITS, photoStoragePath, validatePhotoFile, PHOTO_MAX_COUNT } from './limits'
-import { getUserRole } from './roles'
+import { getUserRole, isSuperAdmin } from './roles'
 
 function parseReporterPosition(raw) {
   const text = raw || ''
@@ -384,6 +384,10 @@ export async function logActivity(action, details = '', observationId = null) {
 }
 
 export async function getActivityLogs({ since, limit = 200 } = {}) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!isSuperAdmin(user)) throw new Error('Hanya Super Admin yang bisa membuka HSSE Log.')
   let q = supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(limit)
   if (since) q = q.gte('created_at', since)
   const { data, error } = await q
@@ -533,7 +537,7 @@ function recipientError(error) {
     return 'Email ini sudah ada di daftar penerima.'
   }
   if (/permission|rls|row-level/i.test(msg)) {
-    return 'Tidak punya izin mengubah daftar email. Login sebagai admin/HSE.'
+    return 'Tidak punya izin mengubah daftar email. Login sebagai Super Admin.'
   }
   if (/relation .* does not exist|schema cache/i.test(msg)) {
     return 'Tabel penerima email belum ada. Jalankan schema-v4-notification-emails.sql di Supabase.'
@@ -541,7 +545,15 @@ function recipientError(error) {
   return msg
 }
 
+async function requireSuperAdmin(message = 'Hanya Super Admin yang bisa mengubah pengaturan ini.') {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!isSuperAdmin(user)) throw new Error(message)
+}
+
 export async function addNotificationRecipient({ email, label }) {
+  await requireSuperAdmin('Hanya Super Admin yang bisa mengubah daftar email notifikasi.')
   const { data, error } = await supabase
     .from('notification_recipients')
     .insert({ email: email.trim().toLowerCase(), label: label?.trim() || null })
@@ -552,16 +564,19 @@ export async function addNotificationRecipient({ email, label }) {
 }
 
 export async function toggleNotificationRecipient(id, active) {
+  await requireSuperAdmin('Hanya Super Admin yang bisa mengubah daftar email notifikasi.')
   const { error } = await supabase.from('notification_recipients').update({ active }).eq('id', id)
   if (error) throw new Error(recipientError(error))
 }
 
 export async function updateNotificationRecipient(id, patch) {
+  await requireSuperAdmin('Hanya Super Admin yang bisa mengubah daftar email notifikasi.')
   const { error } = await supabase.from('notification_recipients').update(patch).eq('id', id)
   if (error) throw new Error(recipientError(error))
 }
 
 export async function removeNotificationRecipient(id) {
+  await requireSuperAdmin('Hanya Super Admin yang bisa mengubah daftar email notifikasi.')
   const { error } = await supabase.from('notification_recipients').delete().eq('id', id)
   if (error) throw new Error(recipientError(error))
 }
@@ -602,6 +617,7 @@ async function readFunctionError(error, data) {
 }
 
 export async function sendTestNotification(email) {
+  await requireSuperAdmin('Hanya Super Admin yang bisa mengirim tes notifikasi.')
   const {
     data: { session },
   } = await supabase.auth.getSession()

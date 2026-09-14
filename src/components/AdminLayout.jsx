@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { logout } from '../lib/auth'
 import { BRANDING } from '../lib/branding'
-import { canManageUsers, canViewActivityLog } from '../lib/roles'
+import { canManageNotifications, canManageUsers, canViewActivityLog } from '../lib/roles'
 import BrandLogo from './BrandLogo'
 import ThemeToggle from './ThemeToggle'
 import { ChartIcon, ClipboardIcon, LogoutIcon, UsersIcon } from './Icon'
@@ -24,6 +24,7 @@ export default function AdminLayout({ children }) {
   const user = useUser()
   const showActivity = canViewActivityLog(user)
   const showUsers = canManageUsers(user)
+  const showNotifications = canManageNotifications(user)
 
   async function handleLogout() {
     await logout()
@@ -60,10 +61,12 @@ export default function AdminLayout({ children }) {
                 HSE Log
               </NavLink>
             )}
-            <NavLink to="/admin/pengaturan" className={desktopNavClass}>
-              <UsersIcon className="h-4 w-4" />
-              Notifications
-            </NavLink>
+            {showNotifications && (
+              <NavLink to="/admin/pengaturan" className={desktopNavClass}>
+                <UsersIcon className="h-4 w-4" />
+                Notifications
+              </NavLink>
+            )}
             {showUsers && (
               <NavLink to="/admin/pengguna" className={desktopNavClass}>
                 <UsersIcon className="h-4 w-4" />
@@ -95,10 +98,12 @@ export default function AdminLayout({ children }) {
             <ChartIcon className="h-5 w-5" />
             Analytics
           </NavLink>
-          <NavLink to="/admin/pengaturan" className={navLinkClass}>
-            <UsersIcon className="h-5 w-5" />
-            Alerts
-          </NavLink>
+          {showNotifications && (
+            <NavLink to="/admin/pengaturan" className={navLinkClass}>
+              <UsersIcon className="h-5 w-5" />
+              Alerts
+            </NavLink>
+          )}
           {showUsers ? (
             <NavLink to="/admin/pengguna" className={navLinkClass}>
               <UsersIcon className="h-5 w-5" />

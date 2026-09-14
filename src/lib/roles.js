@@ -50,8 +50,9 @@ export function canManageKpi(user) {
   return isSuperAdmin(user)
 }
 
+/** Super Admin only — Notifications / email list. HSE Officer cannot open this menu. */
 export function canManageNotifications(user) {
-  return hasMinRole(user, ROLES.HSE)
+  return isSuperAdmin(user)
 }
 
 export function canViewHsePerformance(user) {

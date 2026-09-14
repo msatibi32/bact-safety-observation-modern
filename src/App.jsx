@@ -18,7 +18,7 @@ export default function App() {
       <Route path="/admin" element={<RequireRole minRole="viewer"><AdminDashboard /></RequireRole>} />
       <Route path="/admin/ringkasan" element={<RequireRole minRole="viewer"><AdminSummary /></RequireRole>} />
       <Route path="/admin/aktivitas" element={<RequireRole minRole="admin"><AdminActivity /></RequireRole>} />
-      <Route path="/admin/pengaturan" element={<RequireRole minRole="hse"><AdminSettings /></RequireRole>} />
+      <Route path="/admin/pengaturan" element={<RequireRole minRole="admin"><AdminSettings /></RequireRole>} />
       <Route path="/admin/pengguna" element={<RequireRole minRole="admin"><AdminUsers /></RequireRole>} />
     </Routes>
   )

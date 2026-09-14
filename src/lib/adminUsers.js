@@ -1,10 +1,12 @@
 import { supabase } from './supabase'
+import { isSuperAdmin } from './roles'
 
 async function invokeManageUsers(body) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
   if (!session) throw new Error('Sesi login habis. Login ulang sebagai Super Admin.')
+  if (!isSuperAdmin(session.user)) throw new Error('Hanya Super Admin yang bisa mengelola akun.')
 
   const { data, error } = await supabase.functions.invoke('manage-users', {
     body,
