@@ -17,7 +17,7 @@ import {
   investigationPlainSummary,
   parseInvestigationData,
 } from '../lib/investigation'
-import { exportInvestigationPdf, exportObservationPdf } from '../lib/pdf'
+import PdfReviewModal from './PdfReviewModal'
 import { buildNoticeActions } from '../lib/pdfNarrative'
 import { buildPdfSubject, normalizeActionChecks } from '../lib/pdfMeta'
 import { canClassifyObservations, canEditObservations } from '../lib/roles'
@@ -54,7 +54,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [pdfBusy, setPdfBusy] = useState('')
+  const [pdfReview, setPdfReview] = useState(null)
 
   const socNo = resolveSocNumber(observation, allObservations)
   const noticeActions = useMemo(
@@ -153,41 +153,50 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
     await persist()
   }
 
-  async function handlePdf(type) {
-    setPdfBusy(type)
-    try {
-      const enriched = {
-        ...observation,
-        soc_number: observation.soc_number || socNo,
-        pdf_to: pdfTo || observation.pdf_to,
-        pdf_pic: pdfPic || observation.pdf_pic,
-        pdf_subject: pdfSubject || observation.pdf_subject,
-        pdf_action_checks: actionChecks,
-        investigation_data: inv,
-        finding_observation: finding,
-        rekomendasi: recommendation,
-        root_cause: inv.root_cause || observation.root_cause,
-        pic_assigned: pic || observation.pic_assigned,
-        requires_investigation: requiresInvestigation,
-        catatan_penutupan: catatan,
-        triage_notes: triageNotes,
-        kategori: kategori || observation.kategori,
-        tingkat_risiko: risiko || observation.tingkat_risiko,
-      }
-      if (type === 'soc') await exportObservationPdf(enriched)
-      else await exportInvestigationPdf(enriched)
-    } catch {
-      setError('PDF export failed.')
-    } finally {
-      setPdfBusy('')
-    }
-  }
+  const pdfObservation = useMemo(
+    () => ({
+      ...observation,
+      soc_number: observation.soc_number || socNo,
+      pdf_to: pdfTo || observation.pdf_to,
+      pdf_pic: pdfPic || observation.pdf_pic,
+      pdf_subject: pdfSubject || observation.pdf_subject,
+      pdf_action_checks: actionChecks,
+      investigation_data: inv,
+      finding_observation: finding,
+      rekomendasi: recommendation,
+      root_cause: inv.root_cause || observation.root_cause,
+      pic_assigned: pic || observation.pic_assigned,
+      requires_investigation: requiresInvestigation,
+      catatan_penutupan: catatan,
+      triage_notes: triageNotes,
+      kategori: kategori || observation.kategori,
+      tingkat_risiko: risiko || observation.tingkat_risiko,
+    }),
+    [
+      observation,
+      socNo,
+      pdfTo,
+      pdfPic,
+      pdfSubject,
+      actionChecks,
+      inv,
+      finding,
+      recommendation,
+      pic,
+      requiresInvestigation,
+      catatan,
+      triageNotes,
+      kategori,
+      risiko,
+    ],
+  )
 
   const suggestedInvestigate = observation.is_hipo || risiko === 'High'
   const invActive = requiresInvestigation || hasInvestigationContent(inv)
 
   return (
-    <div className="admin-panel flex max-h-none flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 md:max-h-[calc(100vh-12rem)]">
+    <>
+      <div className="admin-panel flex max-h-none flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80 md:max-h-[calc(100vh-12rem)]">
       <div className="shrink-0 space-y-3 border-b border-slate-800 p-4 pb-3 md:p-5">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -219,20 +228,18 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
             <div className="flex flex-wrap justify-end gap-1">
               <button
                 type="button"
-                onClick={() => handlePdf('soc')}
-                disabled={Boolean(pdfBusy)}
+                onClick={() => setPdfReview('soc')}
                 className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-medium text-slate-400 hover:border-brand-500 hover:text-brand-400"
               >
-                {pdfBusy === 'soc' ? '…' : 'PDF SOC'}
+                PDF SOC
               </button>
               {invActive && (
                 <button
                   type="button"
-                  onClick={() => handlePdf('inv')}
-                  disabled={Boolean(pdfBusy)}
+                  onClick={() => setPdfReview('inv')}
                   className="rounded-lg border border-amber-700/50 px-2 py-1 text-[10px] font-medium text-amber-400 hover:border-amber-500"
                 >
-                  {pdfBusy === 'inv' ? '…' : 'PDF Investigation'}
+                  PDF Investigation
                 </button>
               )}
             </div>
@@ -521,7 +528,17 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
           />
         )}
       </div>
-    </div>
+      </div>
+      {pdfReview && (
+        <PdfReviewModal
+          key={`${observation.id}-${pdfReview}`}
+          kind={pdfReview}
+          observation={pdfObservation}
+          onClose={() => setPdfReview(null)}
+          canDownload
+        />
+      )}
+    </>
   )
 }
 
