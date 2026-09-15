@@ -201,7 +201,7 @@ export async function addObservation(data) {
     // audit_logs mungkin belum ada jika migrasi v2 belum dijalankan
   }
 
-  triggerNotificationProcessingInBackground()
+  triggerNotificationProcessingInBackground(id)
 
   return id
 }
@@ -635,16 +635,17 @@ export async function sendTestNotification(email) {
 }
 
 /** Fire-and-forget: proses antrian notifikasi tanpa menunggu (fallback jika webhook gagal). */
-export function triggerNotificationProcessingInBackground() {
-  void invokeProcessNotifications().catch(() => {})
+export function triggerNotificationProcessingInBackground(observationId) {
+  void invokeProcessNotifications(observationId).catch(() => {})
 }
 
-async function invokeProcessNotifications() {
+async function invokeProcessNotifications(observationId) {
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
   return supabase.functions.invoke('process-notifications', {
+    body: observationId ? { observation_id: observationId } : {},
     ...(session && {
       headers: { Authorization: `Bearer ${session.access_token}` },
     }),

@@ -190,6 +190,10 @@ on conflict (email) do nothing;
 create or replace function public.on_observation_insert_notify()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  if coalesce(new.triage_notes, '') ilike 'Imported from HSE Excel%' then
+    return new;
+  end if;
+
   insert into public.notification_queue (type, payload) values (
     case when new.is_hipo then 'hipo_alert' else 'new_report' end,
     jsonb_build_object(
@@ -204,8 +208,11 @@ begin
     )
   );
 
-  if new.is_hipo then
-    new.escalation_due_at := coalesce(new.escalation_due_at, new.created_at + interval '24 hours');
+  if new.is_hipo and new.escalation_due_at is null then
+    update public.observations
+      set escalation_due_at = coalesce(new.created_at, now()) + interval '24 hours'
+      where id = new.id
+        and escalation_due_at is null;
   end if;
 
   return new;
@@ -215,7 +222,7 @@ $$;
 drop trigger if exists trg_observation_v3_insert on public.observations;
 drop trigger if exists trg_observation_notify on public.observations;
 create trigger trg_observation_notify
-before insert on public.observations
+after insert on public.observations
 for each row execute function public.on_observation_insert_notify();
 
 -- ─── 7. Storage bucket foto bukti ────────────────────────────────────────────

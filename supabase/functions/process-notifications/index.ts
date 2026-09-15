@@ -249,13 +249,20 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { ok: false, error: result.error || 'Gagal kirim tes' })
   }
 
-  const { data: pending, error } = await supabase
+  let pendingQuery = supabase
     .from('notification_queue')
     .select('*')
     .eq('status', 'pending')
     .in('type', ['new_report', 'hipo_alert'])
     .order('created_at', { ascending: true })
     .limit(20)
+
+  const observationId = typeof body.observation_id === 'string' ? body.observation_id.trim() : ''
+  if (observationId) {
+    pendingQuery = pendingQuery.filter('payload->>observation_id', 'eq', observationId)
+  }
+
+  const { data: pending, error } = await pendingQuery
 
   if (error) {
     return jsonResponse(req, { ok: false, error: error.message }, 500)
@@ -266,6 +273,28 @@ Deno.serve(async (req) => {
 
   for (const row of pending || []) {
     const p = row.payload as Payload
+    const relatedId = String(p.observation_id || '')
+    if (relatedId) {
+      const { data: obs } = await supabase
+        .from('observations')
+        .select('id, triage_notes')
+        .eq('id', relatedId)
+        .maybeSingle()
+      const importTagged = String(obs?.triage_notes || '').toLowerCase().includes('imported from hse excel')
+      if (!obs || importTagged) {
+        await supabase
+          .from('notification_queue')
+          .update({
+            status: 'failed',
+            error_message: obs
+              ? 'Skipped: historical Excel import (not a live form submission)'
+              : 'Skipped: observation no longer exists',
+          })
+          .eq('id', row.id)
+        results.push({ id: row.id, skipped: true, reason: obs ? 'import' : 'missing' })
+        continue
+      }
+    }
     const isHiPo = row.type === 'hipo_alert' || !!p.is_hipo
     const recipients = await getRecipientEmails(supabase, isHiPo)
     const text = buildMessage(row.type, p)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BrandHeader from '../components/BrandHeader'
 import EmployeeNameField from '../components/EmployeeNameField'
 import { CameraIcon, CheckCircleIcon } from '../components/Icon'
@@ -28,6 +28,7 @@ export default function ReportForm() {
   const [submitError, setSubmitError] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [offlineQueued, setOfflineQueued] = useState(false)
+  const submittingRef = useRef(false)
 
   const bactEmployee = isBactCompany(form.nama_perusahaan)
 
@@ -98,6 +99,8 @@ export default function ReportForm() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitError('')
     setSubmitting(true)
     try {
@@ -131,6 +134,7 @@ export default function ReportForm() {
     } catch (err) {
       setSubmitError(err.message || 'Gagal mengirim laporan, coba lagi. / Could not send the report. Try again.')
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
