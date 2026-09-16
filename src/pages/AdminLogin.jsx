@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BrandHeader from '../components/BrandHeader'
+import SiteFooter from '../components/SiteFooter'
 import ThemeToggle from '../components/ThemeToggle'
 import { login, loginLockMessage } from '../lib/auth'
 
@@ -80,6 +81,7 @@ export default function AdminLogin() {
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+      <SiteFooter />
     </div>
   )
 }

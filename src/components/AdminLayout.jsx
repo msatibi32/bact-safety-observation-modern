@@ -3,6 +3,7 @@ import { logout } from '../lib/auth'
 import { BRANDING } from '../lib/branding'
 import { canManageNotifications, canManageUsers, canViewActivityLog } from '../lib/roles'
 import BrandLogo from './BrandLogo'
+import SiteFooter from './SiteFooter'
 import ThemeToggle from './ThemeToggle'
 import { ChartIcon, ClipboardIcon, LogoutIcon, UsersIcon } from './Icon'
 import { useUser } from './RequireRole'
@@ -86,7 +87,10 @@ export default function AdminLayout({ children }) {
         </div>
       </header>
 
-      <main className="admin-main mx-auto max-w-6xl px-4 py-4 pb-28 md:pb-6">{children}</main>
+      <main className="admin-main mx-auto max-w-6xl px-4 py-4 pb-28 md:pb-6">
+        {children}
+        <SiteFooter tone="dark" />
+      </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-lg items-stretch gap-1 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">

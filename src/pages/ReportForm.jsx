@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import BrandHeader from '../components/BrandHeader'
+import SiteFooter from '../components/SiteFooter'
 import EmployeeNameField from '../components/EmployeeNameField'
 import { CameraIcon, CheckCircleIcon } from '../components/Icon'
 import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../lib/constants'
@@ -364,7 +365,6 @@ export default function ReportForm() {
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                  capture="environment"
                   multiple
                   onChange={handlePhotoChange}
                   className="hidden"
@@ -398,6 +398,7 @@ export default function ReportForm() {
             )}
           </button>
         </form>
+        <SiteFooter />
       </div>
     </div>
   )

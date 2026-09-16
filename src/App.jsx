@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
+import CookieConsent from './components/CookieConsent'
 import RequireRole from './components/RequireRole'
 import AdminActivity from './pages/AdminActivity'
 import AdminDashboard from './pages/AdminDashboard'
@@ -6,13 +7,18 @@ import AdminLogin from './pages/AdminLogin'
 import AdminSettings from './pages/AdminSettings'
 import AdminSummary from './pages/AdminSummary'
 import AdminUsers from './pages/AdminUsers'
+import CookiePolicy from './pages/CookiePolicy'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 import QrPoster from './pages/QrPoster'
 import ReportForm from './pages/ReportForm'
 
 export default function App() {
   return (
+    <>
     <Routes>
       <Route path="/" element={<ReportForm />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/cookies" element={<CookiePolicy />} />
       <Route path="/qr" element={<QrPoster />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<RequireRole minRole="viewer"><AdminDashboard /></RequireRole>} />
@@ -21,5 +27,7 @@ export default function App() {
       <Route path="/admin/pengaturan" element={<RequireRole minRole="admin"><AdminSettings /></RequireRole>} />
       <Route path="/admin/pengguna" element={<RequireRole minRole="admin"><AdminUsers /></RequireRole>} />
     </Routes>
+    <CookieConsent />
+    </>
   )
 }

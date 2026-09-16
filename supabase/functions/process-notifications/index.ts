@@ -1,11 +1,13 @@
 // Kirim notifikasi email dari notification_queue
 // Email penerima diambil dari tabel notification_recipients (kelola via dashboard admin)
 //
+// Product: pengirim = Resend. Hostinger mailbox hanya untuk baca, bukan SMTP kirim.
+// Brevo adalah jalur lama; kalau RESEND_API_KEY ada, Brevo tidak dipakai
+// (API Brevo "sent" sering tidak sampai Gmail karena from @gmail via brevosend.com).
+//
 // Secrets (Supabase → Edge Functions → Secrets):
-//   BREVO_API_KEY        — dari brevo.com (disarankan jika TIDAK punya domain)
-//   BREVO_SENDER_EMAIL   — email pengirim yang sudah diverifikasi di Brevo
-//   RESEND_API_KEY       — dari resend.com (butuh domain untuk kirim ke semua alamat)
-//   NOTIFY_EMAIL_FROM    — mis. "BACT SOC <onboarding@resend.dev>"
+//   RESEND_API_KEY       — wajib untuk kirim
+//   NOTIFY_EMAIL_FROM    — mis. "BACT SOC <onboarding@resend.dev>" atau domain terverifikasi
 //   PUBLIC_APP_URL       — URL dashboard (opsional)
 //   FONNTE_TOKEN         — opsional WA
 //   NOTIFY_WA_TO         — opsional WA
@@ -16,13 +18,22 @@ import { corsHeaders } from '../_shared/cors.ts'
 const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY') || ''
 const BREVO_SENDER_EMAIL = Deno.env.get('BREVO_SENDER_EMAIL') || ''
 const BREVO_SENDER_NAME = Deno.env.get('BREVO_SENDER_NAME') || 'BACT SOC'
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const NOTIFY_EMAIL_FROM = Deno.env.get('NOTIFY_EMAIL_FROM') || 'BACT SOC <onboarding@resend.dev>'
 const FONNTE_TOKEN = Deno.env.get('FONNTE_TOKEN') || ''
 const NOTIFY_WA_TO = Deno.env.get('NOTIFY_WA_TO') || ''
 const PUBLIC_APP_URL = Deno.env.get('PUBLIC_APP_URL') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+type SendResult = {
+  ok: boolean
+  skipped: boolean
+  provider: 'resend' | 'brevo' | 'none'
+  from: string
+  id: string | null
+  error?: string
+}
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -56,18 +67,32 @@ type Payload = {
   is_hipo?: boolean
   company?: string
   last_send?: unknown
+  only_to?: string
+  subject_override?: string
+  catchup_note?: string
 }
 
-function parseFromAddress() {
-  const match = NOTIFY_EMAIL_FROM.match(/<([^>]+)>/)
-  return (match ? match[1] : NOTIFY_EMAIL_FROM).trim()
+function parseFromAddress(raw: string) {
+  const match = raw.match(/<([^>]+)>/)
+  return (match ? match[1] : raw).trim()
+}
+
+function fromDomain(raw: string) {
+  const email = parseFromAddress(raw)
+  return email.includes('@') ? email.split('@')[1] : ''
 }
 
 function brevoSenderEmail() {
   if (BREVO_SENDER_EMAIL) return BREVO_SENDER_EMAIL.trim()
-  const from = parseFromAddress()
+  const from = parseFromAddress(NOTIFY_EMAIL_FROM)
   if (from && !from.endsWith('resend.dev')) return from
   return 'chibiajjh12@gmail.com'
+}
+
+function chosenProvider(): 'resend' | 'brevo' | 'none' {
+  if (RESEND_API_KEY) return 'resend'
+  if (BREVO_API_KEY) return 'brevo'
+  return 'none'
 }
 
 function humanizeResendError(raw: string, email: string) {
@@ -78,9 +103,9 @@ function humanizeResendError(raw: string, email: string) {
     text.includes('not allowed') ||
     text.includes('You can only send testing emails')
   ) {
-    return `${email}: Resend menolak (403). Tanpa domain, Resend hanya kirim ke pemilik akun. Set BREVO_API_KEY (gratis, tanpa domain) atau verifikasi domain di resend.com/domains.`
+    return `${email}: Resend menolak (403). Domain pengirim belum terverifikasi — Resend hanya kirim ke email pemilik akun. Verifikasi domain di resend.com/domains lalu set NOTIFY_EMAIL_FROM (bukan onboarding@resend.dev).`
   }
-  return `${email}: ${text.slice(0, 280)}`
+  return `${email}: Resend: ${text.slice(0, 280)}`
 }
 
 function humanizeBrevoError(raw: string, email: string) {
@@ -103,6 +128,7 @@ function buildMessage(type: string, p: Payload) {
     `Perusahaan: ${p.company || '—'}`,
     `ID: ${(p.observation_id || '').slice(0, 8)}`,
   ]
+  if (p.catchup_note) lines.push('', p.catchup_note)
   if (PUBLIC_APP_URL) lines.push('', `Dashboard: ${PUBLIC_APP_URL}/admin`)
   return lines.join('\n')
 }
@@ -110,7 +136,10 @@ function buildMessage(type: string, p: Payload) {
 async function getRecipientEmails(
   supabase: ReturnType<typeof createClient>,
   isHiPo: boolean,
+  onlyTo?: string,
 ): Promise<string[]> {
+  if (onlyTo) return [onlyTo.trim().toLowerCase()].filter(Boolean)
+
   const { data } = await supabase
     .from('notification_recipients')
     .select('email, notify_new_report, notify_hipo')
@@ -124,7 +153,34 @@ async function getRecipientEmails(
   return [...new Set(emails)]
 }
 
-async function sendViaBrevo(to: string, subject: string, html: string, text: string) {
+async function resolveResendFrom(): Promise<{ from: string; domainSource: string; verifiedDomain: string | null }> {
+  const fallback = NOTIFY_EMAIL_FROM
+  if (!RESEND_API_KEY) {
+    return { from: fallback, domainSource: 'env', verifiedDomain: null }
+  }
+  try {
+    const res = await fetch('https://api.resend.com/domains', {
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
+    })
+    const raw = await res.text()
+    if (!res.ok) return { from: fallback, domainSource: 'env', verifiedDomain: null }
+    const parsed = JSON.parse(raw) as { data?: Array<{ name?: string; status?: string }> }
+    const verified = (parsed.data || []).find((d) => d.status === 'verified' && d.name)
+    if (verified?.name) {
+      return {
+        from: `BACT SOC <noreply@${verified.name}>`,
+        domainSource: 'resend_verified_domain',
+        verifiedDomain: verified.name,
+      }
+    }
+  } catch {
+    /* ignore — pakai NOTIFY_EMAIL_FROM */
+  }
+  return { from: fallback, domainSource: 'env', verifiedDomain: null }
+}
+
+async function sendViaBrevo(to: string, subject: string, html: string, text: string): Promise<SendResult> {
+  const from = `${BREVO_SENDER_NAME} <${brevoSenderEmail()}>`
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -147,48 +203,92 @@ async function sendViaBrevo(to: string, subject: string, html: string, text: str
   } catch {
     parsed = {}
   }
-  if (res.ok) return { ok: true, skipped: false, id: parsed.messageId || null }
-  return { ok: false, skipped: false, error: humanizeBrevoError(raw, to) }
+  if (res.ok) {
+    return { ok: true, skipped: false, provider: 'brevo', from, id: parsed.messageId || null }
+  }
+  return { ok: false, skipped: false, provider: 'brevo', from, id: null, error: humanizeBrevoError(raw, to) }
 }
 
-async function sendViaResend(to: string, subject: string, html: string, text: string) {
+async function sendViaResend(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  from: string,
+): Promise<SendResult> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from: NOTIFY_EMAIL_FROM, to: [to], subject, html, text }),
+    body: JSON.stringify({ from, to: [to], subject, html, text }),
   })
   const raw = await res.text()
-  let parsed: { id?: string } = {}
+  let parsed: { id?: string; message?: string } = {}
   try {
     parsed = JSON.parse(raw)
   } catch {
     parsed = {}
   }
-  if (res.ok) return { ok: true, skipped: false, id: parsed.id || null }
-  return { ok: false, skipped: false, error: humanizeResendError(raw, to) }
+  if (res.ok) {
+    return { ok: true, skipped: false, provider: 'resend', from, id: parsed.id || null }
+  }
+  return {
+    ok: false,
+    skipped: false,
+    provider: 'resend',
+    from,
+    id: null,
+    error: humanizeResendError(raw || parsed.message || '', to),
+  }
 }
 
-async function sendEmailToOne(to: string, subject: string, html: string, text: string) {
-  if (BREVO_API_KEY) return sendViaBrevo(to, subject, html, text)
-  if (RESEND_API_KEY) return sendViaResend(to, subject, html, text)
-  return { ok: false, skipped: true, error: 'Set BREVO_API_KEY (tanpa domain) atau RESEND_API_KEY' }
+async function sendEmailToOne(
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+  from: string,
+): Promise<SendResult> {
+  const provider = chosenProvider()
+  if (provider === 'resend') return sendViaResend(to, subject, html, text, from)
+  if (provider === 'brevo') return sendViaBrevo(to, subject, html, text)
+  return {
+    ok: false,
+    skipped: true,
+    provider: 'none',
+    from,
+    id: null,
+    error: 'RESEND_API_KEY belum di-set di Supabase Edge Function secrets',
+  }
 }
 
-async function sendEmailToAll(to: string[], subject: string, html: string, text: string) {
-  if (!BREVO_API_KEY && !RESEND_API_KEY) {
-    return { skipped: true, sentTo: [] as string[], failed: [] as { email: string; error: string }[] }
+async function sendEmailToAll(to: string[], subject: string, html: string, text: string, from: string) {
+  const provider = chosenProvider()
+  if (provider === 'none') {
+    return {
+      skipped: true,
+      provider,
+      from,
+      sentTo: [] as string[],
+      ids: {} as Record<string, string>,
+      failed: [] as { email: string; error: string }[],
+    }
   }
   const sentTo: string[] = []
+  const ids: Record<string, string> = {}
   const failed: { email: string; error: string }[] = []
   for (const email of to) {
-    const result = await sendEmailToOne(email, subject, html, text)
-    if (result.ok) sentTo.push(email)
-    else failed.push({ email, error: result.error || 'Gagal kirim' })
+    const result = await sendEmailToOne(email, subject, html, text, from)
+    if (result.ok) {
+      sentTo.push(email)
+      if (result.id) ids[email] = result.id
+    } else {
+      failed.push({ email, error: result.error || 'Gagal kirim' })
+    }
   }
-  return { skipped: false, sentTo, failed }
+  return { skipped: false, provider, from, sentTo, ids, failed }
 }
 
 async function sendWhatsApp(message: string) {
@@ -216,6 +316,21 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const resendFrom = await resolveResendFrom()
+  const fromAddress = chosenProvider() === 'resend' ? resendFrom.from : `${BREVO_SENDER_NAME} <${brevoSenderEmail()}>`
+
+  if (body.action === 'diag') {
+    return jsonResponse(req, {
+      ok: true,
+      provider: chosenProvider(),
+      has_resend: Boolean(RESEND_API_KEY),
+      has_brevo: Boolean(BREVO_API_KEY),
+      from: fromAddress,
+      from_domain: fromDomain(fromAddress),
+      domain_source: resendFrom.domainSource,
+      verified_domain: resendFrom.verifiedDomain,
+    })
+  }
 
   if (body.action === 'test' && typeof body.email === 'string') {
     const authHeader = req.headers.get('Authorization') || ''
@@ -232,6 +347,7 @@ Deno.serve(async (req) => {
       'Tes notifikasi — BACT SOC',
       '',
       'Email ini dikirim dari dashboard untuk memastikan alamat penerima bisa menerima notifikasi laporan.',
+      `Pengirim: ${fromAddress}`,
       PUBLIC_APP_URL ? `Dashboard: ${PUBLIC_APP_URL}/admin` : '',
     ]
       .filter(Boolean)
@@ -241,12 +357,29 @@ Deno.serve(async (req) => {
       '[BACT SOC] Tes notifikasi',
       `<p>${escapeHtml(text).replaceAll('\n', '<br>')}</p>`,
       text,
+      fromAddress,
+    )
+    console.log(
+      JSON.stringify({
+        event: 'notify_test',
+        provider: result.provider,
+        from: result.from,
+        to: email,
+        ok: result.ok,
+        id: result.id,
+      }),
     )
     if (result.ok) {
-      return jsonResponse(req, { ok: true, sent: true, to: email, resend_id: result.id || null })
+      return jsonResponse(req, {
+        ok: true,
+        sent: true,
+        to: email,
+        provider: result.provider,
+        from: result.from,
+        resend_id: result.id || null,
+      })
     }
-    // 200 + ok:false supaya dashboard bisa menampilkan pesan Resend, bukan "non-2xx"
-    return jsonResponse(req, { ok: false, error: result.error || 'Gagal kirim tes' })
+    return jsonResponse(req, { ok: false, error: result.error || 'Gagal kirim tes', provider: result.provider, from: result.from })
   }
 
   let pendingQuery = supabase
@@ -296,11 +429,13 @@ Deno.serve(async (req) => {
       }
     }
     const isHiPo = row.type === 'hipo_alert' || !!p.is_hipo
-    const recipients = await getRecipientEmails(supabase, isHiPo)
+    const recipients = await getRecipientEmails(supabase, isHiPo, p.only_to)
     const text = buildMessage(row.type, p)
-    const subject = isHiPo
-      ? `[BACT SOC] HiPo — ${p.category || 'Observasi'}`
-      : `[BACT SOC] Laporan Baru — ${p.category || 'Observasi'}`
+    const subject = p.subject_override
+      ? String(p.subject_override)
+      : isHiPo
+        ? `[BACT SOC] HiPo — ${p.category || 'Observasi'}`
+        : `[BACT SOC] Laporan Baru — ${p.category || 'Observasi'}`
     const html = `<p>${escapeHtml(text).replaceAll('\n', '<br>')}</p>`
 
     if (recipients.length === 0 && !FONNTE_TOKEN) {
@@ -308,25 +443,42 @@ Deno.serve(async (req) => {
       continue
     }
 
-    const emailResult = await sendEmailToAll(recipients, subject, html, text)
+    const emailResult = await sendEmailToAll(recipients, subject, html, text, fromAddress)
     const waResult = await sendWhatsApp(text)
 
-    const emailOk = emailResult.skipped || emailResult.sentTo.length > 0 || recipients.length === 0
-    const waOk = waResult.skipped || waResult.ok
-    const anyChannelConfigured = !emailResult.skipped || !waResult.skipped
-
-    if (!anyChannelConfigured) {
-      results.push({ id: row.id, error: 'Tambahkan email di dashboard atau set RESEND_API_KEY' })
-      continue
-    }
-
     const lastSend = {
+      provider: emailResult.provider,
+      from: emailResult.from,
+      domain_source: resendFrom.domainSource,
+      verified_domain: resendFrom.verifiedDomain,
       sent_to: emailResult.sentTo,
+      ids: emailResult.ids,
       failed: emailResult.failed,
       at: new Date().toISOString(),
     }
 
-    if (emailOk && waOk && (emailResult.sentTo.length > 0 || waResult.ok)) {
+    console.log(
+      JSON.stringify({
+        event: 'notify_queue',
+        queue_id: row.id,
+        provider: emailResult.provider,
+        from: emailResult.from,
+        sent_to: emailResult.sentTo,
+        ids: emailResult.ids,
+        failed: emailResult.failed,
+      }),
+    )
+
+    const emailOk = emailResult.sentTo.length > 0
+    const waOk = waResult.skipped || waResult.ok
+    const anyChannelConfigured = !emailResult.skipped || !waResult.skipped
+
+    if (!anyChannelConfigured) {
+      results.push({ id: row.id, error: 'RESEND_API_KEY belum di-set di Supabase Edge Function secrets' })
+      continue
+    }
+
+    if (emailOk && waOk) {
       await supabase
         .from('notification_queue')
         .update({
@@ -339,7 +491,15 @@ Deno.serve(async (req) => {
         })
         .eq('id', row.id)
       processed++
-      results.push({ id: row.id, sent: true, to: emailResult.sentTo, failed: emailResult.failed })
+      results.push({
+        id: row.id,
+        sent: true,
+        provider: emailResult.provider,
+        from: emailResult.from,
+        to: emailResult.sentTo,
+        ids: emailResult.ids,
+        failed: emailResult.failed,
+      })
     } else if (emailResult.sentTo.length === 0 && recipients.length > 0) {
       const errMsg = [
         ...emailResult.failed.map((f) => f.error),
@@ -355,7 +515,13 @@ Deno.serve(async (req) => {
           payload: { ...p, last_send: lastSend },
         })
         .eq('id', row.id)
-      results.push({ id: row.id, sent: false, error: errMsg })
+      results.push({
+        id: row.id,
+        sent: false,
+        provider: emailResult.provider,
+        from: emailResult.from,
+        error: errMsg,
+      })
     } else {
       const errMsg = [emailResult.failed.map((f) => f.error).join(' | '), waResult.error]
         .filter(Boolean)
@@ -364,5 +530,5 @@ Deno.serve(async (req) => {
     }
   }
 
-  return jsonResponse(req, { ok: true, processed, results })
+  return jsonResponse(req, { ok: true, processed, provider: chosenProvider(), from: fromAddress, results })
 })

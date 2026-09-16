@@ -102,9 +102,11 @@ export default function NotificationRecipientsPanel({ variant = 'full' }) {
     setMessage('')
     try {
       const result = await sendTestNotification(recipient.email)
-      const idNote = result?.resend_id ? ` ID Resend: ${result.resend_id}.` : ''
+      const idNote = result?.resend_id ? ` ID: ${result.resend_id}.` : ''
+      const fromNote = result?.from ? ` From ${result.from}.` : ''
+      const provider = result?.provider || 'resend'
       setMessage(
-        `Resend accepted a test to ${recipient.email}.${idNote} Check Inbox, Spam, and resend.com/emails.`,
+        `${provider} accepted a test to ${recipient.email}.${fromNote}${idNote}`,
       )
     } catch (err) {
       setError(err.message || 'Could not send test.')
