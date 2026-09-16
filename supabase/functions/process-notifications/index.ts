@@ -96,14 +96,14 @@ function chosenProvider(): 'resend' | 'brevo' | 'none' {
 }
 
 function humanizeResendError(raw: string, email: string) {
-  const text = raw || ''
+  const text = (raw || '').replace(/\s+/g, ' ').trim()
   if (
     text.includes('403') ||
     text.includes('validation_error') ||
     text.includes('not allowed') ||
     text.includes('You can only send testing emails')
   ) {
-    return `${email}: Resend menolak (403). Domain pengirim belum terverifikasi — Resend hanya kirim ke email pemilik akun. Verifikasi domain di resend.com/domains lalu set NOTIFY_EMAIL_FROM (bukan onboarding@resend.dev).`
+    return `${email}: Resend 403 (belum ada domain terverifikasi). ${text.slice(0, 240)}`
   }
   return `${email}: Resend: ${text.slice(0, 280)}`
 }
@@ -153,30 +153,38 @@ async function getRecipientEmails(
   return [...new Set(emails)]
 }
 
-async function resolveResendFrom(): Promise<{ from: string; domainSource: string; verifiedDomain: string | null }> {
+async function resolveResendFrom(): Promise<{
+  from: string
+  domainSource: string
+  verifiedDomain: string | null
+  domains: Array<{ name: string; status: string }>
+}> {
   const fallback = NOTIFY_EMAIL_FROM
-  if (!RESEND_API_KEY) {
-    return { from: fallback, domainSource: 'env', verifiedDomain: null }
-  }
+  const empty = { from: fallback, domainSource: 'env', verifiedDomain: null, domains: [] as Array<{ name: string; status: string }> }
+  if (!RESEND_API_KEY) return empty
   try {
     const res = await fetch('https://api.resend.com/domains', {
       headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
     })
     const raw = await res.text()
-    if (!res.ok) return { from: fallback, domainSource: 'env', verifiedDomain: null }
+    if (!res.ok) return empty
     const parsed = JSON.parse(raw) as { data?: Array<{ name?: string; status?: string }> }
-    const verified = (parsed.data || []).find((d) => d.status === 'verified' && d.name)
-    if (verified?.name) {
+    const domains = (parsed.data || [])
+      .filter((d) => d.name)
+      .map((d) => ({ name: String(d.name), status: String(d.status || 'unknown') }))
+    const verified = domains.find((d) => d.status === 'verified')
+    if (verified) {
       return {
         from: `BACT SOC <noreply@${verified.name}>`,
         domainSource: 'resend_verified_domain',
         verifiedDomain: verified.name,
+        domains,
       }
     }
+    return { from: fallback, domainSource: 'env', verifiedDomain: null, domains }
   } catch {
-    /* ignore — pakai NOTIFY_EMAIL_FROM */
+    return empty
   }
-  return { from: fallback, domainSource: 'env', verifiedDomain: null }
 }
 
 async function sendViaBrevo(to: string, subject: string, html: string, text: string): Promise<SendResult> {
@@ -329,6 +337,7 @@ Deno.serve(async (req) => {
       from_domain: fromDomain(fromAddress),
       domain_source: resendFrom.domainSource,
       verified_domain: resendFrom.verifiedDomain,
+      resend_domains: resendFrom.domains,
     })
   }
 
@@ -451,6 +460,7 @@ Deno.serve(async (req) => {
       from: emailResult.from,
       domain_source: resendFrom.domainSource,
       verified_domain: resendFrom.verifiedDomain,
+      resend_domains: resendFrom.domains,
       sent_to: emailResult.sentTo,
       ids: emailResult.ids,
       failed: emailResult.failed,
