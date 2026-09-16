@@ -252,6 +252,11 @@ async function sendViaResend(
   }
 }
 
+function isResendUnverified(result: SendResult) {
+  const err = result.error || ''
+  return result.provider === 'resend' && !result.ok && (err.includes('403') || err.includes('belum ada domain'))
+}
+
 async function sendEmailToOne(
   to: string,
   subject: string,
@@ -260,7 +265,14 @@ async function sendEmailToOne(
   from: string,
 ): Promise<SendResult> {
   const provider = chosenProvider()
-  if (provider === 'resend') return sendViaResend(to, subject, html, text, from)
+  if (provider === 'resend') {
+    const resendResult = await sendViaResend(to, subject, html, text, from)
+    if (resendResult.ok) return resendResult
+    if (isResendUnverified(resendResult) && BREVO_API_KEY) {
+      return sendViaBrevo(to, subject, html, text)
+    }
+    return resendResult
+  }
   if (provider === 'brevo') return sendViaBrevo(to, subject, html, text)
   return {
     ok: false,
