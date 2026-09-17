@@ -224,13 +224,13 @@ const td = (text, fill, extra = {}) => ({
   const slide = contentSlide('Maksud pengajuan')
   addFooter(slide, 2)
   slide.addText(
-    'Diminta persetujuan memindahkan pelaporan SOC dari Excel ke aplikasi, serta menyediakan alamat resmi (hosting dan domain).',
+    'Aplikasi SOC sudah live. Diminta persetujuan memakai SOC sebagai pengganti Excel, serta menyediakan alamat resmi (hosting dan domain).',
     {
       x: 0.4,
-      y: 0.88,
+      y: 0.84,
       w: 9.2,
-      h: 0.5,
-      fontSize: 15,
+      h: 0.44,
+      fontSize: 14,
       color: C.ink,
       fontFace: FONT,
     },
@@ -238,38 +238,38 @@ const td = (text, fill, extra = {}) => ({
   addTable(
     slide,
     [
-      [th('Aspek'), th('Excel (saat ini)'), th('Usulan: aplikasi SOC')],
+      [th('Aspek'), th('Excel (saat ini)'), th('Aplikasi SOC (live)')],
       [
         td('Cara lapor', C.white, { bold: true }),
         td('Berkas atau kertas; sering tertunda', C.white),
-        td('HP atau QR, tanpa login', C.white),
+        td('HP atau QR, tanpa login. Form Indonesia + Inggris.', C.white),
       ],
       [
         td('Data dan status', C.zebra, { bold: true }),
         td('Banyak versi file; sulit sampai closed', C.zebra),
-        td('Satu antrian; status tercatat sampai Closed', C.zebra),
+        td('Satu antrian sampai Closed. Analytics Weekly/Monthly, Top 10 kartu ranked, export Excel.', C.zebra),
       ],
       [
         td('Klasifikasi', C.white, { bold: true }),
         td('Dicampur pelapor; hasil tidak seragam', C.white),
-        td('HSE mengisi kategori dan risiko di dashboard', C.white),
+        td('HSE mengisi kategori dan risiko. HiPo: Stop Work, High, atau Near Miss.', C.white),
       ],
       [
         td('Identitas dan akses', C.zebra, { bold: true }),
         td('Ketik manual; berkas mudah diteruskan', C.zebra),
-        td('Nama BACT dari daftar HR; peran masuk terbatas', C.zebra),
+        td('Nama BACT dari daftar HR. Super Admin / HSE Officer / Viewer. PIC = penugasan, bukan akun.', C.zebra),
       ],
     ],
-    { x: 0.4, y: 1.46, w: 9.2, colW: [1.85, 3.5, 3.85], fontSize: 13, rowH: 0.5 },
+    { x: 0.4, y: 1.34, w: 9.2, colW: [1.85, 3.35, 4.0], fontSize: 12, rowH: 0.52 },
   )
   slide.addText(
-    'Aplikasi sudah diuji. Pengajuan ini untuk alamat resmi: situs di Hostinger; data laporan di Supabase; pengiriman notifikasi tetap Resend.',
+    'Live hari ini: Vercel + Supabase + Resend. PDF SOC dan PDF Investigation (logo huruf hitam) bisa ditinjau di layar sebelum unduh. Pengajuan ini untuk alamat resmi: situs di Hostinger; data tetap Supabase; notifikasi tetap Resend. Hostinger bukan basis data.',
     {
       x: 0.4,
-      y: 4.5,
+      y: 4.52,
       w: 9.2,
-      h: 0.55,
-      fontSize: 14,
+      h: 0.58,
+      fontSize: 13,
       color: C.slate,
       fontFace: FONT,
     },
@@ -305,7 +305,7 @@ const td = (text, fill, extra = {}) => ({
       ],
       [
         td('Resend', C.white, { bold: true }),
-        td('Mengirim notifikasi (laporan baru, HiPo). Tetap Resend.', C.white),
+        td('Mengirim notifikasi (laporan baru, HiPo). Resend; cadangan Brevo jika domain belum verifikasi. Daftar email: Super Admin / Notifications.', C.white),
         td('Free 3.000/bulan; Pro USD 20/bulan jika volume naik', C.white),
       ],
     ],
@@ -325,7 +325,7 @@ const td = (text, fill, extra = {}) => ({
         td('2FA pada panel. Kotak surat untuk baca email — bukan basis data SOC.', C.zebra),
       ],
       [
-        td('5 gagal / 2 menit di halaman login. Insert publik ~20/menit.', C.white),
+        td('5 gagal / 10 menit di login. Password min. 12. Hapus laporan: Super Admin.', C.white),
         td('Hostinger tidak mengunci akun SOC dan tidak menyimpan laporan.', C.white),
       ],
     ],
@@ -397,10 +397,10 @@ const td = (text, fill, extra = {}) => ({
     { x: 0.4, y: 0.86, w: 9.2, colW: [1.45, 4.15, 3.6], fontSize: 12, rowH: 0.4 },
   )
   const items = [
-    'Setujui aplikasi SOC sebagai pengganti Excel untuk pelaporan HSE.',
+    'Setujui aplikasi SOC yang sudah live (form tanpa login, klasifikasi HSE, analitik, PDF SOC/Investigasi) sebagai pengganti Excel.',
     'Setujui Hostinger Unlimited 48 bulan Rp2.072.592 (situs, SSL, cadangan berkas, kotak surat tahun pertama; sudah termasuk pajak).',
     'Catat Supabase dan Resend sebagai tagihan terpisah. Saat ini Free; Pro hanya jika volume atau kapasitas naik.',
-    'Tugaskan IT / HSSE: 2FA pada panel Hostinger, serta pembagian peran Super Admin, HSE Officer, dan Viewer. Data laporan tetap di Supabase.',
+    'Tugaskan IT / HSSE: 2FA pada panel Hostinger, serta pembagian Super Admin, HSE Officer, dan Viewer. Data laporan tetap di Supabase.',
   ]
   items.forEach((text, i) => {
     const y = 2.62 + i * 0.58

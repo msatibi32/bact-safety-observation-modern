@@ -26,6 +26,7 @@ const C = {
   muted: '5B6775',
   line: 'C5CDD6',
   zebra: 'F3F5F7',
+  card: 'EEF1F4',
   white: 'FFFFFF',
 }
 
@@ -106,7 +107,7 @@ function heading(slide, { x, y, w, text }) {
     x,
     y,
     w,
-    h: 0.28,
+    h: 0.26,
     fontSize: 14,
     bold: true,
     color: C.navy,
@@ -114,7 +115,7 @@ function heading(slide, { x, y, w, text }) {
   })
   slide.addShape(pptx.ShapeType.rect, {
     x,
-    y: y + 0.28,
+    y: y + 0.26,
     w: 0.9,
     h: 0.028,
     fill: { color: C.orange },
@@ -150,7 +151,6 @@ const td = (text, fill, extra = {}) => ({
   text,
   options: { fill: { color: fill }, color: C.ink, ...extra },
 })
-
 // 1 — Cover
 {
   const slide = pptx.addSlide()
@@ -182,7 +182,7 @@ const td = (text, fill, extra = {}) => ({
     color: C.white,
     fontFace: FONT,
   })
-  slide.addText('Briefing alur kerja pelaporan HSSE', {
+  slide.addText('Briefing alur kerja, peran, dan analitik HSSE', {
     x: 0.55,
     y: 2.65,
     w: 8.8,
@@ -207,7 +207,7 @@ const td = (text, fill, extra = {}) => ({
     color: 'D6DEE8',
     fontFace: FONT,
   })
-  slide.addText('September 2026  ·  Dokumen internal', {
+  slide.addText('September 2026  ·  Dokumen internal  ·  Aplikasi live', {
     x: 0.55,
     y: 4.95,
     w: 8.8,
@@ -218,12 +218,12 @@ const td = (text, fill, extra = {}) => ({
   })
 }
 
-// 2 — Form pelapor (latar singkat + isi / tidak + autocomplete + HiPo)
+// 2 — Form pelapor
 {
   const slide = contentSlide('Form pelapor')
   addFooter(slide, 2)
   slide.addText(
-    'Excel diganti aplikasi: pelapor kirim kejadian tanpa login; HSE yang mengklasifikasi. Laporan baru tampil Belum diklasifikasi.',
+    'Tanpa login. Pelapor kirim kejadian dari HP atau QR; HSE yang mengklasifikasi. Laporan baru tampil Belum diklasifikasi.',
     {
       x: 0.4,
       y: 0.84,
@@ -234,26 +234,26 @@ const td = (text, fill, extra = {}) => ({
       fontFace: FONT,
     },
   )
-  heading(slide, { x: 0.4, y: 1.3, w: 4.4, text: 'Diisi di lapangan' })
+  heading(slide, { x: 0.4, y: 1.28, w: 4.4, text: 'Diisi di lapangan' })
   slide.addText(
     [
       { text: 'Perusahaan, nama, departemen', options: { bullet: true, breakLine: true } },
       { text: 'Tanggal kejadian', options: { bullet: true, breakLine: true } },
-      { text: 'Lokasi dan titik GPS', options: { bullet: true, breakLine: true } },
+      { text: 'Lokasi dari daftar (Other jika perlu)', options: { bullet: true, breakLine: true } },
       { text: 'Deskripsi, Stop Work, foto', options: { bullet: true } },
     ],
     {
       x: 0.4,
-      y: 1.7,
+      y: 1.66,
       w: 4.4,
-      h: 1.55,
+      h: 1.5,
       fontSize: 15,
       color: C.slate,
       fontFace: FONT,
       paraSpaceAfter: 5,
     },
   )
-  heading(slide, { x: 5.2, y: 1.3, w: 4.4, text: 'Tidak ada di form' })
+  heading(slide, { x: 5.2, y: 1.28, w: 4.4, text: 'Tidak ada di form' })
   slide.addText(
     [
       { text: 'Laporan anonim', options: { bullet: true, breakLine: true } },
@@ -263,9 +263,9 @@ const td = (text, fill, extra = {}) => ({
     ],
     {
       x: 5.2,
-      y: 1.7,
+      y: 1.66,
       w: 4.4,
-      h: 1.55,
+      h: 1.5,
       fontSize: 15,
       color: C.slate,
       fontFace: FONT,
@@ -273,12 +273,12 @@ const td = (text, fill, extra = {}) => ({
     },
   )
   slide.addText(
-    'PT. BACT: pilih nama dari daftar HR — departemen dan ID terisi otomatis. Vendor, security, dan MSB mengisi nama manual. Label form Indonesia dan Inggris; antarmuka admin berbahasa Inggris.',
+    'PT. BACT: pilih nama dari daftar HR — departemen dan ID terisi otomatis. Vendor, security, dan MSB mengisi nama manual. Label form Indonesia + Inggris; antarmuka admin berbahasa Inggris.',
     {
       x: 0.4,
-      y: 3.4,
+      y: 3.32,
       w: 9.2,
-      h: 0.7,
+      h: 0.68,
       fontSize: 14,
       color: C.slate,
       fontFace: FONT,
@@ -288,9 +288,9 @@ const td = (text, fill, extra = {}) => ({
     'HiPo: Stop Work dari pelapor, atau risiko High / Near Miss setelah klasifikasi HSE. Bukan setiap laporan wajib investigasi.',
     {
       x: 0.4,
-      y: 4.2,
+      y: 4.08,
       w: 9.2,
-      h: 0.7,
+      h: 0.62,
       fontSize: 15,
       color: C.ink,
       fontFace: FONT,
@@ -343,39 +343,39 @@ const td = (text, fill, extra = {}) => ({
     })
   })
 
-  heading(slide, { x: 0.4, y: 2.05, w: 4.4, text: 'Kasus biasa' })
+  heading(slide, { x: 0.4, y: 2.0, w: 4.4, text: 'Kasus biasa' })
   slide.addText(
-    'Risiko Low–Medium: PDF Notice, tindakan dan CAPA, verifikasi HSE, kemudian Closed.',
+    'Risiko Low–Medium: tinjau PDF SOC di layar lalu unduh, tindakan dan CAPA, verifikasi HSE, kemudian Closed.',
     {
       x: 0.4,
-      y: 2.44,
+      y: 2.36,
       w: 4.4,
-      h: 0.78,
-      fontSize: 14,
+      h: 0.72,
+      fontSize: 13,
       color: C.slate,
       fontFace: FONT,
     },
   )
-  heading(slide, { x: 5.2, y: 2.05, w: 4.4, text: 'HiPo' })
+  heading(slide, { x: 5.2, y: 2.0, w: 4.4, text: 'HiPo' })
   slide.addText(
-    'Stop Work, High, atau Near Miss: HSE menandai lanjut investigasi, 5W+1H, PDF Investigasi, CAPA, kemudian Closed.',
+    'Stop Work, High, atau Near Miss: HSE menandai investigasi, 5W+1H, tinjau PDF Investigation, CAPA, kemudian Closed.',
     {
       x: 5.2,
-      y: 2.44,
+      y: 2.36,
       w: 4.4,
-      h: 0.78,
-      fontSize: 14,
+      h: 0.72,
+      fontSize: 13,
       color: C.slate,
       fontFace: FONT,
     },
   )
   slide.addText(
-    'Status: Open → tinjauan / progres → Closed, atau Rejected. Klasifikasi dulu, baru PIC departemen ditugaskan. PIC adalah penugasan, bukan akun masuk. Jika sinyal terputus, laporan tersimpan di perangkat lalu terkirim saat jaringan kembali.',
+    'HSE Officer mengerjakan laporan satu per satu: Detail → Investigation → Recommendation. Status Open → tinjauan / progres → Closed, atau Rejected. Klasifikasi dulu, baru PIC departemen ditugaskan — PIC adalah penugasan, bukan akun masuk. PDF memakai logo huruf hitam. Jika sinyal terputus, laporan tersimpan di perangkat lalu terkirim saat jaringan kembali.',
     {
       x: 0.4,
-      y: 3.4,
+      y: 3.18,
       w: 9.2,
-      h: 1.45,
+      h: 1.72,
       fontSize: 14,
       color: C.ink,
       fontFace: FONT,
@@ -387,65 +387,111 @@ const td = (text, fill, extra = {}) => ({
 {
   const slide = contentSlide('Peran, analitik, dan keamanan')
   addFooter(slide, 4)
-  heading(slide, { x: 0.4, y: 0.78, w: 4.4, text: 'Peran masuk' })
+  heading(slide, { x: 0.38, y: 0.76, w: 4.5, text: 'Peran masuk' })
   addTable(
     slide,
     [
       [th('Peran'), th('Akses')],
       [
         td('Super Admin', C.white, { bold: true }),
-        td('Dashboard, Analytics, Notifications, Users, Log HSE. Ubah laporan dan kelola akun.', C.white),
+        td(
+          'Penuh: Users, Notifications, HSSE Log, performa HSE, import historis. Ubah laporan dan kelola akun.',
+          C.white,
+        ),
       ],
       [
         td('HSE Officer', C.zebra, { bold: true }),
-        td('Klasifikasi, investigasi, PDF, email. Tidak mengelola pengguna.', C.zebra),
+        td(
+          'Selesaikan laporan satu per satu sampai Investigation. Analytics Weekly/Monthly + export Excel. Tidak ada Notifications, Users, HSSE Log.',
+          C.zebra,
+        ),
       ],
       [
         td('Viewer', C.white, { bold: true }),
         td('Dashboard dan Analytics. Hanya melihat — tidak mengubah data.', C.white),
       ],
     ],
-    { x: 0.4, y: 1.06, w: 9.2, colW: [2.05, 7.15], fontSize: 13, rowH: 0.34 },
+    { x: 0.38, y: 1.04, w: 4.55, colW: [1.42, 3.13], fontSize: 11, rowH: 0.46 },
   )
+  slide.addText('PIC = penugasan tindak lanjut, bukan peran login.', {
+    x: 0.38,
+    y: 2.96,
+    w: 4.55,
+    h: 0.28,
+    fontSize: 12,
+    color: C.ink,
+    fontFace: FONT,
+  })
+
+  heading(slide, { x: 5.1, y: 0.76, w: 4.5, text: 'Analitik dan PDF' })
   slide.addText(
-    'PIC adalah penugasan departemen, bukan peran login. Analitik: grafik Weekly/Monthly, export–import Excel, PDF Notice/Investigasi, email Resend.',
+    [
+      { text: 'Period volume: Weekly / Monthly.', options: { bullet: true, breakLine: true } },
+      {
+        text: 'Monthly: January → bulan berjalan; default bulan ini.',
+        options: { bullet: true, breakLine: true },
+      },
+      { text: 'Export Excel: rentang tanggal From–To.', options: { bullet: true, breakLine: true } },
+      {
+        text: 'Top 10 Case: kartu ranked (bukan tabel Excel) di atas HSE performance (KPI Super Admin).',
+        options: { bullet: true, breakLine: true },
+      },
+      { text: 'Import historis di bawah Analytics (Super Admin).', options: { bullet: true, breakLine: true } },
+      {
+        text: 'PDF SOC dan PDF Investigation (logo huruf hitam). Tinjau naskah di layar sebelum unduh; suntingan hanya untuk cetakan itu.',
+        options: { bullet: true },
+      },
+    ],
     {
-      x: 0.4,
-      y: 2.46,
-      w: 9.2,
-      h: 0.3,
-      fontSize: 13,
+      x: 5.1,
+      y: 1.08,
+      w: 4.5,
+      h: 2.16,
+      fontSize: 12,
+      color: C.slate,
+      fontFace: FONT,
+      paraSpaceAfter: 3,
+    },
+  )
+
+  slide.addText(
+    'Top 10 di web: kartu bernomor, temuan sebagai judul, chip tanggal/lokasi/perusahaan, lencana risiko. Action By dan Due Date hanya tampil jika PIC atau CAPA sudah diisi.',
+    {
+      x: 0.38,
+      y: 3.28,
+      w: 9.24,
+      h: 0.48,
+      fontSize: 12,
       color: C.ink,
       fontFace: FONT,
     },
   )
-  heading(slide, { x: 0.4, y: 2.76, w: 9.2, text: 'Kontrol keamanan' })
+
+  heading(slide, { x: 0.38, y: 3.78, w: 9.2, text: 'Kontrol keamanan' })
   addTable(
     slide,
     [
       [th('Kontrol'), th('Penerapan')],
       [
-        td('HTTPS / TLS', C.white, { bold: true }),
-        td('Vercel + HSTS. SSL Hostinger jika usulan domain sudah live.', C.white),
+        td('HTTPS / header', C.white, { bold: true }),
+        td(
+          'Vercel + HSTS. CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.',
+          C.white,
+        ),
       ],
       [
-        td('Header keamanan', C.zebra, { bold: true }),
-        td('CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy.', C.zebra),
+        td('Admin dan data', C.zebra, { bold: true }),
+        td(
+          'Supabase Auth, 3 peran, RLS. Publik hanya kirim. Foto JPG/PNG/WEBP/HEIC, maks. 10 MB. Anon key di klien; service role hanya Edge Function.',
+          C.zebra,
+        ),
       ],
       [
-        td('Admin', C.white, { bold: true }),
-        td('Supabase Auth, kata sandi di-hash. Super Admin / HSE Officer / Viewer.', C.white),
-      ],
-      [
-        td('Data dan foto', C.zebra, { bold: true }),
-        td('RLS: publik hanya kirim. Ubah/klasifikasi HSE + Super Admin. Foto evidence-photos, JPG/PNG/WEBP/HEIC, maks. 10 MB.', C.zebra),
-      ],
-      [
-        td('Kunci dan batas', C.white, { bold: true }),
-        td('Anon key di klien; service role hanya Edge Function. 5 gagal / 2 menit di halaman login. Insert publik ~20/menit.', C.white),
+        td('Batas', C.white, { bold: true }),
+        td('5 gagal / 10 menit di login. Password akun min. 12. RLS: publik kirim; hapus Super Admin. Insert ~8/menit. Bukan klaim ISO atau SOC 2.', C.white),
       ],
     ],
-    { x: 0.4, y: 3.06, w: 9.2, colW: [2.2, 7.0], fontSize: 13, rowH: 0.34 },
+    { x: 0.38, y: 4.06, w: 9.24, colW: [1.7, 7.54], fontSize: 11, rowH: 0.32 },
   )
 }
 
@@ -454,10 +500,10 @@ const td = (text, fill, extra = {}) => ({
   const slide = contentSlide('Langkah yang diminta')
   addFooter(slide, 5)
   const steps = [
-    'Daftarkan alamat email HSE di Notifications dan pastikan status Aktif.',
-    'Kosongkan antrian Belum diklasifikasi. PIC ditugaskan setelah klasifikasi; tidak perlu login PIC.',
+    'Super Admin: daftarkan alamat email HSE di Notifications dan pastikan status Aktif.',
+    'Kosongkan antrian Belum diklasifikasi — satu laporan sampai Investigation selesai. PIC ditugaskan setelah klasifikasi; tidak perlu login PIC.',
     'Super Admin menambah pengguna HSE atau Viewer melalui Users (email, kata sandi sementara, peran).',
-    'Bagikan QR ke lapangan. Excel dipakai sebagai arsip atau hasil export, bukan tempat pelaporan.',
+    'Bagikan QR ke lapangan. Excel dipakai sebagai arsip, hasil export, atau import historis — bukan tempat pelaporan.',
   ]
   steps.forEach((text, i) => {
     const y = 0.95 + i * 0.78
@@ -476,7 +522,7 @@ const td = (text, fill, extra = {}) => ({
       y,
       w: 8.55,
       h: 0.7,
-      fontSize: 16,
+      fontSize: 15,
       color: C.ink,
       fontFace: FONT,
       valign: 'top',

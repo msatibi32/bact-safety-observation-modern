@@ -9,6 +9,11 @@
     "generate:qr": "node scripts/generate-qr.mjs",
     "generate:ppt": "node scripts/generate-hse-presentation.mjs",
     "generate:ppt:hosting": "node scripts/generate-hosting-proposal.mjs",
+    "generate:ppt:flow": "node scripts/generate-flow-presentation.mjs",
+    "generate:ppt:form": "node scripts/generate-usage-form.mjs",
+    "generate:ppt:hse-guide": "node scripts/generate-usage-hse.mjs",
+    "generate:ppt:admin": "node scripts/generate-usage-admin.mjs",
+    "generate:ppt:all": "node scripts/generate-all-ppt.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
