@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       const role = String(body.role || 'hse')
       const picDepartment = String(body.pic_department || '').trim()
       if (!email || !email.includes('@')) return jsonResponse(req, { error: 'Email tidak valid.' }, 400)
-      if (password.length < 8) return jsonResponse(req, { error: 'Password minimal 8 karakter.' }, 400)
+      if (password.length < 12) return jsonResponse(req, { error: 'Password must be at least 12 characters.' }, 400)
       if (!ALLOWED_ROLES.has(role)) return jsonResponse(req, { error: 'Role tidak dikenal.' }, 400)
 
       const meta = rolePatch(role, picDepartment)
@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
         ban_duration?: string
       } = {}
       if (body.password) {
-        if (body.password.length < 8) return jsonResponse(req, { error: 'Password minimal 8 karakter.' }, 400)
+        if (body.password.length < 12) return jsonResponse(req, { error: 'Password must be at least 12 characters.' }, 400)
         patch.password = body.password
       }
       if (typeof body.disabled === 'boolean') {
@@ -200,8 +200,7 @@ Deno.serve(async (req) => {
     }
 
     return jsonResponse(req, { error: 'Aksi tidak dikenal.' }, 400)
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Gagal memproses pengguna.'
-    return jsonResponse(req, { error: message }, 400)
+  } catch {
+    return jsonResponse(req, { error: 'Could not process the user request.' }, 400)
   }
 })

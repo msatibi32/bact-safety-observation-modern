@@ -1,9 +1,9 @@
 // Kirim notifikasi email dari notification_queue
 // Email penerima diambil dari tabel notification_recipients (kelola via dashboard admin)
 //
-// Product: pengirim = Resend. Hostinger mailbox hanya untuk baca, bukan SMTP kirim.
-// Brevo adalah jalur lama; kalau RESEND_API_KEY ada, Brevo tidak dipakai
-// (API Brevo "sent" sering tidak sampai Gmail karena from @gmail via brevosend.com).
+// Product: pengirim = Resend dulu. Kalau Resend 403 / domain belum verified, fallback Brevo.
+// Jangan deploy Resend-only selama from masih onboarding@resend.dev.
+// Hostinger mailbox hanya untuk baca, bukan SMTP kirim.
 //
 // Secrets (Supabase → Edge Functions → Secrets):
 //   RESEND_API_KEY       — wajib untuk kirim
@@ -56,6 +56,32 @@ function staffRole(user: { app_metadata?: Record<string, unknown>; user_metadata
 
 function isHseStaff(role: string) {
   return role === 'hse' || role === 'admin' || role === 'super_admin'
+}
+
+function isSuperAdmin(role: string) {
+  return role === 'admin' || role === 'super_admin'
+}
+
+function isResendTestingRestriction(error?: string) {
+  const text = (error || '').toLowerCase()
+  return (
+    text.includes('403') ||
+    text.includes('validation_error') ||
+    text.includes('not allowed') ||
+    text.includes('testing emails') ||
+    text.includes('you can only send') ||
+    text.includes('unverified') ||
+    text.includes('not verified')
+  )
+}
+
+async function getCallerUser(req: Request, supabase: ReturnType<typeof createClient>) {
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!token) return null
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data.user) return null
+  return data.user
 }
 
 type Payload = {
@@ -259,44 +285,65 @@ async function sendEmailToOne(
   text: string,
   from: string,
 ): Promise<SendResult> {
-  const provider = chosenProvider()
-  if (provider === 'resend') return sendViaResend(to, subject, html, text, from)
-  if (provider === 'brevo') return sendViaBrevo(to, subject, html, text)
+  if (RESEND_API_KEY) {
+    const resendResult = await sendViaResend(to, subject, html, text, from)
+    if (resendResult.ok) return resendResult
+    if (BREVO_API_KEY && isResendTestingRestriction(resendResult.error)) {
+      const brevoResult = await sendViaBrevo(to, subject, html, text)
+      if (brevoResult.ok) return brevoResult
+      return {
+        ...brevoResult,
+        error: `${resendResult.error} | Brevo fallback: ${brevoResult.error || 'gagal'}`,
+      }
+    }
+    return resendResult
+  }
+  if (BREVO_API_KEY) return sendViaBrevo(to, subject, html, text)
   return {
     ok: false,
     skipped: true,
     provider: 'none',
     from,
     id: null,
-    error: 'RESEND_API_KEY belum di-set di Supabase Edge Function secrets',
+    error: 'RESEND_API_KEY / BREVO_API_KEY belum di-set di Supabase Edge Function secrets',
   }
 }
 
 async function sendEmailToAll(to: string[], subject: string, html: string, text: string, from: string) {
-  const provider = chosenProvider()
-  if (provider === 'none') {
+  if (!RESEND_API_KEY && !BREVO_API_KEY) {
     return {
       skipped: true,
-      provider,
+      provider: 'none' as const,
       from,
       sentTo: [] as string[],
       ids: {} as Record<string, string>,
       failed: [] as { email: string; error: string }[],
+      usedBrevoFallback: false,
     }
   }
   const sentTo: string[] = []
   const ids: Record<string, string> = {}
   const failed: { email: string; error: string }[] = []
+  let usedBrevoFallback = false
   for (const email of to) {
     const result = await sendEmailToOne(email, subject, html, text, from)
     if (result.ok) {
       sentTo.push(email)
       if (result.id) ids[email] = result.id
+      if (result.provider === 'brevo' && RESEND_API_KEY) usedBrevoFallback = true
     } else {
       failed.push({ email, error: result.error || 'Gagal kirim' })
     }
   }
-  return { skipped: false, provider, from, sentTo, ids, failed }
+  return {
+    skipped: false,
+    provider: usedBrevoFallback ? 'brevo' : chosenProvider(),
+    from,
+    sentTo,
+    ids,
+    failed,
+    usedBrevoFallback,
+  }
 }
 
 async function sendWhatsApp(message: string) {
@@ -324,10 +371,19 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const resendFrom = await resolveResendFrom()
-  const fromAddress = chosenProvider() === 'resend' ? resendFrom.from : `${BREVO_SENDER_NAME} <${brevoSenderEmail()}>`
+  const caller = await getCallerUser(req, supabase)
+  const role = staffRole(caller)
+  const staffCaller = caller && isHseStaff(role)
+  const superAdminCaller = caller && isSuperAdmin(role)
+  const observationId = typeof body.observation_id === 'string' ? body.observation_id.trim() : ''
+  const publicProcess = Boolean(observationId) && !staffCaller
 
   if (body.action === 'diag') {
+    if (!superAdminCaller) {
+      return jsonResponse(req, { ok: false, error: 'Unauthorized' }, 401)
+    }
+    const resendFrom = await resolveResendFrom()
+    const fromAddress = chosenProvider() === 'resend' ? resendFrom.from : `${BREVO_SENDER_NAME} <${brevoSenderEmail()}>`
     return jsonResponse(req, {
       ok: true,
       provider: chosenProvider(),
@@ -338,18 +394,16 @@ Deno.serve(async (req) => {
       domain_source: resendFrom.domainSource,
       verified_domain: resendFrom.verifiedDomain,
       resend_domains: resendFrom.domains,
+      brevo_fallback: Boolean(BREVO_API_KEY),
     })
   }
 
   if (body.action === 'test' && typeof body.email === 'string') {
-    const authHeader = req.headers.get('Authorization') || ''
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
-    if (!token) return jsonResponse(req, { ok: false, error: 'Login dulu untuk tes email.' }, 401)
-    const { data: caller, error: callerError } = await supabase.auth.getUser(token)
-    if (callerError || !caller.user || !isHseStaff(staffRole(caller.user))) {
-      return jsonResponse(req, { ok: false, error: 'Hanya HSE / Super Admin yang boleh tes email.' }, 403)
+    if (!superAdminCaller) {
+      return jsonResponse(req, { ok: false, error: 'Unauthorized' }, 401)
     }
-
+    const resendFrom = await resolveResendFrom()
+    const fromAddress = chosenProvider() === 'resend' ? resendFrom.from : `${BREVO_SENDER_NAME} <${brevoSenderEmail()}>`
     const email = body.email.trim().toLowerCase()
     if (!email) return jsonResponse(req, { ok: false, error: 'Email tes kosong' }, 400)
     const text = [
@@ -386,10 +440,18 @@ Deno.serve(async (req) => {
         provider: result.provider,
         from: result.from,
         resend_id: result.id || null,
+        used_brevo_fallback: result.provider === 'brevo' && Boolean(RESEND_API_KEY),
       })
     }
     return jsonResponse(req, { ok: false, error: result.error || 'Gagal kirim tes', provider: result.provider, from: result.from })
   }
+
+  if (!staffCaller && !observationId) {
+    return jsonResponse(req, { ok: false, error: 'Unauthorized' }, 401)
+  }
+
+  const resendFrom = await resolveResendFrom()
+  const fromAddress = chosenProvider() === 'resend' ? resendFrom.from : `${BREVO_SENDER_NAME} <${brevoSenderEmail()}>`
 
   let pendingQuery = supabase
     .from('notification_queue')
@@ -399,7 +461,6 @@ Deno.serve(async (req) => {
     .order('created_at', { ascending: true })
     .limit(20)
 
-  const observationId = typeof body.observation_id === 'string' ? body.observation_id.trim() : ''
   if (observationId) {
     pendingQuery = pendingQuery.filter('payload->>observation_id', 'eq', observationId)
   }
@@ -460,7 +521,8 @@ Deno.serve(async (req) => {
       from: emailResult.from,
       domain_source: resendFrom.domainSource,
       verified_domain: resendFrom.verifiedDomain,
-      resend_domains: resendFrom.domains,
+      resend_domains: publicProcess ? undefined : resendFrom.domains,
+      used_brevo_fallback: emailResult.usedBrevoFallback,
       sent_to: emailResult.sentTo,
       ids: emailResult.ids,
       failed: emailResult.failed,
@@ -540,5 +602,8 @@ Deno.serve(async (req) => {
     }
   }
 
+  if (publicProcess) {
+    return jsonResponse(req, { ok: true, processed })
+  }
   return jsonResponse(req, { ok: true, processed, provider: chosenProvider(), from: fromAddress, results })
 })

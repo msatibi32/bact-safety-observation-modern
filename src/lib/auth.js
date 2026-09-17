@@ -2,11 +2,11 @@ import { supabase } from './supabase'
 
 const GUARD_KEY = 'soc_login_guard'
 const MAX_ATTEMPTS = 5
-const LOCK_MS = 2 * 60 * 1000
+const LOCK_MS = 10 * 60 * 1000
 
 function readGuard() {
   try {
-    const raw = sessionStorage.getItem(GUARD_KEY)
+    const raw = localStorage.getItem(GUARD_KEY)
     const parsed = raw ? JSON.parse(raw) : {}
     return {
       fails: Number(parsed.fails) || 0,
@@ -19,7 +19,7 @@ function readGuard() {
 
 function writeGuard(next) {
   try {
-    sessionStorage.setItem(GUARD_KEY, JSON.stringify(next))
+    localStorage.setItem(GUARD_KEY, JSON.stringify(next))
   } catch {
     /* ignore */
   }
@@ -34,7 +34,7 @@ export function loginLockMessage() {
   const ms = remainingLockMs()
   if (ms <= 0) return ''
   const sec = Math.max(1, Math.ceil(ms / 1000))
-  return `Terlalu banyak percobaan. Coba lagi dalam ${sec} detik.`
+  return `Too many attempts. Try again in ${sec} seconds.`
 }
 
 export async function login(email, password) {

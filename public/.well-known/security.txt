@@ -1,0 +1,4 @@
+Contact: mailto:msatibi32@gmail.com
+Expires: 2027-09-17T00:00:00.000Z
+Preferred-Languages: id, en
+Canonical: https://bact-safety-observation-modern.vercel.app/.well-known/security.txt

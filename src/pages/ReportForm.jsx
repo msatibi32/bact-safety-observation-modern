@@ -29,7 +29,9 @@ export default function ReportForm() {
   const [submitError, setSubmitError] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [offlineQueued, setOfflineQueued] = useState(false)
+  const [honeypot, setHoneypot] = useState('')
   const submittingRef = useRef(false)
+  const mountedAtRef = useRef(Date.now())
 
   const bactEmployee = isBactCompany(form.nama_perusahaan)
 
@@ -98,6 +100,18 @@ export default function ReportForm() {
     setPhotos((prev) => prev.filter((_, i) => i !== index))
   }
 
+  function mapSubmitError(err) {
+    const msg = String(err?.message || '')
+    if (/terlalu banyak laporan|too many|rate/i.test(msg)) {
+      return 'Terlalu banyak laporan dalam waktu singkat. Coba lagi sebentar. / Too many reports just now. Please wait a moment.'
+    }
+    return 'Gagal mengirim laporan, coba lagi. / Could not send the report. Try again.'
+  }
+
+  function fakeSuccess() {
+    setSubmitted(true)
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     if (submittingRef.current) return
@@ -105,11 +119,21 @@ export default function ReportForm() {
     setSubmitError('')
     setSubmitting(true)
     try {
+      if (honeypot.trim()) {
+        fakeSuccess()
+        return
+      }
+
       const lokasiResolved =
         form.lokasi_teks === 'Other' ? form.lokasi_lainnya.trim() : form.lokasi_teks
       if (!lokasiResolved) {
         setSubmitError('Isi lokasi kejadian. / Enter the incident location.')
         setSubmitting(false)
+        return
+      }
+
+      if (Date.now() - mountedAtRef.current < 2500) {
+        fakeSuccess()
         return
       }
 
@@ -133,7 +157,7 @@ export default function ReportForm() {
       await addObservation(payload)
       setSubmitted(true)
     } catch (err) {
-      setSubmitError(err.message || 'Gagal mengirim laporan, coba lagi. / Could not send the report. Try again.')
+      setSubmitError(mapSubmitError(err))
     } finally {
       submittingRef.current = false
       setSubmitting(false)
@@ -143,8 +167,10 @@ export default function ReportForm() {
   function handleReportAnother() {
     setForm({ ...emptyForm, tanggal_waktu: new Date().toISOString().slice(0, 16) })
     setPhotos([])
+    setHoneypot('')
     setSubmitted(false)
     setOfflineQueued(false)
+    mountedAtRef.current = Date.now()
   }
 
   if (submitted) {
@@ -186,7 +212,29 @@ export default function ReportForm() {
           subtitleEn="Report an unsafe condition or act in a few minutes."
         />
 
-        <form onSubmit={handleSubmit} className="card space-y-6 p-6">
+        <form onSubmit={handleSubmit} className="card relative space-y-6 p-6">
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: '-10000px',
+              top: 'auto',
+              width: '1px',
+              height: '1px',
+              overflow: 'hidden',
+            }}
+          >
+            <label htmlFor="company_website">Company website</label>
+            <input
+              id="company_website"
+              name="company_website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
           <Section title="Informasi Pelapor" titleEn="Reporter information">
             <Field label="Nama perusahaan" labelEn="Company name" required>
               <select

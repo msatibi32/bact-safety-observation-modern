@@ -69,8 +69,8 @@ export default function AdminUsers() {
   }
 
   async function handleReset(id) {
-    if (resetPassword.length < 8) {
-      setError('New password must be at least 8 characters.')
+    if (resetPassword.length < 12) {
+      setError('New password must be at least 12 characters.')
       return
     }
     setError('')
@@ -159,11 +159,11 @@ export default function AdminUsers() {
             <input
               type="text"
               required
-              minLength={8}
+              minLength={12}
               value={form.password}
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               className="admin-input"
-              placeholder="At least 8 characters"
+              placeholder="At least 12 characters"
             />
           </label>
           <label className="block">
@@ -293,7 +293,8 @@ export default function AdminUsers() {
                     value={resetPassword}
                     onChange={(e) => setResetPassword(e.target.value)}
                     className="admin-input"
-                    placeholder="At least 8 characters"
+                    minLength={12}
+                    placeholder="At least 12 characters"
                   />
                 </label>
                 <button

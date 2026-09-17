@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  build: { sourcemap: false },
   plugins: [
     react(),
     tailwindcss(),
@@ -28,8 +29,8 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'supabase-api', networkTimeoutSeconds: 10 },
+            handler: 'NetworkOnly',
+            options: { cacheName: 'supabase-api' },
           },
         ],
       },

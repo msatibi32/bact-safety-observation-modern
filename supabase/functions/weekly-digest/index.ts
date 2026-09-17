@@ -1,21 +1,60 @@
-// Supabase Edge Function — ringkasan mingguan HSE via email
-// Deploy: supabase functions deploy weekly-digest
-// Jadwalkan: Supabase Dashboard → Database → Cron (pg_cron) atau external cron hit URL
+// Ringkasan mingguan HSE via email.
+// Auth: header x-cron-secret = CRON_SECRET, atau JWT Super Admin.
+// Deploy cron: supabase functions deploy weekly-digest --no-verify-jwt
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const NOTIFY_EMAIL_TO = Deno.env.get('NOTIFY_EMAIL_TO') || ''
 const NOTIFY_EMAIL_FROM = Deno.env.get('NOTIFY_EMAIL_FROM') || 'BACT SOC <onboarding@resend.dev>'
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-Deno.serve(async () => {
-  if (!RESEND_API_KEY) {
-    return new Response(JSON.stringify({ ok: false, error: 'Missing RESEND_API_KEY' }), { status: 500 })
+function jsonResponse(req: Request, body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+  })
+}
+
+function roleOf(user: { app_metadata?: Record<string, unknown>; user_metadata?: Record<string, unknown> } | null) {
+  return String(user?.app_metadata?.role || user?.user_metadata?.role || '')
+}
+
+function isSuperAdminRole(role: string) {
+  return role === 'admin' || role === 'super_admin'
+}
+
+function cronSecretOk(req: Request) {
+  if (!CRON_SECRET) return false
+  const provided = req.headers.get('x-cron-secret') || ''
+  return provided === CRON_SECRET
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders(req) })
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  if (!cronSecretOk(req)) {
+    const authHeader = req.headers.get('Authorization') || ''
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    if (!token) return jsonResponse(req, { ok: false, error: 'Unauthorized' }, 401)
+    const { data, error } = await supabase.auth.getUser(token)
+    if (error || !data.user || !isSuperAdminRole(roleOf(data.user))) {
+      return jsonResponse(req, { ok: false, error: 'Unauthorized' }, 401)
+    }
+  }
+
+  if (!RESEND_API_KEY) {
+    return jsonResponse(req, { ok: false, error: 'Missing RESEND_API_KEY' }, 500)
+  }
 
   const { data: recipientRows } = await supabase
     .from('notification_recipients')
@@ -26,7 +65,7 @@ Deno.serve(async () => {
   if (NOTIFY_EMAIL_TO && !recipients.includes(NOTIFY_EMAIL_TO)) recipients.push(NOTIFY_EMAIL_TO)
 
   if (recipients.length === 0) {
-    return new Response(JSON.stringify({ ok: false, error: 'Tidak ada email penerima aktif' }), { status: 400 })
+    return jsonResponse(req, { ok: false, error: 'Tidak ada email penerima aktif' }, 400)
   }
   const weekAgo = new Date()
   weekAgo.setDate(weekAgo.getDate() - 7)
@@ -37,7 +76,7 @@ Deno.serve(async () => {
     .gte('created_at', weekAgo.toISOString())
 
   if (error) {
-    return new Response(JSON.stringify({ ok: false, error: error.message }), { status: 500 })
+    return jsonResponse(req, { ok: false, error: error.message }, 500)
   }
 
   const total = rows?.length || 0
@@ -75,8 +114,5 @@ Deno.serve(async () => {
   }
 
   const ok = sentTo.length > 0
-  return new Response(JSON.stringify({ ok, total, hipo, open, sentTo, failed }), {
-    status: ok ? 200 : 500,
-    headers: { 'Content-Type': 'application/json' },
-  })
+  return jsonResponse(req, { ok, total, hipo, open, sentTo, failed }, ok ? 200 : 500)
 })

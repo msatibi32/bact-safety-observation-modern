@@ -447,7 +447,7 @@ function pickDueDate(capas) {
   return dates.length ? formatSocCaseDate(dates[0]) : '—'
 }
 
-/** Latest N SOC rows by observation date — for the Analytics Top 10 table. */
+/** Latest N SOC rows by observation date — for the Analytics Top 10 list. */
 export function latestSocCases(observations, capaList = [], limit = 10) {
   const capaMap = capaByObservation(capaList)
   return [...(observations || [])]
@@ -464,6 +464,7 @@ export function latestSocCases(observations, capaList = [], limit = 10) {
         riskLevel: isUnclassifiedObservation(obs) ? 'Unclassified' : obs.tingkat_risiko || 'Unclassified',
         actionBy: pickActionBy(obs, capas),
         dueDate: pickDueDate(capas),
+        isHipo: Boolean(obs.is_hipo),
       }
     })
 }
