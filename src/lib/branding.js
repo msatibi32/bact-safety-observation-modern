@@ -11,14 +11,14 @@ export const BRANDING = {
   pdfClosingLine:
     'Demikian laporan observasi keselamatan ini dibuat untuk ditindaklanjuti sesuai prosedur HSSE Batu Ampar Container Terminal.',
 
-  // Logo huruf putih — header web, form, PPT (latar gelap)
-  logoSrc: '/logo/BACT Logo_OG White Text.png',
-  logoCompactSrc: '/logo/BACT Logo_OG White Text.png',
-  // Logo huruf hitam — PDF notice di dashboard (kertas putih)
+  // Logo web ringan (hasil resize) — header form & admin
+  logoSrc: '/logo/web-white.png',
+  logoCompactSrc: '/logo/web-white.png',
+  // Logo huruf hitam — PDF notice (tetap file asli agar tajam di kertas)
   logoPdfSrc: '/logo/BACT Logo_OG Black Text.png',
   logoAlt: 'Logo PT. BACT Batu Ampar Container Terminal',
 
-  faviconSrc: '/logo/favicon.png',
+  faviconSrc: '/logo/favicon-32.png',
 
   // URL publik form pelapor — untuk QR code (permanent selama URL ini tidak berubah)
   publicUrl:

@@ -19,7 +19,6 @@ import ImportHistoricalPanel from '../components/admin/ImportHistoricalPanel'
 import PeriodReportPanel from '../components/admin/PeriodReportPanel'
 import Top10SocCasesPanel from '../components/admin/Top10SocCasesPanel'
 import { avgDaysToClose, countOverdueCapa } from '../lib/export'
-import { exportSocFlowchartPdf } from '../lib/pdfFlowchart'
 import { canViewHsePerformance } from '../lib/roles'
 import { getAllAuditLogs, getAllCapa, getKpiTargets, getObservations } from '../lib/store'
 import { useChartTheme } from '../lib/theme'
@@ -135,7 +134,7 @@ export default function AdminSummary() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => exportSocFlowchartPdf()}
+            onClick={() => import('../lib/pdfFlowchart').then((m) => m.exportSocFlowchartPdf())}
             className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-medium text-slate-300 hover:border-brand-500 hover:text-brand-400"
           >
             Download Flowchart

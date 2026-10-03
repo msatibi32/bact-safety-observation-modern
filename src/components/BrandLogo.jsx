@@ -30,6 +30,9 @@ export default function BrandLogo({ size = 'md', compact = false, className = ''
       <img
         src={src}
         alt={BRANDING.logoAlt}
+        width={size === 'sm' ? 100 : 220}
+        height={size === 'sm' ? 28 : 48}
+        decoding="async"
         onError={() => setFailed(true)}
         className={`${dim.img} w-auto object-contain`}
       />

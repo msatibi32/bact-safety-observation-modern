@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { HiPoBadge, RiskBadge, StatusBadge } from './Badge'
 import InvestigationForm from './InvestigationForm'
 import RecommendationPanel from './RecommendationPanel'
@@ -17,12 +17,13 @@ import {
   investigationPlainSummary,
   parseInvestigationData,
 } from '../lib/investigation'
-import PdfReviewModal from './PdfReviewModal'
 import { buildNoticeActions } from '../lib/pdfNarrative'
 import { buildPdfSubject, normalizeActionChecks } from '../lib/pdfMeta'
 import { canClassifyObservations, canEditObservations } from '../lib/roles'
 import { resolveSocNumber } from '../lib/socNumber'
 import { useUser } from './RequireRole'
+
+const PdfReviewModal = lazy(() => import('./PdfReviewModal'))
 
 const TABS = ['Detail', 'Investigation', 'Recommendation']
 
@@ -530,13 +531,15 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
       </div>
       </div>
       {pdfReview && (
-        <PdfReviewModal
-          key={`${observation.id}-${pdfReview}`}
-          kind={pdfReview}
-          observation={pdfObservation}
-          onClose={() => setPdfReview(null)}
-          canDownload
-        />
+        <Suspense fallback={null}>
+          <PdfReviewModal
+            key={`${observation.id}-${pdfReview}`}
+            kind={pdfReview}
+            observation={pdfObservation}
+            onClose={() => setPdfReview(null)}
+            canDownload
+          />
+        </Suspense>
       )}
     </>
   )
