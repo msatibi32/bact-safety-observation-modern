@@ -101,9 +101,18 @@ export default function ReportForm() {
   }
 
   function mapSubmitError(err) {
-    const msg = String(err?.message || '')
+    const msg = String(err?.message || '').trim()
     if (/terlalu banyak laporan|too many|rate/i.test(msg)) {
       return 'Terlalu banyak laporan dalam waktu singkat. Coba lagi sebentar. / Too many reports just now. Please wait a moment.'
+    }
+    if (/row-level security|RLS|permission|not allowed|unauthorized|jwt/i.test(msg)) {
+      return 'Server menolak penyimpanan laporan. Coba lagi, atau kirim tanpa foto dulu. / Server rejected the report. Try again, or send without a photo first.'
+    }
+    if (/storage|bucket|mime|payload|file|upload|object/i.test(msg)) {
+      return `Gagal unggah foto. Pakai JPG/PNG di bawah 10 MB, atau kirim dulu tanpa foto. / Photo upload failed. Use JPG/PNG under 10 MB, or send without a photo. ${msg}`
+    }
+    if (msg) {
+      return `Gagal mengirim laporan. / Could not send the report. ${msg}`
     }
     return 'Gagal mengirim laporan, coba lagi. / Could not send the report. Try again.'
   }
