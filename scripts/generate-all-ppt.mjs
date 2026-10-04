@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 const dir = path.dirname(fileURLToPath(import.meta.url))
 const files = [
   'generate-hse-presentation.mjs',
+  'generate-timeline-presentation.mjs',
   'generate-hosting-proposal.mjs',
   'generate-flow-presentation.mjs',
   'generate-usage-form.mjs',

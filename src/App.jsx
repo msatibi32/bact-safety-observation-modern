@@ -7,12 +7,18 @@ import ReportForm from './pages/ReportForm'
 const AdminActivity = lazy(() => import('./pages/AdminActivity'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const AdminPermits = lazy(() => import('./pages/AdminPermits'))
 const AdminSettings = lazy(() => import('./pages/AdminSettings'))
 const AdminSummary = lazy(() => import('./pages/AdminSummary'))
 const AdminUsers = lazy(() => import('./pages/AdminUsers'))
+const AdminVisits = lazy(() => import('./pages/AdminVisits'))
 const CookiePolicy = lazy(() => import('./pages/CookiePolicy'))
+const FollowUpForm = lazy(() => import('./pages/FollowUpForm'))
+const PassPage = lazy(() => import('./pages/PassPage'))
+const PermitForm = lazy(() => import('./pages/PermitForm'))
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'))
 const QrPoster = lazy(() => import('./pages/QrPoster'))
+const VisitForm = lazy(() => import('./pages/VisitForm'))
 
 function AdminFallback() {
   return (
@@ -35,6 +41,38 @@ export default function App() {
     <>
       <Routes>
         <Route path="/" element={<ReportForm />} />
+        <Route
+          path="/ptw"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <PermitForm />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/visit"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <VisitForm />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/pass/:kind/:token"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <PassPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/follow-up/:token"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <FollowUpForm />
+            </Suspense>
+          }
+        />
         <Route
           path="/privacy"
           element={
@@ -73,6 +111,26 @@ export default function App() {
             <RequireRole minRole="viewer">
               <Suspense fallback={<AdminFallback />}>
                 <AdminDashboard />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/ptw"
+          element={
+            <RequireRole minRole="viewer">
+              <Suspense fallback={<AdminFallback />}>
+                <AdminPermits />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/visit"
+          element={
+            <RequireRole minRole="viewer">
+              <Suspense fallback={<AdminFallback />}>
+                <AdminVisits />
               </Suspense>
             </RequireRole>
           }

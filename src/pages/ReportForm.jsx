@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import BrandHeader from '../components/BrandHeader'
+import PublicModuleNav from '../components/PublicModuleNav'
 import SiteFooter from '../components/SiteFooter'
 import EmployeeNameField from '../components/EmployeeNameField'
 import { CameraIcon, CheckCircleIcon } from '../components/Icon'
@@ -184,7 +185,9 @@ export default function ReportForm() {
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-brand-50 via-white to-white px-6">
+      <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white">
+        <PublicModuleNav />
+        <div className="flex items-center justify-center px-6 py-10">
         <div className="card flex w-full max-w-sm flex-col items-center gap-4 p-8 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
             <CheckCircleIcon className="h-9 w-9" />
@@ -206,13 +209,15 @@ export default function ReportForm() {
             <span className="mt-0.5 block text-[11px] font-normal opacity-80">Submit another report</span>
           </button>
         </div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white pb-16">
-      <div className="mx-auto max-w-xl px-4 pt-10">
+      <PublicModuleNav />
+      <div className="mx-auto max-w-xl px-4 pt-8">
         <BrandHeader
           className="mb-6"
           title="Laporkan Observasi"

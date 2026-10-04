@@ -58,6 +58,13 @@ function toAppShape(row) {
     pdf_subject: row.pdf_subject || '',
     pdf_action_checks: Array.isArray(row.pdf_action_checks) ? row.pdf_action_checks : null,
     investigator_name: row.investigator_name || '',
+    followup_token: row.followup_token || '',
+    followup_email: row.followup_email || '',
+    followup_deadline: row.followup_deadline || '',
+    followup_action_plan: row.followup_action_plan || '',
+    followup_status: row.followup_status || '',
+    followup_overdue_reason: row.followup_overdue_reason || '',
+    followup_evidence: row.followup_evidence_urls || [],
   }
 }
 
@@ -293,6 +300,8 @@ export async function updateObservation(id, patch, previous) {
   if ('pdf_subject' in patch) dbPatch.pdf_subject = patch.pdf_subject || null
   if ('pdf_action_checks' in patch) dbPatch.pdf_action_checks = patch.pdf_action_checks ?? null
   if ('investigator_name' in patch) dbPatch.investigator_name = patch.investigator_name || null
+  if ('followup_token' in patch) dbPatch.followup_token = patch.followup_token || null
+  if ('followup_email' in patch) dbPatch.followup_email = patch.followup_email || null
   if ('is_hipo' in patch) dbPatch.is_hipo = patch.is_hipo
   if ('kategori' in patch) dbPatch.category = patch.kategori
   if ('tingkat_risiko' in patch) {
@@ -316,6 +325,12 @@ export async function updateObservation(id, patch, previous) {
   let row = null
   let error = null
   ;({ data: row, error } = await supabase.from('observations').update(dbPatch).eq('id', id).select().single())
+
+  if (error && /followup_/i.test(error.message || '')) {
+    throw new Error(
+      'Kolom follow-up belum ada. Jalankan supabase/schema-v13-followup-ptw-visit.sql di Supabase SQL Editor.',
+    )
+  }
 
   // Fallback jika kolom v8 belum ada di DB
   if (error && /column|schema|investigation_data|finding_observation|pdf_to|pdf_pic|pdf_subject|pdf_action_checks|requires_investigation|soc_number|investigator_name/i.test(error.message)) {

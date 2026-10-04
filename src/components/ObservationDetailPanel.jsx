@@ -20,6 +20,12 @@ import {
 import { buildNoticeActions } from '../lib/pdfNarrative'
 import { buildPdfSubject, normalizeActionChecks } from '../lib/pdfMeta'
 import { canClassifyObservations, canEditObservations } from '../lib/roles'
+import {
+  listDepartmentContacts,
+  queueFollowUpEmail,
+  randomToken,
+  upsertDepartmentContact,
+} from '../lib/passes'
 import { resolveSocNumber } from '../lib/socNumber'
 import { useUser } from './RequireRole'
 
@@ -34,6 +40,9 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   const pendingClass = isUnclassifiedObservation(observation)
   const [tab, setTab] = useState('Detail')
   const [pic, setPic] = useState(observation.pic_assigned || '')
+  const [followupEmail, setFollowupEmail] = useState(observation.followup_email || '')
+  const [contacts, setContacts] = useState([])
+  const [linkNote, setLinkNote] = useState('')
   const [status, setStatus] = useState(observation.status)
   const [kategori, setKategori] = useState(pendingClass ? '' : observation.kategori)
   const [risiko, setRisiko] = useState(pendingClass ? '' : observation.tingkat_risiko)
@@ -79,6 +88,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   useEffect(() => {
     const pending = isUnclassifiedObservation(observation)
     setPic(observation.pic_assigned || '')
+    setFollowupEmail(observation.followup_email || '')
     setStatus(observation.status)
     setKategori(pending ? '' : observation.kategori)
     setRisiko(pending ? '' : observation.tingkat_risiko)
@@ -97,11 +107,24 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
     setRecommendation(observation.rekomendasi || '')
   }, [observation])
 
+  useEffect(() => {
+    if (!canEdit) return
+    let cancelled = false
+    listDepartmentContacts()
+      .then((rows) => {
+        if (!cancelled) setContacts(rows)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [canEdit])
+
   async function persist(patchExtra = {}) {
     setError('')
     if (canClassify && (kategori ? !risiko : Boolean(risiko))) {
       setError('Set category and risk together.')
-      return
+      return false
     }
     setSaving(true)
     try {
@@ -142,8 +165,10 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
       await onSave(observation.id, patch)
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
+      return true
     } catch (err) {
       setError(err.message || 'Could not save.')
+      return false
     } finally {
       setSaving(false)
     }
@@ -152,6 +177,51 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   async function handleSubmit(e) {
     e.preventDefault()
     await persist()
+  }
+
+  function handleDepartmentChange(value) {
+    setPic(value)
+    const known = contacts.find((row) => row.department === value)
+    if (known) setFollowupEmail(known.email)
+  }
+
+  async function handleSendFollowUp() {
+    setLinkNote('')
+    const email = followupEmail.trim().toLowerCase()
+    if (!kategori || !risiko) {
+      setError('Set category and risk before sending the follow-up link.')
+      return
+    }
+    if (!pic) {
+      setError('Choose the follow-up department.')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Enter the department email that should receive the link.')
+      return
+    }
+    const token = observation.followup_token || randomToken()
+    const nextStatus = status === 'Closed' || status === 'Rejected' ? status : 'In Progress'
+    const savedOk = await persist({
+      followup_token: token,
+      followup_email: email,
+      status: nextStatus,
+    })
+    if (!savedOk) return
+    setSaving(true)
+    try {
+      try {
+        await upsertDepartmentContact(pic, email)
+      } catch {
+        /* directory is optional */
+      }
+      await queueFollowUpEmail(observation.id)
+      setLinkNote('Follow-up link sent to the department. They close the report from that link.')
+    } catch (err) {
+      setError(err.message || 'Could not send the follow-up link.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const pdfObservation = useMemo(
@@ -335,7 +405,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
 
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium text-slate-400">Follow-up department</span>
-                  <select value={pic} onChange={(e) => setPic(e.target.value)} className="admin-input">
+                  <select value={pic} onChange={(e) => handleDepartmentChange(e.target.value)} className="admin-input">
                     <option value="">— Not assigned —</option>
                     {DEPARTMENT_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
@@ -344,6 +414,46 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                     ))}
                   </select>
                 </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-400">Department email</span>
+                  <input
+                    type="email"
+                    value={followupEmail}
+                    onChange={(e) => setFollowupEmail(e.target.value)}
+                    className="admin-input"
+                    placeholder="it@example.com"
+                  />
+                  <span className="mt-1 block text-[10px] text-slate-500">
+                    The department gets a link, with no login, to set the deadline, action plan, photo evidence, and close the report.
+                  </span>
+                </label>
+
+                {observation.followup_token && (
+                  <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5 text-xs text-slate-300">
+                    <p className="font-medium text-slate-100">
+                      Department status: {observation.followup_status || 'Link sent'}
+                    </p>
+                    {observation.followup_deadline && <p className="mt-1">Deadline: {observation.followup_deadline}</p>}
+                    {observation.followup_action_plan && <p className="mt-1">{observation.followup_action_plan}</p>}
+                    {observation.followup_overdue_reason && (
+                      <p className="mt-1 text-amber-300">Past deadline: {observation.followup_overdue_reason}</p>
+                    )}
+                    <p className="mt-2 break-all font-mono text-[10px] text-slate-500">
+                      {`${window.location.origin}/follow-up/${observation.followup_token}`}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={saving || !canEdit}
+                  onClick={handleSendFollowUp}
+                  className="w-full rounded-xl border border-brand-500/40 px-4 py-2.5 text-sm font-medium text-brand-300 hover:bg-brand-500/10 disabled:opacity-50"
+                >
+                  {observation.followup_token ? 'Resend follow-up link' : 'Send follow-up link'}
+                </button>
+                {linkNote && <p className="text-xs text-emerald-300">{linkNote}</p>}
 
                 <label className="flex items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5">
                   <input
@@ -355,9 +465,9 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                   <span className="text-xs text-slate-300">
                     <span className="font-medium text-slate-100">Continue to investigation</span>
                     <span className="mt-0.5 block text-slate-500">
-                      Not every SOC needs an investigation. Check only if a full investigation report is required.
+                      Ordinary follow-up does not need an investigation. The assigned department closes the report from the link.
                       {suggestedInvestigate && !requiresInvestigation
-                        ? ' (HiPo/High — investigation recommended.)'
+                        ? ' Check this only when a full investigation report is still required.'
                         : ''}
                     </span>
                   </span>
@@ -435,13 +545,26 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
 
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium text-slate-400">Status workflow</span>
-                  <select value={status} onChange={(e) => setStatus(e.target.value)} className="admin-input">
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
+                  {observation.followup_token && observation.status === 'Closed' ? (
+                    <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                      Closed by the follow-up department. HSSE does not close this manually.
+                    </p>
+                  ) : (
+                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="admin-input">
+                      {(observation.followup_token ? STATUS_OPTIONS.filter((opt) => opt !== 'Closed') : STATUS_OPTIONS).map(
+                        (opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  )}
+                  {observation.followup_token && observation.status !== 'Closed' && (
+                    <span className="mt-1 block text-[10px] text-slate-500">
+                      Closure is done by the department on the follow-up link.
+                    </span>
+                  )}
                 </label>
 
                 <label className="block">

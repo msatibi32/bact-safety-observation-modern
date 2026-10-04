@@ -93,6 +93,9 @@ type Payload = {
   is_hipo?: boolean
   company?: string
   last_send?: unknown
+  department?: string
+  soc_number?: string
+  link?: string
   only_to?: string
   subject_override?: string
   catchup_note?: string
@@ -143,6 +146,22 @@ function humanizeBrevoError(raw: string, email: string) {
 }
 
 function buildMessage(type: string, p: Payload) {
+  if (type === 'followup_assign') {
+    return [
+      'Tindak lanjut SOC — BACT',
+      '',
+      `Departemen: ${p.department || '—'}`,
+      `Nomor: ${p.soc_number || '—'}`,
+      `Kategori: ${p.category || '—'}`,
+      `Risiko: ${p.risk_level || '—'}`,
+      `Lokasi: ${p.location || '—'}`,
+      '',
+      'Buka tautan ini untuk mengisi deadline, action plan, bukti foto, dan menutup laporan jika sudah selesai. Tidak perlu login.',
+      p.link || '',
+      '',
+      'Jika lewat deadline, isi alasannya. HSSE tidak menutup laporan ini secara manual.',
+    ].join('\n')
+  }
   const label = type === 'hipo_alert' || p.is_hipo ? 'HiPo Alert' : 'Laporan Baru'
   const lines = [
     `${label} — BACT SOC`,
@@ -457,7 +476,7 @@ Deno.serve(async (req) => {
     .from('notification_queue')
     .select('*')
     .eq('status', 'pending')
-    .in('type', ['new_report', 'hipo_alert'])
+    .in('type', ['new_report', 'hipo_alert', 'followup_assign'])
     .order('created_at', { ascending: true })
     .limit(20)
 
@@ -514,7 +533,8 @@ Deno.serve(async (req) => {
     }
 
     const emailResult = await sendEmailToAll(recipients, subject, html, text, fromAddress)
-    const waResult = await sendWhatsApp(text)
+    const waResult =
+      row.type === 'followup_assign' ? { ok: true, skipped: true } : await sendWhatsApp(text)
 
     const lastSend = {
       provider: emailResult.provider,
