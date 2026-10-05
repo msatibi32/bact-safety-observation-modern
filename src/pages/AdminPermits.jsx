@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import RequestDesk, { Fact } from '../components/admin/RequestDesk'
 import PermitDetails from '../components/ptw/PermitDetails'
+import PermitReviewModal from '../components/ptw/PermitReviewModal'
 import {
   approveWorkPermit,
   formatJakarta,
@@ -31,7 +33,10 @@ const FACETS = [
 ]
 
 export default function AdminPermits() {
+  const [review, setReview] = useState(null)
+
   return (
+    <>
     <RequestDesk
       eyebrow="Permit to Work"
       title="Work permits"
@@ -50,6 +55,15 @@ export default function AdminPermits() {
       approve={approveWorkPermit}
       reject={rejectWorkPermit}
       resendApproval={(id) => resendPassEmail('ptw', id)}
+      tools={(row, api) => (
+        <button
+          type="button"
+          onClick={() => setReview({ row, patchRow: api.patchRow })}
+          className="w-full rounded-xl border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-100 hover:border-brand-500"
+        >
+          Preview & edit PDF
+        </button>
+      )}
       exportRows={(rows) => ({
         headers: ['Ref', 'Lifetime', 'Type', 'Name', 'Company', 'Email', 'Phone', 'Department', 'Area', 'Work', 'Start', 'Valid until', 'Description'],
         rows: rows.map((row) => [
@@ -86,5 +100,21 @@ export default function AdminPermits() {
         </>
       )}
     />
+    {review && (
+      <PermitReviewModal
+        permit={review.row}
+        onClose={() => setReview(null)}
+        onSaved={(next) => {
+          const card = {
+            ...next,
+            heading: next.applicant_name,
+            sub: `${permitKindLabel(next.permit_kind)} · ${next.company} · ${next.area}`,
+          }
+          review.patchRow(card.id, card)
+          setReview((current) => (current ? { ...current, row: card } : current))
+        }}
+      />
+    )}
+    </>
   )
 }

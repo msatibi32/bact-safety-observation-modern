@@ -93,6 +93,7 @@ export default function RequestDesk({
   facets = EMPTY_FACETS,
   exportName = 'bact-requests',
   exportRows,
+  tools,
 }) {
   const user = useUser()
   const canDecide = canEditObservations(user)
@@ -217,6 +218,10 @@ export default function RequestDesk({
     const built = exportRows(filtered)
     const stamp = new Date().toISOString().slice(0, 10)
     downloadCsv(`${exportName}-${stamp}.csv`, built.headers, built.rows)
+  }
+
+  function patchRow(id, patch) {
+    setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)))
   }
 
   async function copyLink() {
@@ -455,6 +460,7 @@ export default function RequestDesk({
                   </div>
                 </div>
               )}
+              {typeof tools === 'function' && <div className="space-y-2">{tools(selected, { patchRow })}</div>}
               <dl className="space-y-2 text-sm">
                 <Fact label="Valid from" value={selected.valid_from ? formatJakarta(selected.valid_from) : 'Set on approval'} />
                 {renderFacts(selected)}

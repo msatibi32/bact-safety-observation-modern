@@ -188,6 +188,10 @@ export function approveWorkPermit(id) {
   return approveAndMail('approve_work_permit', id)
 }
 
+export function updateWorkPermitSheet(id, payload) {
+  return rpc('update_work_permit_sheet', { p_id: id, p: payload })
+}
+
 export function rejectWorkPermit(id, reason) {
   return rpc('reject_work_permit', { p_id: id, p_reason: reason })
 }

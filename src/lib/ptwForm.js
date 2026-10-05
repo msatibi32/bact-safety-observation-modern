@@ -84,16 +84,26 @@ export function emptyPermitSheet() {
     lotoLocation: '',
     gasTester: '',
     gasPosition: '',
+    gasSignature: '',
     readings: [emptyReading()],
     understand: false,
     inspected: false,
     commence: false,
     nominatedPerson: '',
     areaAuthority: '',
+    nominatedDate: '',
+    nominatedTime: '',
+    areaDate: '',
+    areaTime: '',
+    hsseName: '',
+    hsseDate: '',
+    hsseTime: '',
     people: ['', '', ''],
     deisolationStatus: '',
     deisolationAck: false,
     deisolationSigner: '',
+    deisolationDate: '',
+    deisolationTime: '',
   }
 }
 
@@ -150,6 +160,7 @@ export function buildPermitDetails(sheet) {
     details.gas = {
       tester_name: clip(sheet.gasTester, 120),
       position: clip(sheet.gasPosition, 80),
+      signature: clip(sheet.gasSignature, 120),
       readings: sheet.readings
         .map((row) => ({
           time: clip(row.time, 8),
@@ -168,6 +179,13 @@ export function buildPermitDetails(sheet) {
     commence: Boolean(sheet.commence),
     nominated_person: clip(sheet.nominatedPerson, 120),
     area_authority: clip(sheet.areaAuthority, 120),
+    nominated_date: clip(sheet.nominatedDate, 20),
+    nominated_time: clip(sheet.nominatedTime, 8),
+    area_date: clip(sheet.areaDate, 20),
+    area_time: clip(sheet.areaTime, 8),
+    hsse_name: clip(sheet.hsseName, 120),
+    hsse_date: clip(sheet.hsseDate, 20),
+    hsse_time: clip(sheet.hsseTime, 8),
   }
 
   if (open.has('7')) {
@@ -179,6 +197,8 @@ export function buildPermitDetails(sheet) {
       status: sheet.deisolationStatus === 'incomplete' ? 'incomplete' : sheet.deisolationStatus === 'complete' ? 'complete' : '',
       acknowledged: Boolean(sheet.deisolationAck),
       signer: clip(sheet.deisolationSigner, 120),
+      date: clip(sheet.deisolationDate, 20),
+      time: clip(sheet.deisolationTime, 8),
     }
   }
 
@@ -218,4 +238,124 @@ export function validatePermitSheet(sheet, workTypes) {
     if (!details.deisolation.acknowledged) return 'Centang pernyataan pembukaan isolasi.'
   }
   return ''
+}
+
+function asText(value) {
+  return String(value || '')
+}
+
+function asIds(value) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : []
+}
+
+export function toDatetimeLocal(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+export function editorFromPermit(row) {
+  const details = row?.details && typeof row.details === 'object' ? row.details : {}
+  const sheet = emptyPermitSheet()
+  const sections = new Set(Array.isArray(details.sections) ? details.sections : sheet.open)
+  if (details.isolation) sections.add('4')
+  if (details.gas) sections.add('5')
+  if (Array.isArray(details.people) && details.people.length) sections.add('7')
+  if (details.deisolation) sections.add('8')
+  sections.add('1')
+  sections.add('6')
+
+  const approvals = details.approvals || {}
+  const gas = details.gas || {}
+  const isolation = details.isolation || {}
+  const deisolation = details.deisolation || {}
+  const activities = Array.isArray(details.activities) && details.activities.length
+    ? details.activities.map((item) => ({
+        activity: asText(item?.activity),
+        tool: asText(item?.tool),
+        hazard: asText(item?.hazard),
+        action: asText(item?.action),
+      }))
+    : [emptyActivity()]
+  const readings = Array.isArray(gas.readings) && gas.readings.length
+    ? gas.readings.map((item) => ({
+        time: asText(item?.time),
+        lel: asText(item?.lel),
+        o2: asText(item?.o2),
+        toxic: asText(item?.toxic),
+      }))
+    : [emptyReading()]
+
+  return {
+    form: {
+      applicant_name: asText(row?.applicant_name),
+      company: asText(row?.company),
+      email: asText(row?.applicant_email),
+      phone: asText(row?.phone),
+      department: asText(row?.department),
+      permit_kind: row?.permit_kind === 'job_permit' ? 'job_permit' : 'e_permit',
+      area: asText(row?.area),
+      description: asText(row?.description),
+      start_at: toDatetimeLocal(row?.start_at),
+    },
+    types: Object.keys(WORK_TYPE_TONES).filter((type) => (row?.work_types || []).includes(type)),
+    sheet: {
+      ...sheet,
+      open: PTW_SECTIONS.map((section) => section.id).filter((id) => sections.has(id)),
+      hazards: asIds(details.hazards),
+      hazardOther: asText(details.hazard_other),
+      controls: asIds(details.controls),
+      jsaNo: asText(details.jsa_no),
+      controlOther: asText(details.control_other),
+      ppe: asIds(details.ppe),
+      activities,
+      mechanicalCert: asText(isolation.mechanical_cert),
+      electricalCert: asText(isolation.electrical_cert),
+      lotoLocation: asText(isolation.loto_location),
+      gasTester: asText(gas.tester_name),
+      gasPosition: asText(gas.position),
+      gasSignature: asText(gas.signature),
+      readings,
+      understand: Boolean(approvals.understand),
+      inspected: Boolean(approvals.inspected),
+      commence: Boolean(approvals.commence),
+      nominatedPerson: asText(approvals.nominated_person || row?.applicant_name),
+      areaAuthority: asText(approvals.area_authority),
+      nominatedDate: asText(approvals.nominated_date),
+      nominatedTime: asText(approvals.nominated_time),
+      areaDate: asText(approvals.area_date),
+      areaTime: asText(approvals.area_time),
+      hsseName: asText(approvals.hsse_name || (row?.status === 'Approved' ? row?.approved_by : '')),
+      hsseDate: asText(approvals.hsse_date),
+      hsseTime: asText(approvals.hsse_time),
+      people: Array.isArray(details.people) && details.people.length ? details.people.map(asText) : ['', '', ''],
+      deisolationStatus: deisolation.status === 'complete' || deisolation.status === 'incomplete' ? deisolation.status : '',
+      deisolationAck: Boolean(deisolation.acknowledged),
+      deisolationSigner: asText(deisolation.signer),
+      deisolationDate: asText(deisolation.date),
+      deisolationTime: asText(deisolation.time),
+    },
+  }
+}
+
+export function payloadFromEditor({ form, types, sheet }) {
+  const nominated = String(sheet.nominatedPerson || '').trim() || String(form.applicant_name || '').trim()
+  const ready = { ...sheet, nominatedPerson: nominated }
+  const details = buildPermitDetails(ready)
+  return {
+    applicant_name: form.applicant_name,
+    company: form.company,
+    email: form.email,
+    phone: form.phone,
+    department: form.department,
+    permit_kind: form.permit_kind,
+    area: form.area,
+    description: form.description,
+    start_at: new Date(form.start_at).toISOString(),
+    work_types: Object.keys(WORK_TYPE_TONES).filter((type) => types.includes(type)),
+    persons: (details.people || []).join(', '),
+    details,
+  }
 }
