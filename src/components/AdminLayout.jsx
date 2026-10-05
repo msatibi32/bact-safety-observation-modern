@@ -1,7 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { logout } from '../lib/auth'
 import { BRANDING } from '../lib/branding'
-import { canManageNotifications, canManageUsers, canViewActivityLog } from '../lib/roles'
+import { canManageNotifications, canManageUsers, canViewActivityLog, isSpvOnly } from '../lib/roles'
 import BrandLogo from './BrandLogo'
 import SiteFooter from './SiteFooter'
 import ThemeToggle from './ThemeToggle'
@@ -40,6 +40,8 @@ export default function AdminLayout({ children }) {
   const showActivity = canViewActivityLog(user)
   const showUsers = canManageUsers(user)
   const showNotifications = canManageNotifications(user)
+  const spvOnly = isSpvOnly(user)
+  const modules = spvOnly ? MODULES.filter((item) => item.id === 'ptw') : MODULES
 
   async function handleLogout() {
     await logout()
@@ -61,7 +63,7 @@ export default function AdminLayout({ children }) {
               </div>
             </div>
             <nav className="flex rounded-xl bg-slate-900 p-1" aria-label="Modul HSSE">
-              {MODULES.map((item) => {
+              {modules.map((item) => {
                 const active = module === item.id
                 return (
                 <NavLink
@@ -157,6 +159,11 @@ export default function AdminLayout({ children }) {
                 </NavLink>
               ) : null}
             </>
+          ) : spvOnly ? (
+            <NavLink to="/admin/ptw" className={navLinkClass}>
+              <ClipboardIcon className="h-5 w-5" />
+              PTW
+            </NavLink>
           ) : (
             <>
               <NavLink to="/admin" end className={navLinkClass}>

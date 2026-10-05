@@ -1,3 +1,4 @@
+import SignaturePad from '../SignaturePad'
 import { DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../../lib/constants'
 import { PERMIT_KINDS, WORK_TYPES } from '../../lib/passes'
 import {
@@ -8,6 +9,7 @@ import {
   WORK_TYPE_TONES,
   emptyActivity,
   emptyReading,
+  withSignature,
 } from '../../lib/ptwForm'
 
 export default function PermitEditor({
@@ -110,6 +112,9 @@ export default function PermitEditor({
             )
           })}
         </div>
+        <Line label="No. work order">
+          <input className="paper-input" value={sheet.workOrder || ''} onChange={(e) => onSheet({ workOrder: e.target.value })} />
+        </Line>
         <Line label="Detail pekerjaan">
           <textarea rows={3} className="paper-input" value={form.description} onChange={(e) => onForm('description', e.target.value)} />
         </Line>
@@ -179,7 +184,7 @@ export default function PermitEditor({
       )}
 
       {open.has('5') && (
-        <Block title="5. Tes gas">
+        <Block title="4. Tes gas">
           <div className="grid grid-cols-2 gap-2">
             <Line label="Nama gas tester">
               <input className="paper-input" value={sheet.gasTester} onChange={(e) => onSheet({ gasTester: e.target.value })} />
@@ -191,6 +196,7 @@ export default function PermitEditor({
           <Line label="Paraf / nama tanda tangan">
             <input className="paper-input" value={sheet.gasSignature} onChange={(e) => onSheet({ gasSignature: e.target.value })} />
           </Line>
+          <SignaturePad value={sheet.gasSign || ''} onChange={(data) => onSheet({ gasSign: data })} />
           {sheet.readings.map((row, index) => (
             <div key={index} className="grid grid-cols-4 gap-1.5">
               <Mini label="Waktu" type="time" value={row.time} onChange={(value) => patchRow('readings', index, 'time', value)} />
@@ -207,7 +213,7 @@ export default function PermitEditor({
         </Block>
       )}
 
-      <Block title="6. Persetujuan">
+      <Block title="5. Persetujuan">
         <CheckLine checked={sheet.understand} onChange={(checked) => onSheet({ understand: checked })}>
           Mengerti kondisi izin dan akan mengarahkan krew.
         </CheckLine>
@@ -224,13 +230,21 @@ export default function PermitEditor({
           <Mini label="Tanggal" value={sheet.nominatedDate} onChange={(value) => onSheet({ nominatedDate: value })} />
           <Mini label="Waktu" value={sheet.nominatedTime} onChange={(value) => onSheet({ nominatedTime: value })} />
         </div>
-        <Line label="Otoritas area">
+        <SignaturePad
+          value={sheet.nominatedSign || ''}
+          onChange={(data) => onSheet(withSignature(sheet, 'nominatedSign', 'nominatedDate', 'nominatedTime', data))}
+        />
+        <Line label="Otoritas area — HoD / MoD / Spv">
           <input className="paper-input" value={sheet.areaAuthority} onChange={(e) => onSheet({ areaAuthority: e.target.value })} />
         </Line>
         <div className="grid grid-cols-2 gap-2">
           <Mini label="Tanggal" value={sheet.areaDate} onChange={(value) => onSheet({ areaDate: value })} />
           <Mini label="Waktu" value={sheet.areaTime} onChange={(value) => onSheet({ areaTime: value })} />
         </div>
+        <SignaturePad
+          value={sheet.areaSign || ''}
+          onChange={(data) => onSheet(withSignature(sheet, 'areaSign', 'areaDate', 'areaTime', data))}
+        />
         <Line label="Permit Controller HSSE">
           <input className="paper-input" value={sheet.hsseName} onChange={(e) => onSheet({ hsseName: e.target.value })} />
         </Line>
@@ -238,25 +252,39 @@ export default function PermitEditor({
           <Mini label="Tanggal HSSE" value={sheet.hsseDate} onChange={(value) => onSheet({ hsseDate: value })} />
           <Mini label="Waktu HSSE" value={sheet.hsseTime} onChange={(value) => onSheet({ hsseTime: value })} />
         </div>
+        <p className="text-[11px] text-slate-400">HSSE tanda tangan di kotak ini, lalu simpan. Barcode yang discan menampilkan lembar ini.</p>
+        <SignaturePad
+          value={sheet.hsseSign || ''}
+          onChange={(data) => onSheet(withSignature(sheet, 'hsseSign', 'hsseDate', 'hsseTime', data))}
+        />
       </Block>
 
       {open.has('7') && (
-        <Block title="7. Personil">
-          <div className="grid grid-cols-2 gap-1.5">
+        <Block title="6. Personil">
+          <div className="space-y-1.5">
             {sheet.people.map((name, index) => (
-              <Mini
-                key={index}
-                label={`${index + 1}`}
-                value={name}
-                onChange={(value) => {
-                  const people = sheet.people.map((item, i) => (i === index ? value : item))
-                  onSheet({ people })
-                }}
-              />
+              <div key={index} className="grid grid-cols-[1fr_5rem] gap-1.5">
+                <Mini
+                  label={`${index + 1}`}
+                  value={name}
+                  onChange={(value) => {
+                    const people = sheet.people.map((item, i) => (i === index ? value : item))
+                    onSheet({ people })
+                  }}
+                />
+                <Mini
+                  label="Paraf"
+                  value={sheet.paraf?.[index] || ''}
+                  onChange={(value) => {
+                    const paraf = sheet.people.map((_, i) => (i === index ? value : (sheet.paraf?.[i] || '')))
+                    onSheet({ paraf })
+                  }}
+                />
+              </div>
             ))}
           </div>
           {sheet.people.length < 15 && (
-            <button type="button" className="text-xs font-medium text-brand-400" onClick={() => onSheet({ people: [...sheet.people, ''] })}>
+            <button type="button" className="text-xs font-medium text-brand-400" onClick={() => onSheet({ people: [...sheet.people, ''], paraf: [...(sheet.paraf || []), ''] })}>
               Tambah personil
             </button>
           )}
@@ -264,7 +292,7 @@ export default function PermitEditor({
       )}
 
       {open.has('8') && (
-        <Block title="8. Buka isolasi">
+        <Block title="7. Buka isolasi">
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => onSheet({ deisolationStatus: 'complete' })} className={`rounded-lg border px-2 py-2 text-xs ${sheet.deisolationStatus === 'complete' ? 'border-emerald-500 text-emerald-300' : 'border-slate-700'}`}>
               Selesai
@@ -283,6 +311,10 @@ export default function PermitEditor({
             <Mini label="Tanggal" value={sheet.deisolationDate} onChange={(value) => onSheet({ deisolationDate: value })} />
             <Mini label="Waktu" value={sheet.deisolationTime} onChange={(value) => onSheet({ deisolationTime: value })} />
           </div>
+          <SignaturePad
+            value={sheet.deisolationSign || ''}
+            onChange={(data) => onSheet(withSignature(sheet, 'deisolationSign', 'deisolationDate', 'deisolationTime', data))}
+          />
         </Block>
       )}
     </div>

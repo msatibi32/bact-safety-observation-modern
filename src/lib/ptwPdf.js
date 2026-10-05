@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { BRANDING } from './branding'
-import { CONTROLS, HAZARDS, PPE_ITEMS, buildPermitDetails } from './ptwForm'
+import { CONTROLS, HAZARDS, PPE_ITEMS, buildPermitDetails, editorFromPermit } from './ptwForm'
 
 const LOGO_PATH = BRANDING.logoPdfSrc || '/logo/BACT Logo_OG Black Text.png'
 const FALLBACK_LOGO_RATIO = 3.26
@@ -112,6 +112,37 @@ export function buildPtwPdfModel({ form, types, sheet, meta = {} }) {
   }
 }
 
+export function publicPassPdfModel(pass) {
+  const sheet = pass?.sheet
+  if (!sheet || pass.kind !== 'ptw' || pass.status !== 'Approved') return null
+  const edited = editorFromPermit({
+    applicant_name: pass.name,
+    company: pass.company,
+    phone: sheet.phone,
+    department: sheet.department,
+    permit_kind: sheet.permit_kind,
+    area: pass.area,
+    description: sheet.description,
+    start_at: sheet.start_at,
+    work_types: sheet.work_types,
+    details: sheet.details,
+    status: pass.status,
+    approved_by: pass.approved_by,
+    approved_at: sheet.approved_at,
+  })
+  return buildPtwPdfModel({
+    form: edited.form,
+    types: edited.types,
+    sheet: edited.sheet,
+    meta: {
+      refNo: pass.ref_no,
+      status: pass.status,
+      approvedBy: pass.approved_by,
+      approvedAt: sheet.approved_at,
+    },
+  })
+}
+
 function stroke(doc) {
   doc.setDrawColor(0)
   doc.setLineWidth(0.22)
@@ -145,6 +176,17 @@ function titleBar(doc, x, y, w, text) {
   doc.setTextColor(0)
   doc.text(text, x + 1.1, y + 2.55)
   return y + 3.8
+}
+
+function drawSign(doc, dataUrl, x, y, w, h) {
+  const raw = String(dataUrl || '')
+  const format = raw.startsWith('data:image/png') ? 'PNG' : raw.startsWith('data:image/jpeg') ? 'JPEG' : ''
+  if (!format) return
+  try {
+    doc.addImage(raw, format, x, y, w, h)
+  } catch {
+    // A bad image must not stop the rest of the sheet.
+  }
 }
 
 function drawBox(doc, x, y, size, on) {
@@ -261,7 +303,7 @@ function drawSection1(doc, model, y) {
     ['Time', stamp.time],
     ['Nama PIC', model.name],
     ['Phone', model.phone],
-    ['Company / Dept', [model.company, model.department].filter(Boolean).join(' · ')],
+    ['Company / Dept', [model.company, model.department, model.details.work_order ? `WO ${model.details.work_order}` : ''].filter(Boolean).join(' · ')],
   ]
   const rowH = (y + h - body) / rows.length
   rows.forEach((row, index) => {
@@ -431,13 +473,18 @@ function drawGas(doc, model, y) {
   const gas = model.details.gas || {}
   const readings = Array.from({ length: 4 }, (_, index) => gas.readings?.[index] || {})
   bandRect(doc, y, h)
-  const body = titleBar(doc, X, y, W, '5. GAS TESTING / TES GAS (Khusus Confine Space)')
+  const body = titleBar(doc, X, y, W, '4. GAS TESTING / TES GAS (Khusus Confine Space)')
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(5.2)
   doc.setTextColor(0)
   doc.text(`Certified Gas Tester:  ${gas.tester_name || '____________________'}`, X + 1.4, body + 3.2)
   doc.text(`Position:  ${gas.position || '______________'}`, X + 92, body + 3.2)
-  doc.text(`Signature:  ${gas.signature || '______________'}`, X + 142, body + 3.2)
+  if (gas.sign_image) {
+    doc.text('Signature:', X + 142, body + 3.2)
+    drawSign(doc, gas.sign_image, X + 158, body + 0.6, 28, 5.2)
+  } else {
+    doc.text(`Signature:  ${gas.signature || '______________'}`, X + 142, body + 3.2)
+  }
   const tableY = body + 4.4
   const cols = [40, 53, 53, 54]
   const heads = ['TIME', 'LEL %', 'O2 %', 'Toxic ppm']
@@ -492,12 +539,12 @@ function drawApprovals(doc, model, y) {
   const hsseDate = approvals.hsse_date || (model.status === 'Approved' ? approved.date : '')
   const hsseTime = approvals.hsse_time || (model.status === 'Approved' ? approved.time : '')
   const signs = [
-    ['Nominated Person / Orang yang dinominasikan', approvals.nominated_person, approvals.nominated_date, approvals.nominated_time],
-    ['Area Authority (HoD/MoD/Spv)', approvals.area_authority, approvals.area_date, approvals.area_time],
-    ['Permit Controller HSSE', hsseName, hsseDate, hsseTime],
+    ['Nominated Person / Orang yang dinominasikan', approvals.nominated_person, approvals.nominated_date, approvals.nominated_time, approvals.nominated_sign],
+    ['Area Authority (HoD/MoD/Spv)', approvals.area_authority, approvals.area_date, approvals.area_time, approvals.area_sign],
+    ['Permit Controller HSSE', hsseName, hsseDate, hsseTime, approvals.hsse_sign],
   ]
   bandRect(doc, y, h)
-  const body = titleBar(doc, X, y, W, '6. APPROVALS / PERSETUJUAN')
+  const body = titleBar(doc, X, y, W, '5. APPROVALS / PERSETUJUAN')
   const split = X + 118
   doc.line(split, body, split, y + h)
   const blockH = (y + h - body) / 3
@@ -524,7 +571,8 @@ function drawApprovals(doc, model, y) {
     doc.text(slot[0], split + 1.4, by + 2.5)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(6.5)
-    doc.text(oneLine(doc, slot[1] || '', W - (split - X) - 3), split + 1.4, by + 6)
+    doc.text(oneLine(doc, slot[1] || '', 48), split + 1.4, by + 6)
+    drawSign(doc, slot[4], split + 52, by + 3.1, 28, 5.4)
     doc.setFontSize(5)
     doc.setTextColor(40)
     doc.text(`Date: ${slot[2] || '__________'}`, split + 1.4, by + blockH - 1.5)
@@ -538,7 +586,7 @@ function drawPeople(doc, model, y) {
   const h = BAND.people
   const names = Array.from({ length: 15 }, (_, index) => model.details.people?.[index] || '')
   bandRect(doc, y, h)
-  const body = titleBar(doc, X, y, W, '7. PERSON INVOLVED / PERSONIL YANG TERLIBAT')
+  const body = titleBar(doc, X, y, W, '6. PERSON INVOLVED / PERSONIL YANG TERLIBAT')
   const colW = W / 3
   const headH = 3.6
   const rowH = (y + h - body - headH) / 5
@@ -560,6 +608,11 @@ function drawPeople(doc, model, y) {
       doc.text(String(number), cx + 1.2, ry + rowH * 0.68)
       doc.text(oneLine(doc, names[number - 1], colW - 22), cx + 7, ry + rowH * 0.68)
       doc.rect(cx + colW - 13, ry + 0.6, 10, Math.max(2.2, rowH - 1.3))
+      const paraf = model.details.paraf?.[number - 1] || ''
+      if (paraf) {
+        doc.setFontSize(5)
+        doc.text(oneLine(doc, paraf, 9), cx + colW - 12.4, ry + rowH * 0.68)
+      }
     }
   }
   doc.line(X, body + headH, X + W, body + headH)
@@ -572,7 +625,7 @@ function drawDeisolation(doc, model, y) {
   const complete = item.status === 'complete'
   const incomplete = item.status === 'incomplete'
   bandRect(doc, y, h)
-  const body = titleBar(doc, X, y, W, '8. REQUEST FOR DE-ISOLATION / PERMINTAAN MEMBUKA ISOLASI ENERGI (Khusus LOTO)')
+  const body = titleBar(doc, X, y, W, '7. REQUEST FOR DE-ISOLATION / PERMINTAAN MEMBUKA ISOLASI ENERGI (Khusus LOTO)')
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(5)
   doc.setTextColor(0)
@@ -588,6 +641,7 @@ function drawDeisolation(doc, model, y) {
   doc.text('Incomplete / Belum selesai', X + 45.2, body + 10.1)
   doc.setFontSize(5.2)
   doc.text(`Signature (Area Authority - Engineering):  ${item.signer || '____________________'}`, X + 1.4, body + 13.6)
+  drawSign(doc, item.sign_image, X + 98, body + 11.2, 26, 4.6)
   doc.text(`Date: ${item.date || '__________'}`, X + 130, body + 13.6)
   doc.text(`Time: ${item.time || '______'}`, X + 165, body + 13.6)
   return y + h

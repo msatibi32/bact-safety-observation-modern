@@ -3,13 +3,13 @@ export const PTW_SECTIONS = [
   { id: '2', no: '2', title: 'Pre job test', titleId: 'Tes sebelum bekerja', locked: false },
   { id: '3', no: '3', title: 'Job description', titleId: 'Aktivitas dan APD', locked: false },
   { id: '4', no: '4', title: 'Isolation type required', titleId: 'Isolasi yang dibutuhkan', hint: 'Jika diperlukan', locked: false },
-  { id: '5', no: '5', title: 'Gas testing', titleId: 'Tes gas', hint: 'Khusus confine space', locked: false },
-  { id: '6', no: '6', title: 'Approvals', titleId: 'Persetujuan', locked: true },
-  { id: '7', no: '7', title: 'Person involved', titleId: 'Personil yang terlibat', locked: false },
-  { id: '8', no: '8', title: 'Request for de-isolation', titleId: 'Membuka isolasi energi', hint: 'Khusus LOTO', locked: false },
+  { id: '5', no: '4', title: 'Gas testing', titleId: 'Tes gas', hint: 'Khusus confine space', locked: false },
+  { id: '6', no: '5', title: 'Approvals', titleId: 'Persetujuan', locked: true },
+  { id: '7', no: '6', title: 'Person involved', titleId: 'Personil yang terlibat', locked: false },
+  { id: '8', no: '7', title: 'Request for de-isolation', titleId: 'Membuka isolasi energi', hint: 'Khusus LOTO', locked: false },
 ]
 
-export const DEFAULT_OPEN_SECTIONS = ['1', '2', '3', '5', '6']
+export const DEFAULT_OPEN_SECTIONS = ['1', '2', '3', '4', '5', '6', '7', '8']
 
 export const WORK_TYPE_TONES = {
   'Hot Work': 'border-red-300 text-red-700 data-[on=true]:bg-red-50 data-[on=true]:ring-red-400',
@@ -93,22 +93,61 @@ export function emptyPermitSheet() {
     areaAuthority: '',
     nominatedDate: '',
     nominatedTime: '',
+    nominatedSign: '',
     areaDate: '',
     areaTime: '',
+    areaSign: '',
     hsseName: '',
     hsseDate: '',
     hsseTime: '',
-    people: ['', '', ''],
+    hsseSign: '',
+    people: ['', '', '', '', ''],
+    paraf: ['', '', '', '', ''],
     deisolationStatus: '',
     deisolationAck: false,
     deisolationSigner: '',
     deisolationDate: '',
     deisolationTime: '',
+    deisolationSign: '',
+    gasSign: '',
+    workOrder: '',
   }
+}
+
+export function jakartaStamp(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const get = (type) => parts.find((part) => part.type === type)?.value || ''
+  return { date: `${get('day')} ${get('month')} ${get('year')}`, time: `${get('hour')}:${get('minute')}` }
+}
+
+export function withSignature(sheet, signKey, dateKey, timeKey, data) {
+  const next = { [signKey]: data }
+  if (data && !String(sheet[dateKey] || '').trim()) {
+    const stamp = jakartaStamp()
+    next[dateKey] = stamp.date
+    next[timeKey] = stamp.time
+  }
+  return next
 }
 
 function clip(value, max) {
   return String(value || '').trim().slice(0, max)
+}
+
+function signImage(value) {
+  const raw = String(value || '')
+  if (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(raw)) return ''
+  if (raw.startsWith('data:image/png') && raw.length > 80000) return ''
+  if (raw.startsWith('data:image/jpeg') && raw.length > 12000) return ''
+  return raw
 }
 
 function picked(ids, catalog) {
@@ -126,6 +165,8 @@ export function buildPermitDetails(sheet) {
   open.add('1')
   open.add('6')
   const details = { sections: PTW_SECTIONS.map((section) => section.id).filter((id) => open.has(id)) }
+  const workOrder = clip(sheet.workOrder, 40)
+  if (workOrder) details.work_order = workOrder
 
   if (open.has('2')) {
     details.hazards = picked(sheet.hazards, HAZARDS)
@@ -157,10 +198,12 @@ export function buildPermitDetails(sheet) {
   }
 
   if (open.has('5')) {
+    const gasSign = signImage(sheet.gasSign)
     details.gas = {
       tester_name: clip(sheet.gasTester, 120),
       position: clip(sheet.gasPosition, 80),
       signature: clip(sheet.gasSignature, 120),
+      ...(gasSign ? { sign_image: gasSign } : {}),
       readings: sheet.readings
         .map((row) => ({
           time: clip(row.time, 8),
@@ -187,25 +230,41 @@ export function buildPermitDetails(sheet) {
     hsse_date: clip(sheet.hsseDate, 20),
     hsse_time: clip(sheet.hsseTime, 8),
   }
+  const nominatedSign = signImage(sheet.nominatedSign)
+  const areaSign = signImage(sheet.areaSign)
+  const hsseSign = signImage(sheet.hsseSign)
+  if (nominatedSign) details.approvals.nominated_sign = nominatedSign
+  if (areaSign) details.approvals.area_sign = areaSign
+  if (hsseSign) details.approvals.hsse_sign = hsseSign
 
   if (open.has('7')) {
-    details.people = sheet.people.map((name) => clip(name, 80)).filter(Boolean).slice(0, 15)
+    const rows = sheet.people
+      .map((name, index) => ({
+        name: clip(name, 80),
+        paraf: clip((sheet.paraf || [])[index], 24),
+      }))
+      .filter((row) => row.name)
+      .slice(0, 15)
+    details.people = rows.map((row) => row.name)
+    if (rows.some((row) => row.paraf)) details.paraf = rows.map((row) => row.paraf)
   }
 
   if (open.has('8')) {
+    const deisolationSign = signImage(sheet.deisolationSign)
     details.deisolation = {
       status: sheet.deisolationStatus === 'incomplete' ? 'incomplete' : sheet.deisolationStatus === 'complete' ? 'complete' : '',
       acknowledged: Boolean(sheet.deisolationAck),
       signer: clip(sheet.deisolationSigner, 120),
       date: clip(sheet.deisolationDate, 20),
       time: clip(sheet.deisolationTime, 8),
+      ...(deisolationSign ? { sign_image: deisolationSign } : {}),
     }
   }
 
   return details
 }
 
-export function validatePermitSheet(sheet, workTypes) {
+export function validatePermitSheet(sheet, workTypes, options = {}) {
   const details = buildPermitDetails(sheet)
   const open = new Set(details.sections)
   if (!details.approvals.understand || !details.approvals.inspected || !details.approvals.commence) {
@@ -214,6 +273,9 @@ export function validatePermitSheet(sheet, workTypes) {
   if (!details.approvals.nominated_person) {
     return 'Isi nama orang yang dinominasikan.'
   }
+  if (options.requireNominatedSign && !details.approvals.nominated_sign) {
+    return 'Gambar tanda tangan orang yang dinominasikan di kotak persetujuan.'
+  }
   if (open.has('2') && details.hazards.length === 0 && details.controls.length === 0) {
     return 'Centang minimal satu bahaya atau tindakan kontrol pada tes sebelum bekerja.'
   }
@@ -221,27 +283,35 @@ export function validatePermitSheet(sheet, workTypes) {
     if (!details.activities.length) return 'Isi minimal satu aktivitas pekerjaan.'
     if (!details.ppe.length) return 'Centang APD yang wajib dipakai.'
   }
-  if (open.has('4')) {
-    const iso = details.isolation
-    if (!iso.mechanical_cert && !iso.electrical_cert && !iso.loto_location) {
-      return 'Isi nomor sertifikat isolasi atau lokasi lock out, atau matikan bagian isolasi.'
-    }
-  }
-  if (open.has('5') && workTypes.includes('Confine Space') && !details.gas.tester_name) {
+  if (workTypes.includes('Confine Space') && !details.gas?.tester_name) {
     return 'Confine space wajib mengisi nama gas tester.'
   }
-  if (open.has('7') && !details.people.length) {
-    return 'Isi minimal satu nama personil, atau matikan bagian personil.'
-  }
-  if (open.has('8')) {
-    if (!details.deisolation.status) return 'Pilih pekerjaan selesai atau belum selesai.'
-    if (!details.deisolation.acknowledged) return 'Centang pernyataan pembukaan isolasi.'
+  if (workTypes.includes('Isolation Energy')) {
+    const iso = details.isolation || {}
+    if (!iso.mechanical_cert && !iso.electrical_cert && !iso.loto_location) {
+      return 'Isolation Energy wajib mengisi nomor sertifikat isolasi atau lokasi lock out.'
+    }
+    if (!details.deisolation?.status) return 'Isolation Energy wajib memilih pekerjaan selesai atau belum selesai.'
+    if (!details.deisolation?.acknowledged) return 'Centang pernyataan pembukaan isolasi.'
   }
   return ''
 }
 
 function asText(value) {
   return String(value || '')
+}
+
+function peopleState(details) {
+  const raw = Array.isArray(details.people) ? details.people : []
+  if (!raw.length) return { people: ['', '', '', '', ''], paraf: ['', '', '', '', ''] }
+  const people = raw.map((item) => (item && typeof item === 'object' ? asText(item.name) : asText(item)))
+  const stored = Array.isArray(details.paraf) ? details.paraf : []
+  const paraf = people.map((_, index) => {
+    if (stored[index] != null && stored[index] !== '') return asText(stored[index])
+    const item = raw[index]
+    return item && typeof item === 'object' ? asText(item.paraf) : ''
+  })
+  return { people, paraf }
 }
 
 function asIds(value) {
@@ -317,6 +387,7 @@ export function editorFromPermit(row) {
       gasTester: asText(gas.tester_name),
       gasPosition: asText(gas.position),
       gasSignature: asText(gas.signature),
+      gasSign: asText(gas.sign_image),
       readings,
       understand: Boolean(approvals.understand),
       inspected: Boolean(approvals.inspected),
@@ -325,17 +396,22 @@ export function editorFromPermit(row) {
       areaAuthority: asText(approvals.area_authority),
       nominatedDate: asText(approvals.nominated_date),
       nominatedTime: asText(approvals.nominated_time),
+      nominatedSign: asText(approvals.nominated_sign),
       areaDate: asText(approvals.area_date),
       areaTime: asText(approvals.area_time),
+      areaSign: asText(approvals.area_sign),
       hsseName: asText(approvals.hsse_name || (row?.status === 'Approved' ? row?.approved_by : '')),
       hsseDate: asText(approvals.hsse_date),
       hsseTime: asText(approvals.hsse_time),
-      people: Array.isArray(details.people) && details.people.length ? details.people.map(asText) : ['', '', ''],
+      hsseSign: asText(approvals.hsse_sign),
+      ...peopleState(details),
+      workOrder: asText(details.work_order),
       deisolationStatus: deisolation.status === 'complete' || deisolation.status === 'incomplete' ? deisolation.status : '',
       deisolationAck: Boolean(deisolation.acknowledged),
       deisolationSigner: asText(deisolation.signer),
       deisolationDate: asText(deisolation.date),
       deisolationTime: asText(deisolation.time),
+      deisolationSign: asText(deisolation.sign_image),
     },
   }
 }

@@ -188,6 +188,18 @@ export function approveWorkPermit(id) {
   return approveAndMail('approve_work_permit', id)
 }
 
+export function approveWorkPermitSpv(id) {
+  return approveAndMail('approve_work_permit_spv', id)
+}
+
+export function getMySignature() {
+  return rpc('get_staff_signature')
+}
+
+export function saveMySignature(image) {
+  return rpc('save_staff_signature', { p_image: image })
+}
+
 export function updateWorkPermitSheet(id, payload) {
   return rpc('update_work_permit_sheet', { p_id: id, p: payload })
 }
@@ -234,6 +246,7 @@ export function permitKindLabel(kind) {
 export function passPhase(row) {
   if (!row) return 'pending'
   if (row.status === 'Rejected') return 'rejected'
+  if (row.status === 'SpvApproved') return 'awaiting_hsse'
   if (row.status !== 'Approved') return 'pending'
   const now = Date.now()
   const until = row.valid_until ? new Date(row.valid_until).getTime() : NaN
@@ -244,7 +257,8 @@ export function passPhase(row) {
 }
 
 const PHASE_LABEL = {
-  pending: 'Pending',
+  pending: 'Pending SPV',
+  awaiting_hsse: 'Pending HSSE',
   scheduled: 'Scheduled',
   valid: 'Valid',
   expired: 'Expired',
@@ -266,7 +280,8 @@ export function expiringSoon(row) {
 
 export function remainingLabel(row) {
   const phase = passPhase(row)
-  if (phase === 'pending') return 'Waiting for HSSE'
+  if (phase === 'pending') return 'Waiting for SPV'
+  if (phase === 'awaiting_hsse') return 'Waiting for HSSE'
   if (phase === 'rejected') return 'Rejected'
   if (phase === 'scheduled') return `Starts ${formatJakarta(row.valid_from)}`
   if (!row?.valid_until) return '—'

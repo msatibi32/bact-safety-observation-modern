@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { canEditObservations } from '../../lib/roles'
+import { canApproveHsseStep, canApproveSpvStep } from '../../lib/roles'
 import { updateWorkPermitSheet } from '../../lib/passes'
 import { editorFromPermit, payloadFromEditor, validatePermitSheet } from '../../lib/ptwForm'
 import { buildPtwPdfModel, downloadPtwPdf, ptwPdfBlob } from '../../lib/ptwPdf'
@@ -9,7 +9,7 @@ import PtwPdfPreview from './PtwPdfPreview'
 
 export default function PermitReviewModal({ permit, onClose, onSaved }) {
   const user = useUser()
-  const canSave = canEditObservations(user)
+  const canSave = canApproveSpvStep(user) || canApproveHsseStep(user)
   const initial = useMemo(() => editorFromPermit(permit), [permit])
   const [form, setForm] = useState(initial.form)
   const [types, setTypes] = useState(initial.types)

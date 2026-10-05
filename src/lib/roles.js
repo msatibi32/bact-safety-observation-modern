@@ -2,6 +2,7 @@ export const ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
   HSE: 'hse',
+  SPV: 'spv',
   PIC: 'pic',
   VIEWER: 'viewer',
 }
@@ -10,12 +11,13 @@ export const ROLE_LABELS = {
   super_admin: 'Super Admin',
   admin: 'Super Admin',
   hse: 'HSE Officer',
+  spv: 'SPV / Area Authority',
   pic: 'PIC / Department',
   viewer: 'Viewer (view only)',
 }
 
 /** Hierarchy: higher index = more access. admin & super_admin = pantau semua. */
-const RANK = { viewer: 0, pic: 1, hse: 2, admin: 3, super_admin: 4 }
+const RANK = { viewer: 0, pic: 1, spv: 1, hse: 2, admin: 3, super_admin: 4 }
 
 export function getUserRole(user) {
   const role = user?.app_metadata?.role || user?.user_metadata?.role
@@ -40,6 +42,27 @@ export function isSuperAdmin(user) {
 
 export function canEditObservations(user) {
   return hasMinRole(user, ROLES.HSE)
+}
+
+/** Langkah 1 permit: hanya akun SPV, atau Super Admin jika SPV belum punya akun. */
+export function canApproveSpvStep(user) {
+  const role = getUserRole(user)
+  return role === ROLES.SPV || role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN
+}
+
+/** Langkah 2 permit: HSSE. Akun SPV tidak bisa melewati langkah ini. */
+export function canApproveHsseStep(user) {
+  const role = getUserRole(user)
+  return role === ROLES.HSE || role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN
+}
+
+export function canUploadStaffSignature(user) {
+  return canApproveSpvStep(user) || canApproveHsseStep(user)
+}
+
+/** Akun SPV hanya membuka dashboard PTW. */
+export function isSpvOnly(user) {
+  return getUserRole(user) === ROLES.SPV
 }
 
 export function canClassifyObservations(user) {
@@ -70,6 +93,7 @@ export function canManageUsers(user) {
 export const ASSIGNABLE_ROLES = [
   { value: 'super_admin', label: 'Super Admin' },
   { value: 'hse', label: 'HSE Officer' },
+  { value: 'spv', label: 'SPV / Area Authority' },
   { value: 'viewer', label: 'Viewer (view only)' },
 ]
 

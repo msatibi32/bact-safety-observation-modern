@@ -50,7 +50,7 @@ export default function PtwPdfPreview({ blob }) {
 
   return (
     <div ref={frameRef} className="flex h-full items-center justify-center overflow-hidden">
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <canvas ref={canvasRef} className="bg-white shadow-xl" />
       {pages > 1 ? (
         <p className="absolute bottom-4 right-4 rounded bg-red-600 px-2 py-1 text-xs text-white">{pages} halaman</p>

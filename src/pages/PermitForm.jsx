@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import PassCard from '../components/PassCard'
 import PublicModuleNav from '../components/PublicModuleNav'
+import SignaturePad from '../components/SignaturePad'
 import SiteFooter from '../components/SiteFooter'
 import { DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../lib/constants'
 import { passUrl, PERMIT_KINDS, submitWorkPermit, WORK_TYPES } from '../lib/passes'
@@ -16,6 +17,7 @@ import {
   WORK_TYPE_TONES,
   buildPermitDetails,
   validatePermitSheet,
+  withSignature,
 } from '../lib/ptwForm'
 
 const empty = {
@@ -97,7 +99,7 @@ export default function PermitForm() {
     }
     const nominated = sheet.nominatedPerson.trim() || form.applicant_name.trim()
     const ready = { ...sheet, nominatedPerson: nominated }
-    const invalid = validatePermitSheet(ready, types)
+    const invalid = validatePermitSheet(ready, types, { requireNominatedSign: true })
     if (invalid) {
       setError(invalid)
       return
@@ -142,7 +144,7 @@ export default function PermitForm() {
             }}
           />
           <p className="mt-4 max-w-md text-center text-sm text-slate-500">
-            Barcode juga dikirim ke {form.email}. Status berubah menjadi disetujui setelah HSSE menyetujui pengajuan.
+            Barcode juga dikirim ke {form.email}. Hitung mundur jalan setelah HSSE menyetujui. Lembar PDF muncul di halaman barcode setelah disetujui.
           </p>
         </div>
       </div>
@@ -156,7 +158,7 @@ export default function PermitForm() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">Permit to Work</p>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">Pengajuan izin kerja</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Bagian 1, 2, 3, 5, dan 6 langsung terbuka. Isolasi, personil, dan buka LOTO muncul hanya jika dicentang.
+          Semua bagian lembar FM.HSE.001 terbuka, sama seperti form kertas. Matikan bagian yang tidak dipakai, misalnya isolasi jika bukan LOTO.
         </p>
 
         <form onSubmit={handleSubmit} className="card mt-6 space-y-6 p-5 sm:p-6">
@@ -277,6 +279,9 @@ export default function PermitForm() {
                 })}
               </div>
             </fieldset>
+            <Field label="No. work order" hint="Opsional. Tercetak di baris perusahaan pada PDF.">
+              <input className="input" value={sheet.workOrder} onChange={(e) => patchSheet({ workOrder: e.target.value })} />
+            </Field>
             <Field label="Detail pekerjaan" hint="Work detail">
               <textarea required minLength={10} rows={3} className="input" value={form.description} onChange={(e) => update('description', e.target.value)} />
             </Field>
@@ -354,7 +359,7 @@ export default function PermitForm() {
           )}
 
           {open.has('5') && (
-            <Section n="5" title="Gas testing" titleId="Tes gas">
+            <Section n="4" title="Gas testing" titleId="Tes gas">
               <p className="text-xs text-slate-500">Khusus confine space. Untuk pekerjaan lain, bagian ini boleh dikosongkan atau dimatikan di menu.</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Nama gas tester bersertifikat" hint="Certified gas tester">
@@ -364,6 +369,9 @@ export default function PermitForm() {
                   <input className="input" value={sheet.gasPosition} onChange={(e) => patchSheet({ gasPosition: e.target.value })} />
                 </Field>
               </div>
+              <Field label="Tanda tangan gas tester" hint="Gambar di kotak. Kosongkan jika bukan confine space.">
+                <SignaturePad value={sheet.gasSign} onChange={(data) => patchSheet({ gasSign: data })} />
+              </Field>
               {sheet.readings.map((row, index) => (
                 <div key={index} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Mini label="Waktu" value={row.time} onChange={(value) => patchRow('readings', index, 'time', value)} type="time" />
@@ -380,7 +388,7 @@ export default function PermitForm() {
             </Section>
           )}
 
-          <Section n="6" title="Approvals" titleId="Persetujuan">
+          <Section n="5" title="Approvals" titleId="Persetujuan">
             <Statement checked={sheet.understand} onChange={(checked) => patchSheet({ understand: checked })}>
               Saya mengerti kondisi yang tertera di izin kerja ini dan akan mengarahkan krew yang bekerja.
             </Statement>
@@ -390,36 +398,42 @@ export default function PermitForm() {
             <Statement checked={sheet.commence} onChange={(checked) => patchSheet({ commence: checked })}>
               Saya mengetahui kondisi di atas telah sesuai sehingga pekerjaan boleh dimulai.
             </Statement>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Orang yang dinominasikan" hint="Nominated person">
-                <input
-                  className="input"
-                  placeholder={form.applicant_name || 'Nama'}
-                  value={sheet.nominatedPerson}
-                  onChange={(e) => patchSheet({ nominatedPerson: e.target.value })}
-                />
-              </Field>
-              <Field label="Otoritas area" hint="HoD / MoD / Spv — opsional">
-                <input className="input" value={sheet.areaAuthority} onChange={(e) => patchSheet({ areaAuthority: e.target.value })} />
-              </Field>
-            </div>
             <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-              Permit Controller HSSE diisi saat pengajuan disetujui di dashboard. Pemohon tidak menandatangani bagian HSSE.
+              Gambar tanda tangan dengan jari di kotak bawah. Kotak SPV dan HSSE dikosongkan di sini. Keduanya menempel dari foto tanda tangan yang sudah mereka simpan, setelah SPV menyetujui lebih dulu lalu HSSE.
             </p>
+            <SignBlock
+              title="Orang yang dinominasikan"
+              hint="Pengisi form — tanda tangan dengan jari"
+              name={sheet.nominatedPerson}
+              namePlaceholder={form.applicant_name || 'Nama'}
+              onName={(value) => patchSheet({ nominatedPerson: value })}
+              date={sheet.nominatedDate}
+              time={sheet.nominatedTime}
+              onDate={(value) => patchSheet({ nominatedDate: value })}
+              onTime={(value) => patchSheet({ nominatedTime: value })}
+              sign={sheet.nominatedSign}
+              onSign={(data) => setSheet((prev) => ({ ...prev, ...withSignature(prev, 'nominatedSign', 'nominatedDate', 'nominatedTime', data) }))}
+            />
           </Section>
 
           {open.has('7') && (
-            <Section n="7" title="Person involved" titleId="Personil yang terlibat">
-              <div className="grid gap-2 sm:grid-cols-2">
+            <Section n="6" title="Person involved" titleId="Personil yang terlibat">
+              <div className="space-y-2">
                 {sheet.people.map((name, index) => (
-                  <Mini key={index} label={`Nama ${index + 1}`} value={name} onChange={(value) => {
-                    const people = sheet.people.map((item, i) => (i === index ? value : item))
-                    patchSheet({ people })
-                  }} />
+                  <div key={index} className="grid grid-cols-[1fr_7rem] gap-2">
+                    <Mini label={`Nama ${index + 1}`} value={name} onChange={(value) => {
+                      const people = sheet.people.map((item, i) => (i === index ? value : item))
+                      patchSheet({ people })
+                    }} />
+                    <Mini label="Paraf" value={sheet.paraf?.[index] || ''} onChange={(value) => {
+                      const paraf = sheet.people.map((_, i) => (i === index ? value : (sheet.paraf?.[i] || '')))
+                      patchSheet({ paraf })
+                    }} />
+                  </div>
                 ))}
               </div>
               {sheet.people.length < 15 && (
-                <button type="button" onClick={() => patchSheet({ people: [...sheet.people, ''] })} className="text-sm font-medium text-brand-700">
+                <button type="button" onClick={() => patchSheet({ people: [...sheet.people, ''], paraf: [...(sheet.paraf || []), ''] })} className="text-sm font-medium text-brand-700">
                   Tambah personil
                 </button>
               )}
@@ -427,7 +441,7 @@ export default function PermitForm() {
           )}
 
           {open.has('8') && (
-            <Section n="8" title="Request for de-isolation" titleId="Permintaan membuka isolasi energi">
+            <Section n="7" title="Request for de-isolation" titleId="Permintaan membuka isolasi energi">
               <p className="text-xs text-slate-500">Khusus LOTO. Isi saat isolasi akan dibuka.</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Choice on={sheet.deisolationStatus === 'complete'} onClick={() => patchSheet({ deisolationStatus: 'complete' })} title="Selesai" hint="Complete" />
@@ -438,6 +452,16 @@ export default function PermitForm() {
               </Statement>
               <Field label="Area Authority — Engineering" hint="Nama penandatangan">
                 <input className="input" value={sheet.deisolationSigner} onChange={(e) => patchSheet({ deisolationSigner: e.target.value })} />
+              </Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Mini label="Tanggal" value={sheet.deisolationDate} onChange={(value) => patchSheet({ deisolationDate: value })} />
+                <Mini label="Waktu" value={sheet.deisolationTime} onChange={(value) => patchSheet({ deisolationTime: value })} />
+              </div>
+              <Field label="Tanda tangan engineering" hint="Gambar di kotak jika isolasi akan dibuka.">
+                <SignaturePad
+                  value={sheet.deisolationSign}
+                  onChange={(data) => setSheet((prev) => ({ ...prev, ...withSignature(prev, 'deisolationSign', 'deisolationDate', 'deisolationTime', data) }))}
+                />
               </Field>
             </Section>
           )}
@@ -519,6 +543,28 @@ function Mini({ label, value, onChange, type = 'text' }) {
       <span className="mb-1 block text-[11px] text-slate-500">{label}</span>
       <input type={type} className="input" value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
+  )
+}
+
+function SignBlock({ title, hint, name, namePlaceholder, onName, date, time, onDate, onTime, sign, onSign }) {
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 p-3">
+      <div>
+        <p className="text-sm font-medium text-slate-800">{title}</p>
+        {hint && <p className="text-[11px] text-slate-400">{hint}</p>}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
+        <label className="block">
+          <span className="mb-1 block text-[11px] text-slate-500">Nama</span>
+          <input className="input" placeholder={namePlaceholder} value={name} onChange={(e) => onName(e.target.value)} />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <Mini label="Tanggal" value={date} onChange={onDate} />
+          <Mini label="Waktu" value={time} onChange={onTime} />
+        </div>
+      </div>
+      <SignaturePad value={sign} onChange={onSign} />
+    </div>
   )
 }
 

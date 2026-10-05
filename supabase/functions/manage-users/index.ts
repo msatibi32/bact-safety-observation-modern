@@ -5,7 +5,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const ALLOWED_ROLES = new Set(['super_admin', 'admin', 'hse', 'pic', 'viewer'])
+const ALLOWED_ROLES = new Set(['super_admin', 'admin', 'hse', 'spv', 'pic', 'viewer'])
 
 function jsonResponse(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

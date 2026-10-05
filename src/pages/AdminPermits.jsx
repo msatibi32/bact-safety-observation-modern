@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import RequestDesk, { Fact } from '../components/admin/RequestDesk'
+import StaffSignatureCard from '../components/admin/StaffSignatureCard'
 import PermitDetails from '../components/ptw/PermitDetails'
 import PermitReviewModal from '../components/ptw/PermitReviewModal'
+import { canUploadStaffSignature } from '../lib/roles'
+import { useUser } from '../components/RequireRole'
 import {
   approveWorkPermit,
+  approveWorkPermitSpv,
   formatJakarta,
   listWorkPermits,
   permitKindLabel,
@@ -34,10 +38,12 @@ const FACETS = [
 
 export default function AdminPermits() {
   const [review, setReview] = useState(null)
+  const user = useUser()
 
   return (
     <>
     <RequestDesk
+      banner={canUploadStaffSignature(user) ? <StaffSignatureCard /> : null}
       eyebrow="Permit to Work"
       title="Work permits"
       description="Job Permit stays valid for 14 days after approval. E-Permit to Work stays valid for 12 hours. The barcode shows HSSE approval and the lifetime."
@@ -53,6 +59,7 @@ export default function AdminPermits() {
         }))
       }}
       approve={approveWorkPermit}
+      spvApprove={approveWorkPermitSpv}
       reject={rejectWorkPermit}
       resendApproval={(id) => resendPassEmail('ptw', id)}
       tools={(row, api) => (

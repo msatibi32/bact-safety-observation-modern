@@ -106,6 +106,8 @@ type Payload = {
   token?: string
   valid_from?: string
   valid_until?: string
+  area?: string
+  step?: string
 }
 
 function parseFromAddress(raw: string) {
@@ -189,6 +191,21 @@ function buildMessage(type: string, p: Payload) {
     const validity = validityLine(p)
     if (validity) lines.push('', validity)
     return lines.join('\n')
+  }
+  if (type === 'ptw_review') {
+    const hsse = p.step === 'hsse'
+    return [
+      hsse ? 'SPV sudah menyetujui permit. Giliran HSSE.' : 'Ada pengajuan permit baru. SPV meninjau lebih dulu.',
+      '',
+      `Nomor: ${p.ref_no || '—'}`,
+      `Nama: ${p.name || '—'}`,
+      `Area: ${p.area || '—'}`,
+      '',
+      hsse
+        ? 'Buka dashboard, tempel foto tanda tangan Anda, lalu setujui sebagai HSSE.'
+        : 'Buka dashboard, tempel foto tanda tangan Anda, lalu setujui sebagai SPV. HSSE baru bisa menyetujui setelah itu.',
+      p.link || '',
+    ].join('\n')
   }
   if (type === 'followup_assign') {
     return [
@@ -680,14 +697,12 @@ Deno.serve(async (req) => {
     .from('notification_queue')
     .select('*')
     .eq('status', 'pending')
-    .in('type', ['new_report', 'hipo_alert', 'followup_assign', 'pass_barcode', 'pass_approved'])
+    .in('type', ['new_report', 'hipo_alert', 'followup_assign', 'pass_barcode', 'pass_approved', 'ptw_review'])
     .order('created_at', { ascending: true })
     .limit(20)
 
-  if (queueId && !staffCaller && !serviceRole) {
-    pendingQuery = pendingQuery.eq('id', queueId).in('type', ['pass_barcode', 'pass_approved', 'followup_assign'])
-  } else if (queueId) {
-    pendingQuery = pendingQuery.eq('id', queueId)
+  if (queueId) {
+    pendingQuery = pendingQuery.or(`id.eq.${queueId},type.eq.ptw_review`)
   } else if (observationId) {
     pendingQuery = pendingQuery.filter('payload->>observation_id', 'eq', observationId)
   }
@@ -750,7 +765,7 @@ Deno.serve(async (req) => {
     }
 
     const emailResult = await sendEmailToAll(recipients, subject, html, text, fromAddress)
-    const directMail = row.type === 'followup_assign' || row.type === 'pass_barcode' || row.type === 'pass_approved'
+    const directMail = row.type === 'followup_assign' || row.type === 'pass_barcode' || row.type === 'pass_approved' || row.type === 'ptw_review'
     const waResult = directMail ? { ok: true, skipped: true } : await sendWhatsApp(text)
 
     const lastSend = {

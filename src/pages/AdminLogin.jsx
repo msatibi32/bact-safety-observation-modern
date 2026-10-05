@@ -4,6 +4,8 @@ import BrandHeader from '../components/BrandHeader'
 import SiteFooter from '../components/SiteFooter'
 import ThemeToggle from '../components/ThemeToggle'
 import { login, loginLockMessage } from '../lib/auth'
+import { isSpvOnly } from '../lib/roles'
+import { supabase } from '../lib/supabase'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
@@ -35,7 +37,8 @@ export default function AdminLogin() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/admin')
+      const { data } = await supabase.auth.getSession()
+      navigate(isSpvOnly(data.session?.user) ? '/admin/ptw' : '/admin')
     } catch {
       const wait = loginLockMessage()
       setLockLeft(wait)

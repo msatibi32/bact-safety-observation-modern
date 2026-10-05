@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import QRCode from 'react-qr-code'
 import AdminLayout from '../AdminLayout'
-import { canEditObservations } from '../../lib/roles'
+import { canApproveHsseStep, canApproveSpvStep, canEditObservations } from '../../lib/roles'
 import {
   downloadCsv,
   expiringSoon,
@@ -71,7 +71,7 @@ function haystack(row) {
 
 function matchesFilter(row, filter) {
   const phase = passPhase(row)
-  if (filter === 'pending') return phase === 'pending'
+  if (filter === 'pending') return phase === 'pending' || phase === 'awaiting_hsse'
   if (filter === 'valid') return phase === 'valid'
   if (filter === 'scheduled') return phase === 'scheduled'
   if (filter === 'expiring') return expiringSoon(row)
@@ -86,6 +86,7 @@ export default function RequestDesk({
   description,
   loader,
   approve,
+  spvApprove,
   reject,
   resendApproval,
   renderFacts,
@@ -94,9 +95,13 @@ export default function RequestDesk({
   exportName = 'bact-requests',
   exportRows,
   tools,
+  banner = null,
 }) {
   const user = useUser()
-  const canDecide = canEditObservations(user)
+  const canHsse = canEditObservations(user)
+  const canSpv = Boolean(spvApprove) && canApproveSpvStep(user)
+  const canHsseStep = Boolean(spvApprove) ? canApproveHsseStep(user) : canHsse
+  const canDecide = canHsse || canSpv
   const chart = useChartTheme()
   const detailRef = useRef(null)
   const [rows, setRows] = useState([])
@@ -134,7 +139,10 @@ export default function RequestDesk({
 
   const counts = useMemo(() => {
     return {
-      pending: rows.filter((row) => passPhase(row) === 'pending').length,
+      pending: rows.filter((row) => {
+        const phase = passPhase(row)
+        return phase === 'pending' || phase === 'awaiting_hsse'
+      }).length,
       valid: rows.filter((row) => passPhase(row) === 'valid').length,
       expiring: rows.filter((row) => expiringSoon(row)).length,
       expired: rows.filter((row) => passPhase(row) === 'expired').length,
@@ -183,13 +191,19 @@ export default function RequestDesk({
     setError('')
     setNote('')
     try {
-      const result = action === 'approve' ? await approve(selected.id) : await reject(selected.id, reason)
+      const result = action === 'spv'
+        ? await spvApprove(selected.id)
+        : action === 'approve'
+          ? await approve(selected.id)
+          : await reject(selected.id, reason)
       setReason('')
       await load(true)
       if (result?.email_warning) {
-        setError(`Approved, but the email did not arrive: ${result.email_warning}`)
+        setError(`Tersimpan, tetapi email belum terkirim: ${result.email_warning}`)
+      } else if (action === 'spv') {
+        setNote('SPV sudah menyetujui. HSSE baru bisa menyetujui setelah ini.')
       } else if (action === 'approve') {
-        setNote('Approved. The applicant was emailed. The active period is at the bottom of that email.')
+        setNote('HSSE sudah menyetujui. Pemohon menerima email, dan masa berlaku mulai dihitung.')
       }
     } catch (err) {
       setError(err.message || 'Could not update the request.')
@@ -264,6 +278,8 @@ export default function RequestDesk({
           </button>
         </div>
       </div>
+
+      {banner}
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Pending" value={counts.pending} tone="text-amber-200" active={filter === 'pending'} onClick={() => chooseFilter(filter === 'pending' ? 'all' : 'pending')} />
@@ -465,29 +481,39 @@ export default function RequestDesk({
                 <Fact label="Valid from" value={selected.valid_from ? formatJakarta(selected.valid_from) : 'Set on approval'} />
                 {renderFacts(selected)}
               </dl>
-              {selected.status === 'Pending' && canDecide && (
-                <div className="space-y-2 border-t border-slate-800 pt-3">
-                  <button type="button" disabled={busy} onClick={() => decide('approve')} className="btn-primary w-full">
-                    {busy ? 'Saving…' : 'Approve'}
-                  </button>
-                  <textarea
-                    rows={2}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="Rejection reason"
-                    className="admin-input"
-                  />
-                  <button
-                    type="button"
-                    disabled={busy || !reason.trim()}
-                    onClick={() => decide('reject')}
-                    className="w-full rounded-xl border border-red-500/40 px-4 py-2.5 text-sm font-medium text-red-300 disabled:opacity-40"
-                  >
-                    Reject
-                  </button>
-                </div>
+              {selected.status === 'Pending' && canDecide && !spvApprove && (
+                <Decision
+                  busy={busy}
+                  reason={reason}
+                  onReason={setReason}
+                  onApprove={() => decide('approve')}
+                  onReject={() => decide('reject')}
+                  approveLabel="Approve"
+                />
               )}
-              {selected.status !== 'Pending' && (
+              {spvApprove && selected.status === 'Pending' && canDecide && (
+                <Decision
+                  busy={busy}
+                  reason={reason}
+                  onReason={setReason}
+                  onApprove={canSpv ? () => decide('spv') : null}
+                  onReject={() => decide('reject')}
+                  approveLabel="SPV approve"
+                  hint={canSpv ? 'SPV dulu. HSSE baru bisa menyetujui setelah ini.' : 'Menunggu SPV. Tombol HSSE muncul setelah SPV menyetujui.'}
+                />
+              )}
+              {spvApprove && selected.status === 'SpvApproved' && (canHsseStep || canSpv) && (
+                <Decision
+                  busy={busy}
+                  reason={reason}
+                  onReason={setReason}
+                  onApprove={canHsseStep ? () => decide('approve') : null}
+                  onReject={canHsseStep ? () => decide('reject') : null}
+                  approveLabel="HSSE approve"
+                  hint={`SPV sudah setuju${selected.spv_approved_by ? `: ${selected.spv_approved_by}` : ''}.`}
+                />
+              )}
+              {selected.status !== 'Pending' && selected.status !== 'SpvApproved' && (
                 <div className="space-y-2 border-t border-slate-800 pt-3">
                   <p className="text-xs text-slate-400">
                     {selected.status}
@@ -507,6 +533,38 @@ export default function RequestDesk({
         </aside>
       </div>
     </AdminLayout>
+  )
+}
+
+function Decision({ busy, reason, onReason, onApprove, onReject, approveLabel, hint }) {
+  return (
+    <div className="space-y-2 border-t border-slate-800 pt-3">
+      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+      {onApprove && (
+        <button type="button" disabled={busy} onClick={onApprove} className="btn-primary w-full">
+          {busy ? 'Saving…' : approveLabel}
+        </button>
+      )}
+      {onReject && (
+        <>
+          <textarea
+            rows={2}
+            value={reason}
+            onChange={(e) => onReason(e.target.value)}
+            placeholder="Rejection reason"
+            className="admin-input"
+          />
+          <button
+            type="button"
+            disabled={busy || !reason.trim()}
+            onClick={onReject}
+            className="w-full rounded-xl border border-red-500/40 px-4 py-2.5 text-sm font-medium text-red-300 disabled:opacity-40"
+          >
+            Reject
+          </button>
+        </>
+      )}
+    </div>
   )
 }
 
