@@ -1,6 +1,5 @@
 import { PHOTO_BUCKET, supabase } from './supabase'
 import { photoStoragePath, validatePhotoFile } from './limits'
-import { triggerNotificationProcessingInBackground } from './store'
 
 export function randomToken() {
   const bytes = new Uint8Array(16)
@@ -55,12 +54,62 @@ export async function uploadEvidenceFiles(files) {
   return urls
 }
 
+function appOrigin() {
+  return typeof window !== 'undefined' ? window.location.origin : 'https://bact-safety-observation-modern.vercel.app'
+}
+
+export async function deliverQueuedMail({ observationId, queueId } = {}) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const { data, error } = await supabase.functions.invoke('process-notifications', {
+    body: {
+      ...(observationId ? { observation_id: observationId } : {}),
+      ...(queueId ? { queue_id: queueId } : {}),
+    },
+    ...(session?.access_token ? { headers: { Authorization: `Bearer ${session.access_token}` } } : {}),
+  })
+  if (error || data?.ok === false) {
+    let message = data?.error || error?.message || 'Email gagal dikirim.'
+    const ctx = error?.context
+    if (ctx && typeof ctx.json === 'function') {
+      try {
+        const json = await ctx.json()
+        if (json?.error) message = json.error
+        const failed = Array.isArray(json?.results) ? json.results.find((row) => row.error) : null
+        if (failed?.error) message = failed.error
+      } catch {
+        /* response body already read */
+      }
+    }
+    throw new Error(message)
+  }
+  const results = Array.isArray(data?.results) ? data.results : []
+  const failed = results.find((row) => row.sent === false || (row.error && !row.sent))
+  if (failed?.error) throw new Error(failed.error)
+  if (queueId && !results.some((row) => row.sent) && !data?.processed) {
+    throw new Error('Email masuk antrian, tetapi belum terkirim ke penerima.')
+  }
+  return data
+}
+
+async function submitAndMail(fn, payload) {
+  const issued = await rpc(fn, { p: { ...payload, app_url: appOrigin() } })
+  if (!issued?.queue_id) return issued
+  try {
+    await deliverQueuedMail({ queueId: issued.queue_id })
+    return { ...issued, email_sent: true }
+  } catch (err) {
+    return { ...issued, email_sent: false, email_error: err.message || 'Barcode belum terkirim ke email.' }
+  }
+}
+
 export function submitWorkPermit(payload) {
-  return rpc('submit_work_permit', { p: payload })
+  return submitAndMail('submit_work_permit', payload)
 }
 
 export function submitVisitRequest(payload) {
-  return rpc('submit_visit_request', { p: payload })
+  return submitAndMail('submit_visit_request', payload)
 }
 
 export function getPublicPass(kind, token) {
@@ -94,12 +143,12 @@ export async function upsertDepartmentContact(department, email) {
 }
 
 export async function queueFollowUpEmail(observationId) {
-  const id = await rpc('queue_followup_email', {
+  const queueId = await rpc('queue_followup_email', {
     p_id: observationId,
-    p_app_url: window.location.origin,
+    p_app_url: appOrigin(),
   })
-  triggerNotificationProcessingInBackground(observationId)
-  return id
+  await deliverQueuedMail({ observationId, queueId })
+  return queueId
 }
 
 export function listWorkPermits() {
@@ -124,8 +173,19 @@ export function listVisitRequests() {
     })
 }
 
+async function approveAndMail(fn, id) {
+  const result = await rpc(fn, { p_id: id })
+  if (!result?.queue_id) return result
+  try {
+    await deliverQueuedMail({ queueId: result.queue_id })
+    return result
+  } catch (err) {
+    return { ...result, email_warning: err.message || 'Email persetujuan belum terkirim.' }
+  }
+}
+
 export function approveWorkPermit(id) {
-  return rpc('approve_work_permit', { p_id: id })
+  return approveAndMail('approve_work_permit', id)
 }
 
 export function rejectWorkPermit(id, reason) {
@@ -133,7 +193,13 @@ export function rejectWorkPermit(id, reason) {
 }
 
 export function approveVisitRequest(id) {
-  return rpc('approve_visit_request', { p_id: id })
+  return approveAndMail('approve_visit_request', id)
+}
+
+export async function resendPassEmail(kind, id) {
+  const queueId = await rpc('resend_pass_email', { p_kind: kind, p_id: id })
+  if (!queueId) throw new Error('Pengajuan ini tidak punya email pemohon.')
+  await deliverQueuedMail({ queueId })
 }
 
 export function rejectVisitRequest(id, reason) {
@@ -159,4 +225,63 @@ export const WORK_TYPES = ['Hot Work', 'Cold Work', 'Confine Space', 'Isolation 
 
 export function permitKindLabel(kind) {
   return PERMIT_KINDS.find((k) => k.id === kind)?.title || kind
+}
+
+export function passPhase(row) {
+  if (!row) return 'pending'
+  if (row.status === 'Rejected') return 'rejected'
+  if (row.status !== 'Approved') return 'pending'
+  const now = Date.now()
+  const until = row.valid_until ? new Date(row.valid_until).getTime() : NaN
+  const from = row.valid_from ? new Date(row.valid_from).getTime() : NaN
+  if (!Number.isNaN(until) && now > until) return 'expired'
+  if (!Number.isNaN(from) && now < from) return 'scheduled'
+  return 'valid'
+}
+
+const PHASE_LABEL = {
+  pending: 'Pending',
+  scheduled: 'Scheduled',
+  valid: 'Valid',
+  expired: 'Expired',
+  rejected: 'Rejected',
+}
+
+export function phaseLabel(phase) {
+  return PHASE_LABEL[phase] || phase
+}
+
+export function expiringSoon(row) {
+  if (passPhase(row) !== 'valid') return false
+  if (!row?.valid_until) return false
+  const ms = new Date(row.valid_until).getTime() - Date.now()
+  if (ms <= 0) return false
+  const windowMs = row.permit_kind === 'e_permit' ? 2 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+  return ms <= windowMs
+}
+
+export function remainingLabel(row) {
+  const phase = passPhase(row)
+  if (phase === 'pending') return 'Waiting for HSSE'
+  if (phase === 'rejected') return 'Rejected'
+  if (phase === 'scheduled') return `Starts ${formatJakarta(row.valid_from)}`
+  if (!row?.valid_until) return '—'
+  const ms = new Date(row.valid_until).getTime() - Date.now()
+  const abs = Math.abs(ms)
+  const hours = Math.max(1, Math.round(abs / 36e5))
+  const days = Math.max(1, Math.round(abs / 864e5))
+  const span = abs < 36 * 36e5 ? `${hours} h` : `${days} d`
+  if (phase === 'expired') return `Expired ${span} ago`
+  return `${span} left`
+}
+
+export function downloadCsv(filename, headers, rows) {
+  const escape = (value) => `"${String(value ?? '').replace(/"/g, '""').replace(/\r\n|\n|\r/g, ' ')}"`
+  const csv = [headers, ...rows].map((line) => line.map(escape).join(';')).join('\r\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(link.href)
 }

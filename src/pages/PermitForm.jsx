@@ -9,6 +9,7 @@ import { passUrl, PERMIT_KINDS, submitWorkPermit, WORK_TYPES } from '../lib/pass
 const empty = {
   applicant_name: '',
   company: '',
+  email: '',
   phone: '',
   department: '',
   permit_kind: 'job_permit',
@@ -135,6 +136,9 @@ export default function PermitForm() {
               <input required className="input" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
             </Field>
           </div>
+          <Field label="Email" hint="Barcode and the approval notice are sent here">
+            <input required type="email" className="input" value={form.email} onChange={(e) => update('email', e.target.value)} />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Departemen" hint="Department">
               <select className="input" value={form.department} onChange={(e) => update('department', e.target.value)}>

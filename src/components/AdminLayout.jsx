@@ -129,31 +129,50 @@ export default function AdminLayout({ children }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-800/80 bg-slate-950/95 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-lg items-stretch gap-1 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
-          <NavLink to="/admin" end className={navLinkClass}>
-            <ClipboardIcon className="h-5 w-5" />
-            Dashboard
-          </NavLink>
-          <NavLink to="/admin/ringkasan" className={navLinkClass}>
-            <ChartIcon className="h-5 w-5" />
-            Analytics
-          </NavLink>
-          {showNotifications && (
-            <NavLink to="/admin/pengaturan" className={navLinkClass}>
-              <UsersIcon className="h-5 w-5" />
-              Alerts
-            </NavLink>
+          {module === 'soc' ? (
+            <>
+              <NavLink to="/admin" end className={navLinkClass}>
+                <ClipboardIcon className="h-5 w-5" />
+                Dashboard
+              </NavLink>
+              <NavLink to="/admin/ringkasan" className={navLinkClass}>
+                <ChartIcon className="h-5 w-5" />
+                Analytics
+              </NavLink>
+              {showNotifications && (
+                <NavLink to="/admin/pengaturan" className={navLinkClass}>
+                  <UsersIcon className="h-5 w-5" />
+                  Alerts
+                </NavLink>
+              )}
+              {showUsers ? (
+                <NavLink to="/admin/pengguna" className={navLinkClass}>
+                  <UsersIcon className="h-5 w-5" />
+                  Users
+                </NavLink>
+              ) : showActivity ? (
+                <NavLink to="/admin/aktivitas" className={navLinkClass}>
+                  <UsersIcon className="h-5 w-5" />
+                  Log
+                </NavLink>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <NavLink to="/admin" end className={navLinkClass}>
+                <ClipboardIcon className="h-5 w-5" />
+                SOC
+              </NavLink>
+              <NavLink to="/admin/ptw" className={navLinkClass}>
+                <ClipboardIcon className="h-5 w-5" />
+                PTW
+              </NavLink>
+              <NavLink to="/admin/visit" className={navLinkClass}>
+                <ClipboardIcon className="h-5 w-5" />
+                Visit
+              </NavLink>
+            </>
           )}
-          {showUsers ? (
-            <NavLink to="/admin/pengguna" className={navLinkClass}>
-              <UsersIcon className="h-5 w-5" />
-              Users
-            </NavLink>
-          ) : showActivity ? (
-            <NavLink to="/admin/aktivitas" className={navLinkClass}>
-              <UsersIcon className="h-5 w-5" />
-              Log
-            </NavLink>
-          ) : null}
           <button type="button" onClick={handleLogout} className="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-[10px] font-medium text-slate-500">
             <LogoutIcon className="h-5 w-5" />
             Out

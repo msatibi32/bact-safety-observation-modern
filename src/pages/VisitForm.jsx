@@ -9,6 +9,7 @@ import { passUrl, submitVisitRequest, uploadEvidenceFiles } from '../lib/passes'
 const empty = {
   visitor_name: '',
   company: '',
+  email: '',
   phone: '',
   purpose: '',
   visit_start: '',
@@ -124,6 +125,9 @@ export default function VisitForm() {
               <input required className="input" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
             </Field>
           </div>
+          <Field label="Email" hint="Barcode and the approval notice are sent here">
+            <input required type="email" className="input" value={form.email} onChange={(e) => update('email', e.target.value)} />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <FilePick label="KTP softcopy" hint="Foto KTP" file={ktp} onFile={(f) => takeFile(f, setKtp)} />
             <FilePick label="Paspor softcopy" hint="Wajib untuk pengunjung luar negeri" file={passport} onFile={(f) => takeFile(f, setPassport)} />
