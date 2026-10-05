@@ -1,8 +1,9 @@
 // Kirim notifikasi email dari notification_queue
 // Email penerima diambil dari tabel notification_recipients (kelola via dashboard admin)
 //
-// Product: pengirim = Resend dulu. Kalau Resend 403 / domain belum verified, fallback Brevo.
-// Jangan deploy Resend-only selama from masih onboarding@resend.dev.
+// Product: domain Resend yang sudah verified dipakai dulu.
+// Selama from masih onboarding@resend.dev, kirim lewat Brevo. Sandbox Resend
+// mengembalikan ID tetapi tidak sampai ke penerima di luar akun Resend.
 // Hostinger mailbox hanya untuk baca, bukan SMTP kirim.
 //
 // Secrets (Supabase → Edge Functions → Secrets):
@@ -99,6 +100,12 @@ type Payload = {
   only_to?: string
   subject_override?: string
   catchup_note?: string
+  ref_no?: string
+  kind_label?: string
+  name?: string
+  token?: string
+  valid_from?: string
+  valid_until?: string
 }
 
 function parseFromAddress(raw: string) {
@@ -145,7 +152,44 @@ function humanizeBrevoError(raw: string, email: string) {
   return `${email}: Brevo: ${text.slice(0, 280)}`
 }
 
+function formatJakarta(value?: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function validityLine(p: Payload) {
+  const from = formatJakarta(p.valid_from)
+  const until = formatJakarta(p.valid_until)
+  if (from && until) return `Masa aktif: ${from} – ${until} WIB`
+  if (until) return `Masa aktif sampai: ${until} WIB`
+  return ''
+}
+
 function buildMessage(type: string, p: Payload) {
+  if (type === 'pass_barcode' || type === 'pass_approved') {
+    const approved = type === 'pass_approved'
+    const lines = [
+      approved ? 'Pengajuan Anda sudah disetujui HSSE.' : 'Barcode pengajuan Anda.',
+      '',
+      `Nomor: ${p.ref_no || '—'}`,
+      `Jenis: ${p.kind_label || '—'}`,
+      `Nama: ${p.name || '—'}`,
+      '',
+      approved
+        ? 'Tunjukkan barcode ini di lokasi. Status dan masa aktif juga ada di tautan berikut.'
+        : 'Pengajuan masih menunggu persetujuan HSSE. Simpan barcode ini. Email berikutnya dikirim setelah disetujui.',
+      p.link || '',
+    ]
+    const validity = validityLine(p)
+    if (validity) lines.push('', validity)
+    return lines.join('\n')
+  }
   if (type === 'followup_assign') {
     return [
       'Tindak lanjut SOC — BACT',
@@ -297,6 +341,11 @@ async function sendViaResend(
   }
 }
 
+function isSandboxFrom(from: string) {
+  const domain = fromDomain(from).toLowerCase()
+  return domain === 'resend.dev' || domain.endsWith('.resend.dev')
+}
+
 async function sendEmailToOne(
   to: string,
   subject: string,
@@ -304,6 +353,19 @@ async function sendEmailToOne(
   text: string,
   from: string,
 ): Promise<SendResult> {
+  const sandbox = isSandboxFrom(from)
+  if (sandbox && BREVO_API_KEY) return sendViaBrevo(to, subject, html, text)
+  if (sandbox) {
+    return {
+      ok: false,
+      skipped: false,
+      provider: 'none',
+      from,
+      id: null,
+      error:
+        'Email tidak terkirim. Pengirim masih onboarding@resend.dev, jadi penerima di luar akun Resend tidak menerima. Pasang BREVO_API_KEY atau domain Resend yang sudah verified.',
+    }
+  }
   if (RESEND_API_KEY) {
     const resendResult = await sendViaResend(to, subject, html, text, from)
     if (resendResult.ok) return resendResult
@@ -344,10 +406,12 @@ async function sendEmailToAll(to: string[], subject: string, html: string, text:
   const ids: Record<string, string> = {}
   const failed: { email: string; error: string }[] = []
   let usedBrevoFallback = false
+  let actualFrom = from
   for (const email of to) {
     const result = await sendEmailToOne(email, subject, html, text, from)
     if (result.ok) {
       sentTo.push(email)
+      actualFrom = result.from
       if (result.id) ids[email] = result.id
       if (result.provider === 'brevo' && RESEND_API_KEY) usedBrevoFallback = true
     } else {
@@ -357,12 +421,150 @@ async function sendEmailToAll(to: string[], subject: string, html: string, text:
   return {
     skipped: false,
     provider: usedBrevoFallback ? 'brevo' : chosenProvider(),
-    from,
+    from: actualFrom,
     sentTo,
     ids,
     failed,
     usedBrevoFallback,
   }
+}
+
+function isServiceRole(req: Request) {
+  const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  const parts = token.split('.')
+  if (parts.length < 2) return false
+  try {
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload.role === 'service_role'
+  } catch {
+    return false
+  }
+}
+
+function passEmailHtml(type: string, p: Payload, imageUrl?: string) {
+  const approved = type === 'pass_approved'
+  const validity = validityLine(p)
+  const intro = approved
+    ? 'Pengajuan Anda sudah disetujui HSSE.'
+    : 'Ini barcode pengajuan Anda. Statusnya masih menunggu persetujuan HSSE.'
+  const image = imageUrl
+    ? `<p style="margin:20px 0"><img src="${escapeHtml(imageUrl)}" alt="Barcode" width="220" height="220" style="display:block" /></p>`
+    : ''
+  const footer = approved && validity
+    ? validity
+    : 'Masa aktif dikirim di email ini setelah HSSE menyetujui pengajuan.'
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;max-width:520px">
+    <p style="margin:0 0 12px">${escapeHtml(intro)}</p>
+    <p style="margin:0"><strong>${escapeHtml(p.ref_no || '')}</strong></p>
+    <p style="margin:4px 0;color:#334155">${escapeHtml(p.kind_label || '')}${p.name ? ` · ${escapeHtml(p.name)}` : ''}</p>
+    ${image}
+    <p style="margin:8px 0 0"><a href="${escapeHtml(p.link || '')}" style="color:#F37021">${escapeHtml(p.link || '')}</a></p>
+    <p style="margin:28px 0 0;padding-top:12px;border-top:1px solid #e6e8ec;text-align:right;font-size:13px;color:#334155">${escapeHtml(footer)}</p>
+  </div>`
+}
+
+function followUpEmailHtml(p: Payload) {
+  const link = p.link || ''
+  return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;max-width:520px">
+    <p>Tindak lanjut SOC untuk departemen <strong>${escapeHtml(p.department || '—')}</strong>.</p>
+    <p style="margin:4px 0">Nomor: ${escapeHtml(p.soc_number || '—')}</p>
+    <p style="margin:4px 0">Kategori: ${escapeHtml(p.category || '—')} · Risiko: ${escapeHtml(p.risk_level || '—')}</p>
+    <p style="margin:4px 0">Lokasi: ${escapeHtml(p.location || '—')}</p>
+    <p style="margin:20px 0">
+      <a href="${escapeHtml(link)}" style="background:#F37021;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;font-weight:bold">Buka form follow-up</a>
+    </p>
+    <p style="font-size:12px;color:#64748b">Tidak perlu login. Isi deadline, action plan, dan foto bukti. Jika sudah selesai, tutup laporan dari tautan yang sama.</p>
+    <p style="font-size:12px;color:#64748b">Jika tombol tidak terbuka, salin tautan ini:<br>${escapeHtml(link)}</p>
+  </div>`
+}
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    table[n] = c >>> 0
+  }
+  return table
+})()
+
+function crc32(data: Uint8Array) {
+  let c = 0xffffffff
+  for (const byte of data) c = CRC_TABLE[(c ^ byte) & 0xff] ^ (c >>> 8)
+  return (c ^ 0xffffffff) >>> 0
+}
+
+function pngChunk(type: string, data: Uint8Array) {
+  const out = new Uint8Array(12 + data.length)
+  const view = new DataView(out.buffer)
+  view.setUint32(0, data.length)
+  out[4] = type.charCodeAt(0)
+  out[5] = type.charCodeAt(1)
+  out[6] = type.charCodeAt(2)
+  out[7] = type.charCodeAt(3)
+  out.set(data, 8)
+  view.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)))
+  return out
+}
+
+async function deflateZlib(raw: Uint8Array) {
+  const stream = new CompressionStream('deflate')
+  const writer = stream.writable.getWriter()
+  await writer.write(raw)
+  await writer.close()
+  return new Uint8Array(await new Response(stream.readable).arrayBuffer())
+}
+
+async function qrPng(link: string) {
+  const mod = await Promise.race([
+    import('https://esm.sh/uqr@0.1.2'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('qr module timeout')), 8000)),
+  ])
+  const encode = mod.encode || mod.default?.encode
+  const qr = encode(link)
+  const scale = 8
+  const margin = 2
+  const size = qr.size as number
+  const modules = qr.data as Uint8Array
+  const dim = (size + margin * 2) * scale
+  const raw = new Uint8Array((1 + dim) * dim)
+  for (let y = 0; y < dim; y++) {
+    const row = (1 + dim) * y
+    const my = Math.floor(y / scale) - margin
+    for (let x = 0; x < dim; x++) {
+      const mx = Math.floor(x / scale) - margin
+      const dark = mx >= 0 && my >= 0 && mx < size && my < size && modules[my * size + mx]
+      raw[row + 1 + x] = dark ? 0 : 255
+    }
+  }
+  const header = new Uint8Array(13)
+  const view = new DataView(header.buffer)
+  view.setUint32(0, dim)
+  view.setUint32(4, dim)
+  header[8] = 8
+  const idat = await deflateZlib(raw)
+  const parts = [
+    Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', idat),
+    pngChunk('IEND', new Uint8Array()),
+  ]
+  const png = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0))
+  let offset = 0
+  for (const part of parts) {
+    png.set(part, offset)
+    offset += part.length
+  }
+  return png
+}
+
+async function barcodeImageUrl(
+  _supabase: ReturnType<typeof createClient>,
+  _token: string,
+  _link: string,
+) {
+  // The pass page draws the barcode. A remote QR library was hanging the email send.
+  return null
 }
 
 async function sendWhatsApp(message: string) {
@@ -393,9 +595,11 @@ Deno.serve(async (req) => {
   const caller = await getCallerUser(req, supabase)
   const role = staffRole(caller)
   const staffCaller = caller && isHseStaff(role)
+  const serviceRole = isServiceRole(req)
   const superAdminCaller = caller && isSuperAdmin(role)
   const observationId = typeof body.observation_id === 'string' ? body.observation_id.trim() : ''
-  const publicProcess = Boolean(observationId) && !staffCaller
+  const queueId = typeof body.queue_id === 'string' ? body.queue_id.trim() : ''
+  const publicProcess = Boolean(observationId) && !staffCaller && !serviceRole
 
   if (body.action === 'diag') {
     if (!superAdminCaller) {
@@ -465,7 +669,7 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { ok: false, error: result.error || 'Gagal kirim tes', provider: result.provider, from: result.from })
   }
 
-  if (!staffCaller && !observationId) {
+  if (!staffCaller && !serviceRole && !observationId && !queueId) {
     return jsonResponse(req, { ok: false, error: 'Unauthorized' }, 401)
   }
 
@@ -476,11 +680,15 @@ Deno.serve(async (req) => {
     .from('notification_queue')
     .select('*')
     .eq('status', 'pending')
-    .in('type', ['new_report', 'hipo_alert', 'followup_assign'])
+    .in('type', ['new_report', 'hipo_alert', 'followup_assign', 'pass_barcode', 'pass_approved'])
     .order('created_at', { ascending: true })
     .limit(20)
 
-  if (observationId) {
+  if (queueId && !staffCaller && !serviceRole) {
+    pendingQuery = pendingQuery.eq('id', queueId).in('type', ['pass_barcode', 'pass_approved', 'followup_assign'])
+  } else if (queueId) {
+    pendingQuery = pendingQuery.eq('id', queueId)
+  } else if (observationId) {
     pendingQuery = pendingQuery.filter('payload->>observation_id', 'eq', observationId)
   }
 
@@ -525,7 +733,16 @@ Deno.serve(async (req) => {
       : isHiPo
         ? `[BACT SOC] HiPo — ${p.category || 'Observasi'}`
         : `[BACT SOC] Laporan Baru — ${p.category || 'Observasi'}`
-    const html = `<p>${escapeHtml(text).replaceAll('\n', '<br>')}</p>`
+    let imageUrl: string | null = null
+    if ((row.type === 'pass_barcode' || row.type === 'pass_approved') && p.link) {
+      imageUrl = await barcodeImageUrl(supabase, String(p.token || p.ref_no || row.id), p.link)
+    }
+    const html =
+      row.type === 'followup_assign'
+        ? followUpEmailHtml(p)
+        : row.type === 'pass_barcode' || row.type === 'pass_approved'
+          ? passEmailHtml(row.type, p, imageUrl || undefined)
+          : `<p>${escapeHtml(text).replaceAll('\n', '<br>')}</p>`
 
     if (recipients.length === 0 && !FONNTE_TOKEN) {
       results.push({ id: row.id, error: 'Tidak ada email penerima aktif. Tambahkan di dashboard.' })
@@ -533,8 +750,8 @@ Deno.serve(async (req) => {
     }
 
     const emailResult = await sendEmailToAll(recipients, subject, html, text, fromAddress)
-    const waResult =
-      row.type === 'followup_assign' ? { ok: true, skipped: true } : await sendWhatsApp(text)
+    const directMail = row.type === 'followup_assign' || row.type === 'pass_barcode' || row.type === 'pass_approved'
+    const waResult = directMail ? { ok: true, skipped: true } : await sendWhatsApp(text)
 
     const lastSend = {
       provider: emailResult.provider,

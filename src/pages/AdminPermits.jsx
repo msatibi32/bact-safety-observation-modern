@@ -1,4 +1,5 @@
 import RequestDesk, { Fact } from '../components/admin/RequestDesk'
+import PermitDetails from '../components/ptw/PermitDetails'
 import {
   approveWorkPermit,
   formatJakarta,
@@ -81,6 +82,7 @@ export default function AdminPermits() {
           <Fact label="People" value={row.persons} />
           <Fact label="Safety induction" value={row.safety_induction ? 'Yes' : 'No'} />
           <Fact label="Valid until" value={row.valid_until ? formatJakarta(row.valid_until) : 'Set on approval'} />
+          <PermitDetails details={row.details} />
         </>
       )}
     />

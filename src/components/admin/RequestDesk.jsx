@@ -421,7 +421,7 @@ export default function RequestDesk({
           )}
         </div>
 
-        <aside ref={detailRef} className="admin-panel rounded-2xl border border-slate-800 p-4">
+        <aside ref={detailRef} className="admin-panel rounded-2xl border border-slate-800 p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           {!selected ? (
             <p className="text-sm text-slate-500">Select a request to review.</p>
           ) : (
