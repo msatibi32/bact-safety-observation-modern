@@ -148,6 +148,19 @@ body {
   color: #cbd5e1;
 }
 
+.hazard-stripe {
+  height: 8px;
+  background: repeating-linear-gradient(-45deg, #f37021 0 12px, #111111 12px 24px);
+}
+
+.yard-corrugation {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 14px,
+    rgb(0 0 0 / 0.18) 14px 16px
+  );
+}
+
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
