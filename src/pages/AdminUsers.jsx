@@ -85,6 +85,22 @@ export default function AdminUsers() {
     }
   }
 
+  async function handlePtw(target) {
+    setError('')
+    setMessage('')
+    try {
+      await updateAdminUser(target.id, { ptw_can_apply: !target.ptw_can_apply })
+      setMessage(
+        target.ptw_can_apply
+          ? `${target.email} tidak bisa mengajukan izin kerja. Akun tidak dihapus.`
+          : `${target.email} boleh mengajukan izin kerja.`,
+      )
+      await load()
+    } catch (err) {
+      setError(err.message || 'Could not update the permit permission.')
+    }
+  }
+
   async function handleToggle(target) {
     if (target.id === user?.id) {
       setError('You cannot disable your own account.')
@@ -250,6 +266,15 @@ export default function AdminUsers() {
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  onClick={() => handlePtw(u)}
+                  className={`rounded-lg px-2 py-1 text-xs ${
+                    u.ptw_can_apply ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  {u.ptw_can_apply ? 'Cabut izin PTW' : 'Boleh ajukan PTW'}
+                </button>
                 {u.id !== user?.id && (
                   <button
                     type="button"

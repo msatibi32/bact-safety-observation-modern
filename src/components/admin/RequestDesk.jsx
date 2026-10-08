@@ -5,6 +5,7 @@ import AdminLayout from '../AdminLayout'
 import { canApproveHsseStep, canApproveSpvStep, canEditObservations } from '../../lib/roles'
 import {
   downloadCsv,
+  durationLabel,
   expiringSoon,
   formatJakarta,
   passPhase,
@@ -96,6 +97,7 @@ export default function RequestDesk({
   exportRows,
   tools,
   banner = null,
+  chooseDuration = false,
 }) {
   const user = useUser()
   const canHsse = canEditObservations(user)
@@ -110,6 +112,8 @@ export default function RequestDesk({
   const [note, setNote] = useState('')
   const [selectedId, setSelectedId] = useState(null)
   const [reason, setReason] = useState('')
+  const [duration, setDuration] = useState('')
+  const [hsseReason, setHsseReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
@@ -177,8 +181,11 @@ export default function RequestDesk({
   }
 
   function selectRow(id) {
+    const row = rows.find((item) => item.id === id)
     setSelectedId(id)
     setReason('')
+    setDuration(row?.duration_choice || '')
+    setHsseReason('')
     setCopied(false)
     if (window.innerWidth < 1024) {
       window.setTimeout(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40)
@@ -191,10 +198,20 @@ export default function RequestDesk({
     setError('')
     setNote('')
     try {
+      if (chooseDuration && action === 'spv' && duration !== '12h' && duration !== '7d') {
+        throw new Error('Pilih durasi 12 jam atau 7 hari.')
+      }
+      if (chooseDuration && action === 'approve') {
+        const chosen = duration || selected.duration_choice
+        if (chosen !== '12h' && chosen !== '7d') throw new Error('Pilih durasi 12 jam atau 7 hari.')
+        if (selected.duration_choice && chosen !== selected.duration_choice && hsseReason.trim().length < 8) {
+          throw new Error('Durasi diubah. Tulis alasannya, supaya supervisor melihatnya.')
+        }
+      }
       const result = action === 'spv'
-        ? await spvApprove(selected.id)
+        ? await spvApprove(selected.id, duration)
         : action === 'approve'
-          ? await approve(selected.id)
+          ? await approve(selected.id, chooseDuration ? (duration || selected.duration_choice) : undefined, chooseDuration ? hsseReason : undefined)
           : await reject(selected.id, reason)
       setReason('')
       await load(true)
@@ -499,7 +516,9 @@ export default function RequestDesk({
                   onApprove={canSpv ? () => decide('spv') : null}
                   onReject={() => decide('reject')}
                   approveLabel="SPV approve"
-                  hint={canSpv ? 'SPV dulu. HSSE baru bisa menyetujui setelah ini.' : 'Menunggu SPV. Tombol HSSE muncul setelah SPV menyetujui.'}
+                  hint={canSpv ? 'Area authority dulu. Pilih 12 jam untuk risiko tinggi, atau 7 hari untuk risiko rendah.' : 'Menunggu area authority yang dipilih pemohon.'}
+                  duration={chooseDuration ? duration : ''}
+                  onDuration={chooseDuration ? setDuration : null}
                 />
               )}
               {spvApprove && selected.status === 'SpvApproved' && (canHsseStep || canSpv) && (
@@ -510,7 +529,14 @@ export default function RequestDesk({
                   onApprove={canHsseStep ? () => decide('approve') : null}
                   onReject={canHsseStep ? () => decide('reject') : null}
                   approveLabel="HSSE approve"
-                  hint={`SPV sudah setuju${selected.spv_approved_by ? `: ${selected.spv_approved_by}` : ''}.`}
+                  hint={chooseDuration
+                    ? `Area authority memilih ${durationLabel(selected.duration_choice)}${selected.spv_approved_by ? ` · ${selected.spv_approved_by}` : ''}. Mengubah durasi wajib ada alasan.`
+                    : `SPV sudah setuju${selected.spv_approved_by ? `: ${selected.spv_approved_by}` : ''}.`}
+                  duration={chooseDuration ? (duration || selected.duration_choice || '') : ''}
+                  onDuration={chooseDuration ? setDuration : null}
+                  changeReason={chooseDuration ? hsseReason : ''}
+                  onChangeReason={chooseDuration ? setHsseReason : null}
+                  supervisorChoice={chooseDuration ? selected.duration_choice : ''}
                 />
               )}
               {selected.status !== 'Pending' && selected.status !== 'SpvApproved' && (
@@ -536,10 +562,37 @@ export default function RequestDesk({
   )
 }
 
-function Decision({ busy, reason, onReason, onApprove, onReject, approveLabel, hint }) {
+function Decision({ busy, reason, onReason, onApprove, onReject, approveLabel, hint, duration, onDuration, changeReason, onChangeReason, supervisorChoice }) {
+  const changed = Boolean(supervisorChoice) && duration && duration !== supervisorChoice
   return (
     <div className="space-y-2 border-t border-slate-800 pt-3">
-      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+      {hint && <p className={`text-xs ${changed ? 'rounded-xl bg-amber-500/15 px-3 py-2 font-medium text-amber-200' : 'text-slate-400'}`}>{hint}</p>}
+      {onDuration && (
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ['12h', '12 jam · risiko tinggi'],
+            ['7d', '7 hari · risiko rendah'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onDuration(id)}
+              className={`rounded-xl border px-2 py-2 text-left text-xs ${duration === id ? 'border-brand-500 text-slate-100' : 'border-slate-700 text-slate-400'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {onChangeReason && changed && (
+        <textarea
+          rows={2}
+          value={changeReason}
+          onChange={(e) => onChangeReason(e.target.value)}
+          placeholder="Alasan HSSE mengubah durasi"
+          className="admin-input"
+        />
+      )}
       {onApprove && (
         <button type="button" disabled={busy} onClick={onApprove} className="btn-primary w-full">
           {busy ? 'Saving…' : approveLabel}

@@ -97,6 +97,7 @@ export function buildPtwPdfModel({ form, types, sheet, meta = {} }) {
   return {
     refNo: meta.refNo || '',
     kind: form.permit_kind,
+    duration: meta.duration || '',
     area: form.area || '',
     workTypes: WORK_ORDER.filter((type) => (types || []).includes(type)),
     name: form.applicant_name || '',
@@ -139,6 +140,7 @@ export function publicPassPdfModel(pass) {
       status: pass.status,
       approvedBy: pass.approved_by,
       approvedAt: sheet.approved_at,
+      duration: sheet.duration_choice || '',
     },
   })
 }
@@ -236,9 +238,13 @@ function drawHeader(doc, logo, model, y) {
   doc.text('WORK PERMIT', midX + midW / 2, y + 4.3, { align: 'center' })
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(6)
-  const life = model.kind === 'job_permit'
-    ? 'Valid 14 days after HSSE approval / Berlaku 14 hari setelah disetujui HSSE'
-    : 'Valid for a 12 hourly basis or 1 shift / Berlaku 12 jam atau 1 shift'
+  const life = model.duration === '7d'
+    ? 'Valid 7 days after HSSE approval / Berlaku 7 hari setelah disetujui HSSE'
+    : model.duration === '12h'
+      ? 'Valid 12 hours after HSSE approval / Berlaku 12 jam setelah disetujui HSSE'
+      : model.kind === 'job_permit'
+        ? 'Valid 14 days after HSSE approval / Berlaku 14 hari setelah disetujui HSSE'
+        : 'Valid for a 12 hourly basis or 1 shift / Berlaku 12 jam atau 1 shift'
   doc.text(oneLine(doc, life, midW), midX + midW / 2, y + 7.1, { align: 'center' })
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(4.7)

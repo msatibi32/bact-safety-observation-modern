@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import SignaturePad from '../SignaturePad'
 import { DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../../lib/constants'
-import { getMySignature, PERMIT_KINDS, WORK_TYPES } from '../../lib/passes'
+import { ELECTRONIC_DISCLAIMER, WORK_TYPES } from '../../lib/passes'
 import {
   CONTROLS,
   HAZARDS,
@@ -22,9 +21,6 @@ export default function PermitEditor({
   onToggleType,
   onToggleOpen,
   onToggleList,
-  pasteArea = false,
-  pasteHsse = false,
-  signerName = '',
 }) {
   const open = new Set(sheet.open)
 
@@ -35,24 +31,9 @@ export default function PermitEditor({
 
   return (
     <div className="space-y-4 p-3 text-slate-200">
-      <fieldset>
-        <legend className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Jenis permit</legend>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {PERMIT_KINDS.map((kind) => (
-            <button
-              key={kind.id}
-              type="button"
-              onClick={() => onForm('permit_kind', kind.id)}
-              className={`rounded-xl border px-2 py-2 text-left ${
-                form.permit_kind === kind.id ? 'border-brand-500 bg-brand-500/10' : 'border-slate-700'
-              }`}
-            >
-              <span className="block text-xs font-semibold">{kind.title}</span>
-              <span className="block text-[10px] text-slate-400">{kind.life}</span>
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <p className="rounded-xl border border-slate-700 px-3 py-2 text-xs text-slate-300">
+        Izin kerja. {ELECTRONIC_DISCLAIMER} Durasi dipilih saat area authority menyetujui.
+      </p>
 
       <fieldset>
         <legend className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Bagian yang ikut tercetak</legend>
@@ -234,44 +215,21 @@ export default function PermitEditor({
           <Mini label="Tanggal" value={sheet.nominatedDate} onChange={(value) => onSheet({ nominatedDate: value })} />
           <Mini label="Waktu" value={sheet.nominatedTime} onChange={(value) => onSheet({ nominatedTime: value })} />
         </div>
-        <SignaturePad
-          value={sheet.nominatedSign || ''}
-          onChange={(data) => onSheet(withSignature(sheet, 'nominatedSign', 'nominatedDate', 'nominatedTime', data))}
-        />
-        <Line label="Otoritas area — HoD / MoD / Spv">
+        <p className="text-[11px] text-slate-400">{ELECTRONIC_DISCLAIMER}</p>
+        <Line label="Otoritas area — nama akun">
           <input className="paper-input" value={sheet.areaAuthority} onChange={(e) => onSheet({ areaAuthority: e.target.value })} />
         </Line>
         <div className="grid grid-cols-2 gap-2">
           <Mini label="Tanggal" value={sheet.areaDate} onChange={(value) => onSheet({ areaDate: value })} />
           <Mini label="Waktu" value={sheet.areaTime} onChange={(value) => onSheet({ areaTime: value })} />
         </div>
-        <SavedSignBox
-          active={pasteArea}
-          value={sheet.areaSign || ''}
-          waiting="Menunggu tempelan tanda tangan SPV."
-          onPaste={(image) => onSheet({
-            ...withSignature(sheet, 'areaSign', 'areaDate', 'areaTime', image),
-            ...(String(sheet.areaAuthority || '').trim() || !signerName ? {} : { areaAuthority: signerName }),
-          })}
-          onClear={() => onSheet({ areaSign: '' })}
-        />
-        <Line label="Permit Controller HSSE">
+        <Line label="Permit Controller HSSE — nama akun">
           <input className="paper-input" value={sheet.hsseName} onChange={(e) => onSheet({ hsseName: e.target.value })} />
         </Line>
         <div className="grid grid-cols-2 gap-2">
           <Mini label="Tanggal HSSE" value={sheet.hsseDate} onChange={(value) => onSheet({ hsseDate: value })} />
           <Mini label="Waktu HSSE" value={sheet.hsseTime} onChange={(value) => onSheet({ hsseTime: value })} />
         </div>
-        <SavedSignBox
-          active={pasteHsse}
-          value={sheet.hsseSign || ''}
-          waiting="Menunggu tempelan tanda tangan HSSE."
-          onPaste={(image) => onSheet({
-            ...withSignature(sheet, 'hsseSign', 'hsseDate', 'hsseTime', image),
-            ...(String(sheet.hsseName || '').trim() || !signerName ? {} : { hsseName: signerName }),
-          })}
-          onClear={() => onSheet({ hsseSign: '' })}
-        />
       </Block>
 
       {open.has('7') && (
@@ -332,57 +290,6 @@ export default function PermitEditor({
           />
         </Block>
       )}
-    </div>
-  )
-}
-
-function SavedSignBox({ active, value, waiting, onPaste, onClear }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  async function paste() {
-    setBusy(true)
-    setError('')
-    try {
-      const data = await getMySignature()
-      const image = data?.image || ''
-      if (!image) {
-        setError('Belum ada foto. Unggah dulu di kartu Foto tanda tangan.')
-        return
-      }
-      onPaste(image)
-    } catch (err) {
-      setError(err.message || 'Tanda tangan gagal ditempel.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div>
-      <div className="flex h-16 items-center justify-center rounded-xl bg-white px-2">
-        {value ? (
-          <img src={value} alt="Tanda tangan tertempel" className="max-h-14 max-w-full object-contain" />
-        ) : (
-          <span className="text-[11px] text-slate-400">{active ? 'Belum ditempel' : waiting}</span>
-        )}
-      </div>
-      {active && (
-        <div className="mt-1 flex flex-wrap gap-3">
-          <button type="button" onClick={paste} disabled={busy} className="text-xs font-semibold text-brand-400 disabled:opacity-50">
-            {busy ? 'Menempel…' : value ? 'Tempel ulang' : 'Tempel tanda tangan'}
-          </button>
-          {value && (
-            <button type="button" onClick={onClear} className="text-xs font-medium text-slate-500">
-              Hapus
-            </button>
-          )}
-        </div>
-      )}
-      {active && (
-        <p className="mt-1 text-[11px] text-slate-400">Foto PNG yang sudah diunggah langsung masuk ke lembar ini.</p>
-      )}
-      {error && <p className="mt-1 text-[11px] text-red-300">{error}</p>}
     </div>
   )
 }

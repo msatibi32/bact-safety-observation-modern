@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import BrandHeader from '../components/BrandHeader'
 import SiteFooter from '../components/SiteFooter'
 import ThemeToggle from '../components/ThemeToggle'
@@ -14,6 +14,7 @@ export default function AdminLogin() {
   const [error, setError] = useState('')
   const [lockLeft, setLockLeft] = useState(loginLockMessage())
   const navigate = useNavigate()
+  const [params] = useSearchParams()
 
   useEffect(() => {
     if (!lockLeft) return undefined
@@ -38,7 +39,9 @@ export default function AdminLogin() {
     try {
       await login(email, password)
       const { data } = await supabase.auth.getSession()
-      navigate(isSpvOnly(data.session?.user) ? '/admin/ptw' : '/admin')
+      const next = params.get('next') || ''
+      const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : ''
+      navigate(safeNext || (isSpvOnly(data.session?.user) ? '/admin/ptw' : '/admin'))
     } catch {
       const wait = loginLockMessage()
       setLockLeft(wait)

@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import RequestDesk, { Fact } from '../components/admin/RequestDesk'
-import StaffSignatureCard from '../components/admin/StaffSignatureCard'
 import PermitDetails from '../components/ptw/PermitDetails'
 import PermitReviewModal from '../components/ptw/PermitReviewModal'
-import { canUploadStaffSignature } from '../lib/roles'
-import { useUser } from '../components/RequireRole'
 import {
   approveWorkPermit,
   approveWorkPermitSpv,
+  durationLabel,
   formatJakarta,
   listWorkPermits,
   permitKindLabel,
@@ -24,10 +22,10 @@ const FACETS = [
     id: 'kind',
     options: [
       { id: 'all', label: 'All types' },
-      { id: 'job_permit', label: 'Job Permit' },
-      { id: 'e_permit', label: 'E-Permit' },
+      { id: '12h', label: '12 jam' },
+      { id: '7d', label: '7 hari' },
     ],
-    match: (row, id) => id === 'all' || row.permit_kind === id,
+    match: (row, id) => id === 'all' || (row.hsse_duration_choice || row.duration_choice) === id,
   },
   {
     id: 'work',
@@ -38,15 +36,14 @@ const FACETS = [
 
 export default function AdminPermits() {
   const [review, setReview] = useState(null)
-  const user = useUser()
 
   return (
     <>
     <RequestDesk
-      banner={canUploadStaffSignature(user) ? <StaffSignatureCard /> : null}
       eyebrow="Permit to Work"
       title="Work permits"
-      description="Job Permit stays valid for 14 days after approval. E-Permit to Work stays valid for 12 hours. The barcode shows HSSE approval and the lifetime."
+      description="Satu izin kerja. Area authority memilih 12 jam atau 7 hari. HSSE boleh mengubah durasi, wajib dengan alasan yang terlihat."
+      chooseDuration
       passKind="ptw"
       facets={FACETS}
       exportName="bact-ptw"
@@ -92,6 +89,9 @@ export default function AdminPermits() {
       renderFacts={(row) => (
         <>
           <Fact label="Type" value={permitKindLabel(row.permit_kind)} />
+          <Fact label="Durasi supervisor" value={durationLabel(row.duration_choice)} />
+          <Fact label="Durasi HSSE" value={row.hsse_duration_choice ? durationLabel(row.hsse_duration_choice) : '—'} />
+          {row.hsse_duration_reason ? <Fact label="Alasan ubah durasi" value={row.hsse_duration_reason} /> : null}
           <Fact label="Company" value={row.company} />
           <Fact label="Email" value={row.applicant_email} />
           <Fact label="Phone" value={row.phone} />

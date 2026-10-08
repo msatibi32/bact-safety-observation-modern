@@ -6,6 +6,36 @@ import { CameraIcon } from '../components/Icon'
 import { validatePhotoFile } from '../lib/limits'
 import { passUrl, submitVisitRequest, uploadEvidenceFiles } from '../lib/passes'
 
+const QUESTIONS = [
+  {
+    id: 'enter',
+    prompt: 'Tamu boleh masuk area terminal tanpa mengikuti penjelasan ini?',
+    answer: 'no',
+    options: [
+      { id: 'yes', label: 'Boleh' },
+      { id: 'no', label: 'Tidak' },
+    ],
+  },
+  {
+    id: 'ppe',
+    prompt: 'APD yang diminta di lokasi wajib dipakai?',
+    answer: 'yes',
+    options: [
+      { id: 'yes', label: 'Wajib' },
+      { id: 'no', label: 'Tidak wajib' },
+    ],
+  },
+  {
+    id: 'stop',
+    prompt: 'Jika melihat bahaya, apa yang dilakukan?',
+    answer: 'stop',
+    options: [
+      { id: 'go', label: 'Lanjut masuk' },
+      { id: 'stop', label: 'Hentikan dan laporkan' },
+    ],
+  },
+]
+
 const empty = {
   visitor_name: '',
   company: '',
@@ -14,6 +44,9 @@ const empty = {
   purpose: '',
   visit_start: '',
   visit_end: '',
+  placement: '',
+  job_title: '',
+  brings_goods: false,
   declaration_accepted: false,
   safety_induction: false,
 }
@@ -25,6 +58,9 @@ export default function VisitForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [issued, setIssued] = useState(null)
+  const [answers, setAnswers] = useState({})
+  const [briefingPassed, setBriefingPassed] = useState(false)
+  const [quizNote, setQuizNote] = useState('')
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -47,12 +83,12 @@ export default function VisitForm() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.declaration_accepted || !form.safety_induction) {
-      setError('Deklarasi ISPS dan safety briefing wajib dicentang.')
+    if (!briefingPassed) {
+      setError('Selesaikan penjelasan keselamatan dan tiga pertanyaannya dulu.')
       return
     }
-    if (!ktp && !passport) {
-      setError('Unggah foto KTP atau paspor.')
+    if (!form.declaration_accepted) {
+      setError('Deklarasi ISPS wajib dicentang.')
       return
     }
     setSubmitting(true)
@@ -65,6 +101,7 @@ export default function VisitForm() {
         passport_url: passportUrl || '',
         declaration_accepted: true,
         safety_induction: true,
+        briefing_passed: true,
       })
       setIssued(result)
     } catch (err) {
@@ -107,9 +144,53 @@ export default function VisitForm() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">Port Visit</p>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">Permintaan kunjungan</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Diteruskan langsung ke Corporate Communication HSSE. Tanpa login.
+          Tamu dan pengantar barang lewat jalur yang sama. Penjelasan dulu, baru registrasi.
         </p>
 
+        {!briefingPassed && (
+          <section className="card mt-6 space-y-4 p-6">
+            <h2 className="text-base font-semibold text-slate-900">Penjelasan singkat</h2>
+            <p className="text-sm leading-relaxed text-slate-600">
+              Di terminal ini, pakai APD yang diminta di lokasi. Jangan masuk area yang bukan tujuan kunjungan.
+              Jika melihat bahaya, hentikan dan laporkan ke petugas. Barang yang diantar mengikuti jalur yang sama.
+            </p>
+            {QUESTIONS.map((item) => (
+              <fieldset key={item.id}>
+                <legend className="text-sm font-medium text-slate-800">{item.prompt}</legend>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {item.options.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setAnswers((prev) => ({ ...prev, [item.id]: option.id }))}
+                      className={`rounded-xl border px-3 py-2 text-sm ${answers[item.id] === option.id ? 'border-brand-500 bg-brand-50' : 'border-slate-200'}`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+            {quizNote && <p className="text-sm text-red-600">{quizNote}</p>}
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => {
+                const wrong = QUESTIONS.some((item) => answers[item.id] !== item.answer)
+                if (wrong || QUESTIONS.some((item) => !answers[item.id])) {
+                  setQuizNote('Jawaban belum sesuai. Baca penjelasan di atas, lalu pilih lagi.')
+                  return
+                }
+                setQuizNote('')
+                setBriefingPassed(true)
+              }}
+            >
+              Lanjut ke registrasi
+            </button>
+          </section>
+        )}
+
+        {briefingPassed && (
         <form onSubmit={handleSubmit} className="card mt-6 space-y-5 p-6">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
             Penerima pengajuan: <span className="font-medium text-slate-900">Corporate Communication HSSE</span>
@@ -118,19 +199,31 @@ export default function VisitForm() {
             <input required className="input" value={form.visitor_name} onChange={(e) => update('visitor_name', e.target.value)} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Perusahaan" hint="Company">
+            <Field label="Kontraktor / perusahaan" hint="Company">
               <input required className="input" value={form.company} onChange={(e) => update('company', e.target.value)} />
             </Field>
-            <Field label="Telepon" hint="Phone">
+            <Field label="Nomor HP" hint="Phone">
               <input required className="input" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
             </Field>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Penempatan" hint="Area yang dituju">
+              <input className="input" value={form.placement} onChange={(e) => update('placement', e.target.value)} />
+            </Field>
+            <Field label="Jabatan" hint="Position">
+              <input className="input" value={form.job_title} onChange={(e) => update('job_title', e.target.value)} />
+            </Field>
+          </div>
+          <label className="flex items-start gap-3 rounded-2xl border border-slate-200 px-3 py-3">
+            <input type="checkbox" className="mt-1" checked={form.brings_goods} onChange={(e) => update('brings_goods', e.target.checked)} />
+            <span className="text-sm text-slate-800">Kunjungan ini mengantar barang. Jalurnya sama dengan tamu.</span>
+          </label>
           <Field label="Email" hint="Barcode and the approval notice are sent here">
             <input required type="email" className="input" value={form.email} onChange={(e) => update('email', e.target.value)} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FilePick label="KTP softcopy" hint="Foto KTP" file={ktp} onFile={(f) => takeFile(f, setKtp)} />
-            <FilePick label="Paspor softcopy" hint="Wajib untuk pengunjung luar negeri" file={passport} onFile={(f) => takeFile(f, setPassport)} />
+            <FilePick label="KTP" hint="Belum wajib. Lampirkan jika ada." file={ktp} onFile={(f) => takeFile(f, setKtp)} />
+            <FilePick label="Paspor" hint="Belum wajib." file={passport} onFile={(f) => takeFile(f, setPassport)} />
           </div>
           <Field label="Tujuan" hint="Purpose of visit">
             <textarea required rows={3} className="input" value={form.purpose} onChange={(e) => update('purpose', e.target.value)} />
@@ -151,19 +244,12 @@ export default function VisitForm() {
               <span className="mt-1 block text-xs text-slate-500">I will comply with terminal safety rules and the ISPS Code.</span>
             </span>
           </label>
-          <label className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-3 py-3">
-            <input type="checkbox" className="mt-1" checked={form.safety_induction} onChange={(e) => update('safety_induction', e.target.checked)} />
-            <span className="text-sm text-slate-800">
-              <span className="font-medium">Safety briefing / induction wajib.</span> Saya akan mengikuti safety briefing sebelum masuk area.
-              <span className="mt-1 block text-xs text-slate-500">Safety briefing and induction are mandatory.</span>
-            </span>
-          </label>
-
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={submitting} className="btn-primary w-full">
             {submitting ? 'Mengirim…' : 'Ajukan kunjungan'}
           </button>
         </form>
+        )}
         <SiteFooter />
       </div>
     </div>

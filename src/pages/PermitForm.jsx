@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import PassCard from '../components/PassCard'
 import PublicModuleNav from '../components/PublicModuleNav'
 import SignaturePad from '../components/SignaturePad'
 import SiteFooter from '../components/SiteFooter'
 import { DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../lib/constants'
-import { passUrl, PERMIT_KINDS, submitWorkPermit, WORK_TYPES } from '../lib/passes'
+import { ELECTRONIC_DISCLAIMER, listAreaAuthorities, passUrl, submitWorkPermit, WORK_TYPES } from '../lib/passes'
+import { useSession } from '../lib/useSession'
 import {
   CONTROLS,
   emptyActivity,
@@ -26,7 +27,8 @@ const empty = {
   email: '',
   phone: '',
   department: '',
-  permit_kind: 'e_permit',
+  permit_kind: 'work_permit',
+  area_authority_email: '',
   area: '',
   description: '',
   start_at: '',
@@ -40,6 +42,25 @@ export default function PermitForm() {
   const [error, setError] = useState('')
   const [issued, setIssued] = useState(null)
   const [honeypot, setHoneypot] = useState('')
+  const [authorities, setAuthorities] = useState([])
+  const [authorityNote, setAuthorityNote] = useState('')
+  const [electronicAck, setElectronicAck] = useState(false)
+  const session = useSession()
+
+  useEffect(() => {
+    if (!session?.user) return
+    const email = session.user.email || ''
+    const meta = session.user.user_metadata || {}
+    const name = String(meta.full_name || meta.name || '').trim()
+    setForm((prev) => ({
+      ...prev,
+      email,
+      applicant_name: prev.applicant_name || name,
+    }))
+    listAreaAuthorities()
+      .then((rows) => setAuthorities(Array.isArray(rows) ? rows : []))
+      .catch((err) => setAuthorityNote(err.message || 'Daftar area authority belum bisa dibaca.'))
+  }, [session])
 
   const open = new Set(sheet.open)
 
@@ -99,7 +120,15 @@ export default function PermitForm() {
     }
     const nominated = sheet.nominatedPerson.trim() || form.applicant_name.trim()
     const ready = { ...sheet, nominatedPerson: nominated }
-    const invalid = validatePermitSheet(ready, types, { requireNominatedSign: true })
+    if (!form.area_authority_email) {
+      setError('Pilih area authority dari daftar.')
+      return
+    }
+    if (!electronicAck) {
+      setError(ELECTRONIC_DISCLAIMER)
+      return
+    }
+    const invalid = validatePermitSheet(ready, types)
     if (invalid) {
       setError(invalid)
       return
@@ -114,6 +143,7 @@ export default function PermitForm() {
         start_at: new Date(form.start_at).toISOString(),
         persons: people,
         safety_induction: true,
+        electronic_ack: true,
         details,
       })
       setIssued(issuedPass)
@@ -135,16 +165,56 @@ export default function PermitForm() {
             pass={{
               ref_no: issued.ref_no,
               phase: 'pending',
-              type_label: PERMIT_KINDS.find((k) => k.id === form.permit_kind)?.title || 'Permit to Work',
+              type_label: 'Izin kerja',
               name: form.applicant_name,
               company: form.company,
               area: form.area,
-              lifetime_label: PERMIT_KINDS.find((k) => k.id === form.permit_kind)?.life,
+              lifetime_label: 'Durasi dipilih supervisor: 12 jam atau 7 hari',
               route_to: 'HSSE',
             }}
           />
           <p className="mt-4 max-w-md text-center text-sm text-slate-500">
             Barcode juga dikirim ke {form.email}. Hitung mundur jalan setelah HSSE menyetujui. Lembar PDF muncul di halaman barcode setelah disetujui.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (session === undefined) {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Memuat…</div>
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white">
+        <PublicModuleNav />
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">Izin kerja</p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">Login dulu untuk mengajukan</h1>
+          <p className="mt-3 text-sm text-slate-500">
+            Hanya akun yang sudah ikut pelatihan izin kerja. Pekerja yang mengerjakan tidak membuat izinnya sendiri.
+          </p>
+          <Link to="/admin/login?next=/ptw" className="btn-primary mt-6">
+            Masuk
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const sessionRole = session.user.app_metadata?.role || session.user.user_metadata?.role || ''
+  const canApply =
+    session.user.app_metadata?.ptw_can_apply === true || sessionRole === 'admin' || sessionRole === 'super_admin'
+  if (!canApply) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white">
+        <PublicModuleNav />
+        <div className="mx-auto max-w-md px-4 py-16 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">Izin kerja</p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">Akun ini belum boleh mengajukan</h1>
+          <p className="mt-3 text-sm text-slate-500">
+            {session.user.email} sudah login, tetapi belum ditandai selesai pelatihan. Super Admin mengaktifkan hak ini tanpa menghapus akun.
           </p>
         </div>
       </div>
@@ -158,34 +228,32 @@ export default function PermitForm() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">Permit to Work</p>
         <h1 className="mt-1 text-2xl font-bold text-slate-900">Pengajuan izin kerja</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Semua bagian lembar FM.HSE.001 terbuka, sama seperti form kertas. Matikan bagian yang tidak dipakai, misalnya isolasi jika bukan LOTO.
+          Satu formulir. Durasi 12 jam atau 7 hari dipilih supervisor, bukan pemohon. HSSE yang terakhir boleh mengubahnya.
         </p>
 
         <form onSubmit={handleSubmit} className="card mt-6 space-y-6 p-5 sm:p-6">
           <Honeypot value={honeypot} onChange={setHoneypot} />
 
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-slate-800">Jenis permit</legend>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {PERMIT_KINDS.map((kind) => {
-                const active = form.permit_kind === kind.id
-                return (
-                  <button
-                    key={kind.id}
-                    type="button"
-                    onClick={() => update('permit_kind', kind.id)}
-                    className={`rounded-2xl border px-3 py-3 text-left transition ${
-                      active ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/20' : 'border-slate-200 bg-white'
-                    }`}
-                  >
-                    <span className="block text-sm font-semibold text-slate-900">{kind.title}</span>
-                    <span className="mt-0.5 block text-xs text-brand-700">{kind.life}</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-400">{kind.lifeEn}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </fieldset>
+          <Field label="Area authority" hint="Yang menyetujui lebih dulu. HSSE belum bisa menyetujui sebelum langkah ini.">
+            <select
+              required
+              className="input"
+              value={form.area_authority_email}
+              onChange={(e) => update('area_authority_email', e.target.value)}
+            >
+              <option value="">— Pilih dari daftar —</option>
+              {authorities.map((person) => (
+                <option key={person.email} value={person.email}>
+                  {person.name} · {person.email}
+                </option>
+              ))}
+            </select>
+            {authorities.length === 0 && (
+              <p className="mt-2 text-xs text-amber-700">
+                {authorityNote || 'Belum ada akun area authority. Minta Rano menuliskan siapa yang boleh menyetujui, lalu buatkan akun peran SPV.'}
+              </p>
+            )}
+          </Field>
 
           <fieldset>
             <legend className="text-sm font-medium text-slate-800">Bagian formulir</legend>
@@ -236,8 +304,8 @@ export default function PermitForm() {
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Email" hint="Barcode dikirim ke sini">
-                <input required type="email" className="input" value={form.email} onChange={(e) => update('email', e.target.value)} />
+              <Field label="Email akun" hint="Mengikuti akun yang login. Barcode dikirim ke sini.">
+                <input required type="email" readOnly className="input bg-slate-50" value={form.email} />
               </Field>
               <Field label="Departemen" hint="Company / dept">
                 <select className="input" value={form.department} onChange={(e) => update('department', e.target.value)}>
@@ -279,9 +347,9 @@ export default function PermitForm() {
                 })}
               </div>
             </fieldset>
-            <Field label="No. work order" hint="Opsional. Tercetak di baris perusahaan pada PDF.">
-              <input className="input" value={sheet.workOrder} onChange={(e) => patchSheet({ workOrder: e.target.value })} />
-            </Field>
+            <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              Nomor izin dibuat otomatis, pola yang sama dengan nomor SOC. JSA dan method statement boleh dilampirkan nanti, tidak mengunci formulir ini.
+            </p>
             <Field label="Detail pekerjaan" hint="Work detail">
               <textarea required minLength={10} rows={3} className="input" value={form.description} onChange={(e) => update('description', e.target.value)} />
             </Field>
@@ -340,6 +408,9 @@ export default function PermitForm() {
                     </label>
                   ))}
                 </div>
+                <Field label="APD di luar daftar" hint="Isian bebas. Tidak wajib jika APD di daftar sudah dicentang.">
+                  <input className="input" value={sheet.ppeOther || ''} onChange={(e) => patchSheet({ ppeOther: e.target.value })} />
+                </Field>
               </fieldset>
             </Section>
           )}
@@ -398,22 +469,12 @@ export default function PermitForm() {
             <Statement checked={sheet.commence} onChange={(checked) => patchSheet({ commence: checked })}>
               Saya mengetahui kondisi di atas telah sesuai sehingga pekerjaan boleh dimulai.
             </Statement>
-            <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
-              Gambar tanda tangan dengan jari di kotak bawah. Kotak SPV dan HSSE dikosongkan di sini. Keduanya menempel dari foto tanda tangan yang sudah mereka simpan, setelah SPV menyetujui lebih dulu lalu HSSE.
-            </p>
-            <SignBlock
-              title="Orang yang dinominasikan"
-              hint="Pengisi form — tanda tangan dengan jari"
-              name={sheet.nominatedPerson}
-              namePlaceholder={form.applicant_name || 'Nama'}
-              onName={(value) => patchSheet({ nominatedPerson: value })}
-              date={sheet.nominatedDate}
-              time={sheet.nominatedTime}
-              onDate={(value) => patchSheet({ nominatedDate: value })}
-              onTime={(value) => patchSheet({ nominatedTime: value })}
-              sign={sheet.nominatedSign}
-              onSign={(data) => setSheet((prev) => ({ ...prev, ...withSignature(prev, 'nominatedSign', 'nominatedDate', 'nominatedTime', data) }))}
-            />
+            <Field label="Orang yang dinominasikan" hint="Performing authority. Yang tercatat adalah nama akun yang login.">
+              <input className="input" value={sheet.nominatedPerson} placeholder={form.applicant_name || 'Nama'} onChange={(e) => patchSheet({ nominatedPerson: e.target.value })} />
+            </Field>
+            <Statement checked={electronicAck} onChange={setElectronicAck}>
+              {ELECTRONIC_DISCLAIMER} Persetujuan nanti tercatat sebagai nama akun dan jam, bukan tanda tangan tempel.
+            </Statement>
           </Section>
 
           {open.has('7') && (
@@ -543,28 +604,6 @@ function Mini({ label, value, onChange, type = 'text' }) {
       <span className="mb-1 block text-[11px] text-slate-500">{label}</span>
       <input type={type} className="input" value={value} onChange={(e) => onChange(e.target.value)} />
     </label>
-  )
-}
-
-function SignBlock({ title, hint, name, namePlaceholder, onName, date, time, onDate, onTime, sign, onSign }) {
-  return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 p-3">
-      <div>
-        <p className="text-sm font-medium text-slate-800">{title}</p>
-        {hint && <p className="text-[11px] text-slate-400">{hint}</p>}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
-        <label className="block">
-          <span className="mb-1 block text-[11px] text-slate-500">Nama</span>
-          <input className="input" placeholder={namePlaceholder} value={name} onChange={(e) => onName(e.target.value)} />
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          <Mini label="Tanggal" value={date} onChange={onDate} />
-          <Mini label="Waktu" value={time} onChange={onTime} />
-        </div>
-      </div>
-      <SignaturePad value={sign} onChange={onSign} />
-    </div>
   )
 }
 

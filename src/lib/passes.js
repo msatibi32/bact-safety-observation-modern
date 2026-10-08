@@ -173,8 +173,9 @@ export function listVisitRequests() {
     })
 }
 
-async function approveAndMail(fn, id) {
-  const result = await rpc(fn, { p_id: id })
+async function approveAndMail(fn, args) {
+  const payload = typeof args === 'string' ? { p_id: args } : args
+  const result = await rpc(fn, payload)
   if (!result?.queue_id) return result
   try {
     await deliverQueuedMail({ queueId: result.queue_id })
@@ -184,12 +185,20 @@ async function approveAndMail(fn, id) {
   }
 }
 
-export function approveWorkPermit(id) {
-  return approveAndMail('approve_work_permit', id)
+export function approveWorkPermit(id, duration, reason) {
+  return approveAndMail('approve_work_permit', {
+    p_id: id,
+    p_duration: duration || '',
+    p_reason: reason || '',
+  })
 }
 
-export function approveWorkPermitSpv(id) {
-  return approveAndMail('approve_work_permit_spv', id)
+export function approveWorkPermitSpv(id, duration) {
+  return approveAndMail('approve_work_permit_spv', { p_id: id, p_duration: duration })
+}
+
+export function listAreaAuthorities() {
+  return rpc('list_area_authorities')
 }
 
 export function getMySignature() {
@@ -224,23 +233,34 @@ export function rejectVisitRequest(id, reason) {
 
 export const PERMIT_KINDS = [
   {
-    id: 'job_permit',
-    title: 'Job Permit',
-    life: 'Berlaku 14 hari',
-    lifeEn: 'Valid for 14 days after HSSE approval',
-  },
-  {
-    id: 'e_permit',
-    title: 'E-Permit to Work',
-    life: 'Berlaku 12 jam',
-    lifeEn: 'Valid for 12 hours after HSSE approval',
+    id: 'work_permit',
+    title: 'Izin kerja',
+    life: '12 jam atau 7 hari, dipilih supervisor',
+    lifeEn: '12 hours or 7 days, chosen by the supervisor',
   },
 ]
 
 export const WORK_TYPES = ['Hot Work', 'Cold Work', 'Confine Space', 'Isolation Energy']
 
+export const ELECTRONIC_DISCLAIMER =
+  'Formulir ini elektronik dan tidak memerlukan tanda tangan fisik.'
+
 export function permitKindLabel(kind) {
-  return PERMIT_KINDS.find((k) => k.id === kind)?.title || kind
+  if (kind === 'work_permit') return 'Izin kerja'
+  if (kind === 'e_permit') return 'E-Permit to Work'
+  if (kind === 'job_permit') return 'Job Permit'
+  return kind || 'Izin kerja'
+}
+
+export function durationLabel(code) {
+  if (code === '12h') return '12 jam · risiko tinggi'
+  if (code === '7d') return '7 hari · risiko rendah'
+  if (code === '14d') return '14 hari · izin lama'
+  return 'Menunggu supervisor'
+}
+
+export function finalDuration(row) {
+  return row?.hsse_duration_choice || row?.duration_choice || (row?.permit_kind === 'e_permit' ? '12h' : row?.permit_kind === 'job_permit' ? '14d' : '')
 }
 
 export function passPhase(row) {
@@ -274,7 +294,7 @@ export function expiringSoon(row) {
   if (!row?.valid_until) return false
   const ms = new Date(row.valid_until).getTime() - Date.now()
   if (ms <= 0) return false
-  const windowMs = row.permit_kind === 'e_permit' ? 2 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+  const windowMs = finalDuration(row) === '12h' ? 2 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
   return ms <= windowMs
 }
 

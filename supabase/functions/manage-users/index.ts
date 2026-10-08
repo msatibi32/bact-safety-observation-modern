@@ -61,6 +61,7 @@ function publicUser(user: {
     created_at: user.created_at || '',
     last_sign_in_at: user.last_sign_in_at || '',
     disabled: isUserDisabled(user),
+    ptw_can_apply: user.app_metadata?.ptw_can_apply === true,
   }
 }
 
@@ -96,7 +97,9 @@ Deno.serve(async (req) => {
     password?: string
     role?: string
     pic_department?: string
+    full_name?: string
     disabled?: boolean
+    ptw_can_apply?: boolean
   }
   try {
     body = await req.json()
@@ -126,12 +129,20 @@ Deno.serve(async (req) => {
       if (!ALLOWED_ROLES.has(role)) return jsonResponse(req, { error: 'Role tidak dikenal.' }, 400)
 
       const meta = rolePatch(role, picDepartment)
+      const userMetadata: Record<string, unknown> = { ...meta.user_metadata }
+      const appMetadata: Record<string, unknown> = { ...meta.app_metadata }
+      const fullName = String(body.full_name || '').trim()
+      if (fullName) userMetadata.full_name = fullName
+      if (body.ptw_can_apply === true) {
+        userMetadata.ptw_can_apply = true
+        appMetadata.ptw_can_apply = true
+      }
       const { data, error } = await admin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
-        user_metadata: meta.user_metadata,
-        app_metadata: meta.app_metadata,
+        user_metadata: userMetadata,
+        app_metadata: appMetadata,
       })
       if (error) throw error
       return jsonResponse(req, { ok: true, user: publicUser(data.user) })
@@ -161,6 +172,11 @@ Deno.serve(async (req) => {
       if (typeof body.disabled === 'boolean') {
         patch.ban_duration = body.disabled ? '876000h' : 'none'
       }
+      if (typeof body.ptw_can_apply === 'boolean') {
+        const { data: existing } = await admin.auth.admin.getUserById(id)
+        patch.user_metadata = { ...(existing.user?.user_metadata || {}), ptw_can_apply: body.ptw_can_apply }
+        patch.app_metadata = { ...(existing.user?.app_metadata || {}), ...(patch.app_metadata || {}), ptw_can_apply: body.ptw_can_apply }
+      }
       if (body.role) {
         if (!ALLOWED_ROLES.has(body.role)) return jsonResponse(req, { error: 'Role tidak dikenal.' }, 400)
         const { data: existing } = await admin.auth.admin.getUserById(id)
@@ -174,8 +190,8 @@ Deno.serve(async (req) => {
               )
             : ''
         const meta = rolePatch(body.role, picDepartment)
-        patch.user_metadata = { ...(existing.user?.user_metadata || {}), ...meta.user_metadata }
-        patch.app_metadata = { ...(existing.user?.app_metadata || {}), ...meta.app_metadata }
+        patch.user_metadata = { ...(patch.user_metadata || existing.user?.user_metadata || {}), ...meta.user_metadata }
+        patch.app_metadata = { ...(patch.app_metadata || existing.user?.app_metadata || {}), ...meta.app_metadata }
       } else if (body.pic_department !== undefined) {
         const { data: existing } = await admin.auth.admin.getUserById(id)
         const picDepartment = String(body.pic_department || '')

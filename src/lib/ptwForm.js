@@ -78,6 +78,7 @@ export function emptyPermitSheet() {
     jsaNo: '',
     controlOther: '',
     ppe: [],
+    ppeOther: '',
     activities: [emptyActivity()],
     mechanicalCert: '',
     electricalCert: '',
@@ -178,6 +179,8 @@ export function buildPermitDetails(sheet) {
 
   if (open.has('3')) {
     details.ppe = picked(sheet.ppe, PPE_ITEMS)
+    const ppeOther = clip(sheet.ppeOther, 200)
+    if (ppeOther) details.ppe_other = ppeOther
     details.activities = sheet.activities
       .map((row) => ({
         activity: clip(row.activity, 200),
@@ -281,7 +284,7 @@ export function validatePermitSheet(sheet, workTypes, options = {}) {
   }
   if (open.has('3')) {
     if (!details.activities.length) return 'Isi minimal satu aktivitas pekerjaan.'
-    if (!details.ppe.length) return 'Centang APD yang wajib dipakai.'
+    if (!details.ppe.length && !details.ppe_other) return 'Centang APD yang wajib dipakai, atau isi APD di luar daftar.'
   }
   if (workTypes.includes('Confine Space') && !details.gas?.tester_name) {
     return 'Confine space wajib mengisi nama gas tester.'
@@ -380,6 +383,7 @@ export function editorFromPermit(row) {
       jsaNo: asText(details.jsa_no),
       controlOther: asText(details.control_other),
       ppe: asIds(details.ppe),
+      ppeOther: asText(details.ppe_other),
       activities,
       mechanicalCert: asText(isolation.mechanical_cert),
       electricalCert: asText(isolation.electrical_cert),
