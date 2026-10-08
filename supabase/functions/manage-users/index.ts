@@ -172,6 +172,12 @@ Deno.serve(async (req) => {
       if (typeof body.disabled === 'boolean') {
         patch.ban_duration = body.disabled ? '876000h' : 'none'
       }
+      if (body.full_name !== undefined) {
+        const { data: existing } = await admin.auth.admin.getUserById(id)
+        const fullName = String(body.full_name || '').trim()
+        patch.user_metadata = { ...(existing.user?.user_metadata || {}), full_name: fullName }
+        patch.app_metadata = { ...(existing.user?.app_metadata || {}) }
+      }
       if (typeof body.ptw_can_apply === 'boolean') {
         const { data: existing } = await admin.auth.admin.getUserById(id)
         patch.user_metadata = { ...(existing.user?.user_metadata || {}), ptw_can_apply: body.ptw_can_apply }
