@@ -96,6 +96,8 @@ type Payload = {
   last_send?: unknown
   department?: string
   soc_number?: string
+  description?: string
+  suggestion?: string
   link?: string
   only_to?: string
   subject_override?: string
@@ -209,19 +211,23 @@ function buildMessage(type: string, p: Payload) {
   }
   if (type === 'followup_assign') {
     return [
-      'Tindak lanjut SOC — BACT',
+      'Permintaan CAPA — sistem SOC BACT',
       '',
-      `Departemen: ${p.department || '—'}`,
+      'Ini permintaan tindakan korektif dan preventif. Pengirimnya sistem, bukan nama perorangan.',
+      '',
+      `Ditunjuk: ${p.department || '—'}`,
       `Nomor: ${p.soc_number || '—'}`,
-      `Kategori: ${p.category || '—'}`,
+      `Jenis: ${p.category || '—'}`,
       `Risiko: ${p.risk_level || '—'}`,
       `Lokasi: ${p.location || '—'}`,
+      p.description ? `Kejadian: ${p.description}` : '',
+      p.suggestion ? `Saran pelapor: ${p.suggestion}` : '',
       '',
-      'Buka tautan ini untuk mengisi deadline, action plan, bukti foto, dan menutup laporan jika sudah selesai. Tidak perlu login.',
+      'Buka tautan ini untuk mengisi tenggat, status, keterangan, dan foto. Tidak perlu login. Tautan yang sama bisa dibuka lagi sampai pekerjaan selesai, lalu tutup dengan foto hasil.',
       p.link || '',
       '',
-      'Jika lewat deadline, isi alasannya. HSSE tidak menutup laporan ini secara manual.',
-    ].join('\n')
+      'Nama pelapor tidak disertakan. HSSE menerima salinan email ini dan tidak menutup pekerjaan ini.',
+    ].filter((line) => line !== undefined).join('\n')
   }
   const label = type === 'hipo_alert' || p.is_hipo ? 'HiPo Alert' : 'Laporan Baru'
   const lines = [
@@ -230,9 +236,10 @@ function buildMessage(type: string, p: Payload) {
     `Kategori: ${p.category || '—'}`,
     `Risiko: ${p.risk_level || '—'}`,
     `Lokasi: ${p.location || '—'}`,
-    `Pelapor: ${p.reporter || '—'}`,
     `Perusahaan: ${p.company || '—'}`,
     `ID: ${(p.observation_id || '').slice(0, 8)}`,
+    '',
+    'Nama pelapor hanya dapat dilihat Super Admin di dashboard.',
   ]
   if (p.catchup_note) lines.push('', p.catchup_note)
   if (PUBLIC_APP_URL) lines.push('', `Dashboard: ${PUBLIC_APP_URL}/admin`)
@@ -257,6 +264,18 @@ async function getRecipientEmails(
     .filter(Boolean)
 
   return [...new Set(emails)]
+}
+
+async function followUpRecipients(
+  supabase: ReturnType<typeof createClient>,
+  onlyTo?: string,
+): Promise<string[]> {
+  const primary = onlyTo ? [onlyTo.trim().toLowerCase()].filter(Boolean) : []
+  const { data } = await supabase.from('notification_recipients').select('email').eq('active', true)
+  const copies = (data || [])
+    .map((row) => String(row.email || '').trim().toLowerCase())
+    .filter(Boolean)
+  return [...new Set([...primary, ...copies])]
 }
 
 async function resolveResendFrom(): Promise<{
@@ -482,15 +501,24 @@ function passEmailHtml(type: string, p: Payload, imageUrl?: string) {
 
 function followUpEmailHtml(p: Payload) {
   const link = p.link || ''
+  const story = p.description
+    ? `<p style="margin:8px 0">Kejadian: ${escapeHtml(p.description)}</p>`
+    : ''
+  const suggestion = p.suggestion
+    ? `<p style="margin:8px 0">Saran pelapor: ${escapeHtml(p.suggestion)}</p>`
+    : ''
   return `<div style="font-family:Arial,sans-serif;color:#1a1a1a;max-width:520px">
-    <p>Tindak lanjut SOC untuk departemen <strong>${escapeHtml(p.department || '—')}</strong>.</p>
+    <p>Permintaan CAPA dari sistem SOC untuk <strong>${escapeHtml(p.department || '—')}</strong>.</p>
     <p style="margin:4px 0">Nomor: ${escapeHtml(p.soc_number || '—')}</p>
-    <p style="margin:4px 0">Kategori: ${escapeHtml(p.category || '—')} · Risiko: ${escapeHtml(p.risk_level || '—')}</p>
+    <p style="margin:4px 0">Jenis: ${escapeHtml(p.category || '—')} · Risiko: ${escapeHtml(p.risk_level || '—')}</p>
     <p style="margin:4px 0">Lokasi: ${escapeHtml(p.location || '—')}</p>
+    ${story}
+    ${suggestion}
     <p style="margin:20px 0">
-      <a href="${escapeHtml(link)}" style="background:#F37021;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;font-weight:bold">Buka form follow-up</a>
+      <a href="${escapeHtml(link)}" style="background:#F37021;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;display:inline-block;font-weight:bold">Buka permintaan CAPA</a>
     </p>
-    <p style="font-size:12px;color:#64748b">Tidak perlu login. Isi deadline, action plan, dan foto bukti. Jika sudah selesai, tutup laporan dari tautan yang sama.</p>
+    <p style="font-size:12px;color:#64748b">Tidak perlu login. Isi tenggat, status, keterangan, dan foto. Tautan yang sama bisa dibuka lagi sampai selesai, lalu tutup dengan foto hasil.</p>
+    <p style="font-size:12px;color:#64748b">Nama pelapor tidak disertakan. HSSE menerima salinan dan tidak menutup pekerjaan ini.</p>
     <p style="font-size:12px;color:#64748b">Jika tombol tidak terbuka, salin tautan ini:<br>${escapeHtml(link)}</p>
   </div>`
 }
@@ -741,7 +769,10 @@ Deno.serve(async (req) => {
       }
     }
     const isHiPo = row.type === 'hipo_alert' || !!p.is_hipo
-    const recipients = await getRecipientEmails(supabase, isHiPo, p.only_to)
+    const recipients =
+      row.type === 'followup_assign'
+        ? await followUpRecipients(supabase, p.only_to)
+        : await getRecipientEmails(supabase, isHiPo, p.only_to)
     const text = buildMessage(row.type, p)
     const subject = p.subject_override
       ? String(p.subject_override)

@@ -2,13 +2,19 @@ import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import CookieConsent from './components/CookieConsent'
 import RequireRole from './components/RequireRole'
+import HomePage from './pages/HomePage'
 import ReportForm from './pages/ReportForm'
 
 const AdminActivity = lazy(() => import('./pages/AdminActivity'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const AdminIncidents = lazy(() => import('./pages/AdminIncidents'))
 const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const AdminManHours = lazy(() => import('./pages/AdminManHours'))
+const AdminModulePage = lazy(() => import('./pages/AdminModulePage'))
+const AdminPerforma = lazy(() => import('./pages/AdminPerforma'))
 const AdminPermits = lazy(() => import('./pages/AdminPermits'))
 const AdminSettings = lazy(() => import('./pages/AdminSettings'))
+const AdminStatistik = lazy(() => import('./pages/AdminStatistik'))
 const AdminSummary = lazy(() => import('./pages/AdminSummary'))
 const AdminUsers = lazy(() => import('./pages/AdminUsers'))
 const AdminVisits = lazy(() => import('./pages/AdminVisits'))
@@ -40,7 +46,8 @@ export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<ReportForm />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/lapor" element={<ReportForm />} />
         <Route
           path="/ptw"
           element={
@@ -111,6 +118,56 @@ export default function App() {
             <RequireRole minRole="viewer">
               <Suspense fallback={<AdminFallback />}>
                 <AdminDashboard />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/performa"
+          element={
+            <RequireRole minRole="viewer">
+              <Suspense fallback={<AdminFallback />}>
+                <AdminPerforma />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/statistik"
+          element={
+            <RequireRole minRole="viewer">
+              <Suspense fallback={<AdminFallback />}>
+                <AdminStatistik />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/insiden"
+          element={
+            <RequireRole minRole="viewer">
+              <Suspense fallback={<AdminFallback />}>
+                <AdminIncidents />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/man-hours"
+          element={
+            <RequireRole minRole="viewer">
+              <Suspense fallback={<AdminFallback />}>
+                <AdminManHours />
+              </Suspense>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/modul/:moduleKey"
+          element={
+            <RequireRole minRole="viewer">
+              <Suspense fallback={<AdminFallback />}>
+                <AdminModulePage />
               </Suspense>
             </RequireRole>
           }

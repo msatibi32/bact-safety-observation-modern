@@ -68,7 +68,7 @@ function fmtDate(d) {
   })
 }
 
-function observationRows(observations) {
+function observationRows(observations, { includeReporter = false } = {}) {
   const headers = [
     'SOC No',
     'Date',
@@ -85,14 +85,15 @@ function observationRows(observations) {
     'PIC',
     'Description',
     'Recommendation',
+    'Saran pelapor',
     'Close date',
   ]
 
   const rows = observations.map((o) => [
     resolveSocNumber(o, observations),
     fmtDateTime(o.tanggal_waktu || o.created_at),
-    o.nama_pelapor || '',
-    o.employee_id || '',
+    includeReporter ? o.nama_pelapor || '' : 'Disembunyikan',
+    includeReporter ? o.employee_id || '' : '',
     o.departemen || '',
     o.nama_perusahaan || '',
     o.lokasi_teks || '',
@@ -104,6 +105,7 @@ function observationRows(observations) {
     o.pic_assigned || '',
     o.deskripsi || '',
     o.rekomendasi || '',
+    o.tindakan_langsung || '',
     fmtDate(o.closed_date),
   ])
 
@@ -187,16 +189,16 @@ ${sheets.join('\n')}
 </Workbook>`
 }
 
-function socListTable(observations) {
-  const { headers, rows } = observationRows(observations)
-  const colWidths = [42, 22, 28, 16, 22, 22, 22, 24, 18, 10, 12, 16, 18, 56, 40, 16]
+function socListTable(observations, options) {
+  const { headers, rows } = observationRows(observations, options)
+  const colWidths = [42, 22, 28, 16, 22, 22, 22, 24, 18, 10, 12, 16, 18, 56, 40, 40, 16]
   const cols = colWidths.map((w) => `<Column ss:AutoFitWidth="0" ss:Width="${w * 5.2}" />`).join('')
   const headerRow = `<Row ss:StyleID="header">${headers.map((h) => cellXml(h)).join('')}</Row>`
   const body = rows
     .map(
       (r) =>
         `<Row>${r
-          .map((v, i) => cellXml(v, i === 13 || i === 14))
+          .map((v, i) => cellXml(v, i === 13 || i === 14 || i === 15))
           .join('')}</Row>`,
     )
     .join('')
@@ -205,7 +207,7 @@ function socListTable(observations) {
 
 /** Excel (.xls) — SOC list. Optional period summary sheet for weekly/monthly packs. */
 export function exportObservationsExcel(observations, filename = 'bact-soc-report.xls', options = {}) {
-  const listSheet = sheetXml('SOC Reports', socListTable(observations))
+  const listSheet = sheetXml('SOC Reports', socListTable(observations, options))
   const sheets = []
   if (options.from || options.to || options.title) {
     const summaryTable = periodSummaryRows(observations, options)
@@ -219,10 +221,10 @@ export function exportObservationsExcel(observations, filename = 'bact-soc-repor
   downloadBlob(blob, filename)
 }
 
-export function exportPeriodReportExcel(observations, { from, to, period = 'custom' } = {}) {
+export function exportPeriodReportExcel(observations, { from, to, period = 'custom', includeReporter = false } = {}) {
   const title = period === 'weekly' ? 'Weekly SOC Report' : period === 'monthly' ? 'Monthly SOC Report' : 'SOC Report'
   const filename = `bact-soc-${period}-${from || 'from'}-to-${to || 'to'}.xls`
-  exportObservationsExcel(observations, filename, { title, from, to })
+  exportObservationsExcel(observations, filename, { title, from, to, includeReporter })
 }
 
 export function exportObservationsCsv(observations, filename = 'laporan-soc-bact.csv') {

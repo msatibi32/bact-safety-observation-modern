@@ -45,7 +45,7 @@ export default function StaffSignatureCard() {
     <section className="admin-panel mb-4 rounded-2xl border border-slate-800 p-4">
       <h2 className="text-sm font-semibold text-slate-100">Foto tanda tangan</h2>
       <p className="mt-1 text-xs text-slate-400">
-        Foto tanda tangan di kertas putih, sekali saja. Latar putih dihapus, lalu ditempel ke PDF saat Anda menyetujui.
+        Foto tanda tangan di kertas putih, sekali saja. Di lembar PDF, tekan Tempel tanda tangan — foto ini yang masuk, tanpa gambar ulang.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <div className="flex h-16 w-44 items-center justify-center rounded-xl bg-white">

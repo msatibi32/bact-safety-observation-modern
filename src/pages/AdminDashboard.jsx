@@ -17,7 +17,7 @@ import { RiskBadge, StatusBadge, HiPoBadge } from '../components/Badge'
 import ObservationDetailPanel from '../components/ObservationDetailPanel'
 import { dailyReportCounts, overdueEscalations, sparklineValues, trendDelta } from '../lib/analytics'
 import { categoryLabel, isOpenStatus, isUnclassifiedObservation } from '../lib/constants'
-import { filterObservationsForRole } from '../lib/roles'
+import { filterObservationsForRole, visibleReporterName } from '../lib/roles'
 import { useUser } from '../components/RequireRole'
 import { getObservations, getPendingNotifications, updateObservation } from '../lib/store'
 import { useChartTheme } from '../lib/theme'
@@ -25,11 +25,13 @@ import { useChartTheme } from '../lib/theme'
 const PAGE_SIZE = 10
 
 function initials(name = '') {
+  if (!name || name === 'Disembunyikan') return '—'
   return name.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 }
 
 export default function AdminDashboard() {
   const user = useUser()
+  const nameOf = (obs) => visibleReporterName(obs, user)
   const [observations, setObservations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -257,11 +259,11 @@ export default function AdminDashboard() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 font-mono text-xs text-brand-400">
-                          {initials(obs.nama_pelapor)}
+                          {initials(nameOf(obs))}
                         </span>
                         <div>
                           <div className="flex items-center gap-1 font-medium text-slate-200">
-                            {obs.nama_pelapor}
+                            {nameOf(obs)}
                             {obs.is_hipo && <HiPoBadge />}
                           </div>
                         </div>
@@ -314,7 +316,7 @@ export default function AdminDashboard() {
             >
               ← Back
             </button>
-            <span className="truncate text-sm font-semibold text-slate-100">{selected.nama_pelapor}</span>
+            <span className="truncate text-sm font-semibold text-slate-100">{nameOf(selected)}</span>
           </div>
           <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <ObservationDetailPanel observation={selected} onSave={handleSave} allObservations={observations} />

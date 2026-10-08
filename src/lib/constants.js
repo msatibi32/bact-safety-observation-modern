@@ -1,9 +1,57 @@
+/** Nilai disimpan di database. Label yang dilihat pelapor ada di OBSERVATION_TYPES. */
 export const KATEGORI_OPTIONS = [
+  'Positive Observation',
   'Unsafe Act',
   'Unsafe Condition',
   'Near Miss',
-  'Positive Observation',
+  'Suggestion',
 ]
+
+export const OBSERVATION_TYPES = [
+  {
+    value: 'Positive Observation',
+    label: 'Tindakan aman',
+    labelEn: 'Safe action',
+    hint: 'Untuk apresiasi. Foto orang yang bekerja aman boleh dilampirkan.',
+    hintEn: 'For appreciation. A photo of someone working safely may be attached.',
+  },
+  {
+    value: 'Unsafe Act',
+    label: 'Tindakan tidak aman',
+    labelEn: 'Unsafe action',
+    hint: 'Perilaku yang perlu ditegur di tempat. Tetap tercatat.',
+    hintEn: 'Behaviour to correct on the spot. It is still recorded.',
+  },
+  {
+    value: 'Unsafe Condition',
+    label: 'Kondisi tidak aman',
+    labelEn: 'Unsafe condition',
+    hint: 'HSE akan menunjuk kepala departemen untuk menindaklanjuti.',
+    hintEn: 'HSE will assign a department head to follow up.',
+  },
+  {
+    value: 'Near Miss',
+    label: 'Near miss',
+    labelEn: 'Near miss',
+    hint: 'Hampir celaka. HSE yang memutuskan apakah perlu tindak lanjut.',
+    hintEn: 'A near miss. HSE decides whether it needs follow-up.',
+  },
+  {
+    value: 'Suggestion',
+    label: 'Saran',
+    labelEn: 'Suggestion',
+    hint: 'Ide dari yang melihat pekerjaan. Tidak otomatis jadi tugas departemen.',
+    hintEn: 'An idea from the person who saw the job. It does not automatically become a task.',
+  },
+]
+
+const CATEGORY_LABELS = {
+  'Positive Observation': 'Tindakan aman',
+  'Unsafe Act': 'Tindakan tidak aman',
+  'Unsafe Condition': 'Kondisi tidak aman',
+  'Near Miss': 'Near miss',
+  Suggestion: 'Saran',
+}
 
 export const RISIKO_OPTIONS = ['Low', 'Medium', 'High']
 
@@ -117,7 +165,34 @@ export function isUnclassifiedObservation(obs) {
 }
 
 export function categoryLabel(kategori) {
-  return isUnclassifiedCategory(kategori) ? 'Unclassified' : kategori
+  if (isUnclassifiedCategory(kategori)) return 'Unclassified'
+  return CATEGORY_LABELS[kategori] || kategori
+}
+
+/** none = tidak dikirim sebagai CAPA. optional = HSE boleh kirim. required = wajib CAPA. */
+export function capaMode(kategori) {
+  if (kategori === 'Unsafe Condition') return 'required'
+  if (kategori === 'Near Miss') return 'optional'
+  return 'none'
+}
+
+export function capaModeNote(kategori) {
+  if (kategori === 'Positive Observation') {
+    return 'Tindakan aman dicatat untuk apresiasi. Tidak membuat CAPA dan tidak dikirim ke departemen.'
+  }
+  if (kategori === 'Unsafe Act') {
+    return 'Tindakan tidak aman dicatat supaya perilaku yang paling sering terlihat. Teguran dilakukan di tempat. Tidak otomatis menjadi CAPA.'
+  }
+  if (kategori === 'Suggestion') {
+    return 'Saran menempel di kartu. Tidak otomatis menjadi tugas departemen.'
+  }
+  if (kategori === 'Unsafe Condition') {
+    return 'Kondisi tidak aman wajib menjadi permintaan CAPA ke satu kepala departemen. Bukan ke HSSE.'
+  }
+  if (kategori === 'Near Miss') {
+    return 'Near miss boleh menjadi CAPA. HSSE yang memutuskan apakah permintaan dikirim.'
+  }
+  return 'Konfirmasi jenis pengamatan dulu, baru tentukan apakah kartu ini perlu CAPA.'
 }
 
 export function computeIsHiPo({ kategori, tingkat_risiko, potensi_risiko, stop_work }) {

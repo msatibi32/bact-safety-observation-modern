@@ -5,6 +5,7 @@ export const FIELD_LIMITS = {
   department: 80,
   location: 200,
   description: 4000,
+  suggestion: 2000,
 }
 
 export const PHOTO_MAX_BYTES = 10 * 1024 * 1024

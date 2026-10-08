@@ -1,7 +1,10 @@
 import { categoryLabel, isUnclassifiedObservation } from '../../lib/constants'
+import { visibleReporterName } from '../../lib/roles'
+import { useUser } from '../RequireRole'
 import { HiPoBadge, RiskBadge, StatusBadge } from '../Badge'
 
 function initials(name = '') {
+  if (!name || name === 'Disembunyikan') return '—'
   return name
     .split(' ')
     .slice(0, 2)
@@ -10,6 +13,7 @@ function initials(name = '') {
 }
 
 export default function ReportCard({ obs, selected, onClick }) {
+  const name = visibleReporterName(obs, useUser())
   return (
     <button
       type="button"
@@ -22,11 +26,11 @@ export default function ReportCard({ obs, selected, onClick }) {
     >
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 font-mono text-xs font-bold text-brand-400">
-          {initials(obs.nama_pelapor)}
+          {initials(name)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate font-semibold text-slate-100">{obs.nama_pelapor}</span>
+            <span className="truncate font-semibold text-slate-100">{name}</span>
             {obs.is_hipo && <HiPoBadge />}
           </div>
           <p className="mt-0.5 truncate text-xs text-slate-500">{obs.lokasi_teks}</p>

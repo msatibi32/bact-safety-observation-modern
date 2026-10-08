@@ -36,14 +36,12 @@ function companyOf(obs) {
   return obs.nama_perusahaan || 'PT. BACT'
 }
 
-function personId(obs) {
-  if (obs.is_anonymous) return 'seorang pelapor anonim'
-  return `Saudara/i ${obs.nama_pelapor || '—'}`
+function personId() {
+  return 'pelapor'
 }
 
-function personEn(obs) {
-  if (obs.is_anonymous) return 'an anonymous reporter'
-  return `Mr/Ms ${obs.nama_pelapor || '—'}`
+function personEn() {
+  return 'the reporter'
 }
 
 function deptId(obs) {

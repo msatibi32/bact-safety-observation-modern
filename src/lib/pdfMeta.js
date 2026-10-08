@@ -15,12 +15,8 @@ export function buildPdfSubject(obs) {
   return 'Safety Observation'
 }
 
-export function buildPdfReporter(obs) {
-  if (obs?.is_anonymous) return 'Anonymous'
-  const name = String(obs?.nama_pelapor || '').trim()
-  const id = String(obs?.employee_id || '').trim()
-  if (name && id) return `${name} (${id})`
-  return name || '—'
+export function buildPdfReporter() {
+  return 'Disembunyikan'
 }
 
 export function normalizeActionChecks(count, saved) {

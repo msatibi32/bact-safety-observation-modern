@@ -1,51 +1,51 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { HiPoBadge, RiskBadge, StatusBadge } from './Badge'
-import InvestigationForm from './InvestigationForm'
 import RecommendationPanel from './RecommendationPanel'
 import { BuildingIcon, PinIcon } from './Icon'
+import { assignableDepartmentHeads } from '../data/departmentHeads'
 import {
-  DEPARTMENT_OPTIONS,
   KATEGORI_OPTIONS,
   RISIKO_OPTIONS,
   STATUS_OPTIONS,
+  capaMode,
+  capaModeNote,
+  categoryLabel,
   computeIsHiPo,
+  isUnclassifiedCategory,
   isUnclassifiedObservation,
+  isUnclassifiedRisk,
 } from '../lib/constants'
 import {
   buildSummary5W1H,
-  hasInvestigationContent,
   investigationPlainSummary,
   parseInvestigationData,
 } from '../lib/investigation'
 import { buildNoticeActions } from '../lib/pdfNarrative'
 import { buildPdfSubject, normalizeActionChecks } from '../lib/pdfMeta'
-import { canClassifyObservations, canEditObservations } from '../lib/roles'
-import {
-  listDepartmentContacts,
-  queueFollowUpEmail,
-  randomToken,
-  upsertDepartmentContact,
-} from '../lib/passes'
+import { canClassifyObservations, canEditObservations, isSuperAdmin, visibleEmployeeId, visibleReporterName } from '../lib/roles'
+import { queueFollowUpEmail, randomToken } from '../lib/passes'
 import { resolveSocNumber } from '../lib/socNumber'
 import { useUser } from './RequireRole'
 
 const PdfReviewModal = lazy(() => import('./PdfReviewModal'))
 
-const TABS = ['Detail', 'Investigation', 'Recommendation']
+const TABS = ['Detail', 'Recommendation']
 
 export default function ObservationDetailPanel({ observation, onSave, allObservations = [] }) {
   const user = useUser()
   const canEdit = canEditObservations(user)
   const canClassify = canClassifyObservations(user)
+  const revealReporter = isSuperAdmin(user)
+  const reporterName = visibleReporterName(observation, user)
+  const reporterId = visibleEmployeeId(observation, user)
   const pendingClass = isUnclassifiedObservation(observation)
   const [tab, setTab] = useState('Detail')
   const [pic, setPic] = useState(observation.pic_assigned || '')
-  const [followupEmail, setFollowupEmail] = useState(observation.followup_email || '')
-  const [contacts, setContacts] = useState([])
+  const [assigneeId, setAssigneeId] = useState('')
   const [linkNote, setLinkNote] = useState('')
   const [status, setStatus] = useState(observation.status)
-  const [kategori, setKategori] = useState(pendingClass ? '' : observation.kategori)
-  const [risiko, setRisiko] = useState(pendingClass ? '' : observation.tingkat_risiko)
+  const [kategori, setKategori] = useState(isUnclassifiedCategory(observation.kategori) ? '' : observation.kategori)
+  const [risiko, setRisiko] = useState(isUnclassifiedRisk(observation.tingkat_risiko) ? '' : observation.tingkat_risiko)
   const [catatan, setCatatan] = useState(observation.catatan_penutupan || '')
   const [triageNotes, setTriageNotes] = useState(observation.triage_notes || '')
   const [verificationNotes, setVerificationNotes] = useState(observation.verification_notes || '')
@@ -86,12 +86,11 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
   }, [noticeActions.id.length])
 
   useEffect(() => {
-    const pending = isUnclassifiedObservation(observation)
     setPic(observation.pic_assigned || '')
-    setFollowupEmail(observation.followup_email || '')
+    setAssigneeId('')
     setStatus(observation.status)
-    setKategori(pending ? '' : observation.kategori)
-    setRisiko(pending ? '' : observation.tingkat_risiko)
+    setKategori(isUnclassifiedCategory(observation.kategori) ? '' : observation.kategori)
+    setRisiko(isUnclassifiedRisk(observation.tingkat_risiko) ? '' : observation.tingkat_risiko)
     setCatatan(observation.catatan_penutupan || '')
     setTriageNotes(observation.triage_notes || '')
     setVerificationNotes(observation.verification_notes || '')
@@ -106,19 +105,6 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
     setFinding(observation.finding_observation || '')
     setRecommendation(observation.rekomendasi || '')
   }, [observation])
-
-  useEffect(() => {
-    if (!canEdit) return
-    let cancelled = false
-    listDepartmentContacts()
-      .then((rows) => {
-        if (!cancelled) setContacts(rows)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-    }
-  }, [canEdit])
 
   async function persist(patchExtra = {}) {
     setError('')
@@ -179,46 +165,39 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
     await persist()
   }
 
-  function handleDepartmentChange(value) {
-    setPic(value)
-    const known = contacts.find((row) => row.department === value)
-    if (known) setFollowupEmail(known.email)
-  }
-
   async function handleSendFollowUp() {
     setLinkNote('')
-    const email = followupEmail.trim().toLowerCase()
+    const mode = capaMode(kategori)
+    if (mode === 'none') {
+      setError(capaModeNote(kategori))
+      return
+    }
     if (!kategori || !risiko) {
-      setError('Set category and risk before sending the follow-up link.')
+      setError('Konfirmasi jenis pengamatan dan risiko sebelum mengirim CAPA.')
       return
     }
-    if (!pic) {
-      setError('Choose the follow-up department.')
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Enter the department email that should receive the link.')
+    const head = assignableDepartmentHeads().find((person) => person.id === assigneeId)
+    if (!head) {
+      setError('Pilih satu kepala departemen dari daftar resmi. Bukan kotak email bebas, dan bukan HSSE.')
       return
     }
     const token = observation.followup_token || randomToken()
     const nextStatus = status === 'Closed' || status === 'Rejected' ? status : 'In Progress'
+    const assignedLabel = `${head.name} · ${head.department}`
     const savedOk = await persist({
+      pic_assigned: assignedLabel,
       followup_token: token,
-      followup_email: email,
+      followup_email: head.email.trim().toLowerCase(),
       status: nextStatus,
     })
     if (!savedOk) return
+    setPic(assignedLabel)
     setSaving(true)
     try {
-      try {
-        await upsertDepartmentContact(pic, email)
-      } catch {
-        /* directory is optional */
-      }
       await queueFollowUpEmail(observation.id)
-      setLinkNote('Follow-up link sent to the department. They close the report from that link.')
+      setLinkNote(`Permintaan CAPA terkirim ke ${head.name}. HSSE menerima salinan. Mereka menutup kartu dari tautan yang sama.`)
     } catch (err) {
-      setError(err.message || 'Could not send the follow-up link.')
+      setError(err.message || 'Permintaan CAPA gagal dikirim.')
     } finally {
       setSaving(false)
     }
@@ -262,8 +241,9 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
     ],
   )
 
-  const suggestedInvestigate = observation.is_hipo || risiko === 'High'
-  const invActive = requiresInvestigation || hasInvestigationContent(inv)
+  const heads = assignableDepartmentHeads()
+  const mode = capaMode(kategori)
+  const reporterSuggestion = observation.tindakan_langsung || ''
 
   return (
     <>
@@ -272,20 +252,18 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
         <div className="flex items-start justify-between gap-2">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-semibold text-slate-100">{observation.nama_pelapor}</h2>
-              {observation.employee_id && (
+              <h2 className="font-semibold text-slate-100">{reporterName}</h2>
+              {reporterId && (
                 <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-slate-300">
-                  {observation.employee_id}
+                  {reporterId}
                 </span>
+              )}
+              {!revealReporter && (
+                <span className="text-[10px] text-slate-500">Nama pelapor hanya Super Admin</span>
               )}
               {observation.is_hipo && <HiPoBadge />}
               {observation.stop_work && (
                 <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-medium text-white">Stop Work</span>
-              )}
-              {requiresInvestigation && (
-                <span className="rounded-full bg-amber-600/80 px-2 py-0.5 text-[10px] font-medium text-white">
-                  Investigation
-                </span>
               )}
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-500">
@@ -304,15 +282,6 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
               >
                 PDF SOC
               </button>
-              {invActive && (
-                <button
-                  type="button"
-                  onClick={() => setPdfReview('inv')}
-                  className="rounded-lg border border-amber-700/50 px-2 py-1 text-[10px] font-medium text-amber-400 hover:border-amber-500"
-                >
-                  PDF Investigation
-                </button>
-              )}
             </div>
             <RiskBadge level={observation.tingkat_risiko} pending={pendingClass} />
             <StatusBadge status={observation.status} />
@@ -330,7 +299,6 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
               }`}
             >
               {t}
-              {t === 'Investigation' && requiresInvestigation && <span className="ml-1 text-amber-300">●</span>}
             </button>
           ))}
         </div>
@@ -341,11 +309,13 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
           <div className="space-y-4">
             <dl className="space-y-2.5 text-sm">
               <DetailRow icon={<PinIcon className="h-3.5 w-3.5" />} label="Location" value={observation.lokasi_teks} />
-              {observation.employee_id && <DetailRow label="Employee ID" value={observation.employee_id} />}
+              {reporterId && <DetailRow label="Employee ID" value={reporterId} />}
               {observation.life_saving_rule && observation.life_saving_rule !== 'Tidak terkait' && (
                 <DetailRow label="Life Saving Rule" value={observation.life_saving_rule} />
               )}
+              <DetailRow label="Jenis dari pelapor" value={categoryLabel(observation.kategori)} />
               <DetailRow label="Description" value={observation.deskripsi} />
+              {reporterSuggestion && <DetailRow label="Saran pelapor" value={reporterSuggestion} />}
             </dl>
 
             {observation.foto?.length > 0 && (
@@ -365,12 +335,14 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
               <fieldset disabled={!canEdit} className="space-y-3 disabled:opacity-60">
                 {pendingClass && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                    Category and risk are empty. Set the HSE classification below.
+                    {isUnclassifiedCategory(observation.kategori)
+                      ? 'Jenis pengamatan dan risiko masih kosong. Konfirmasi di bawah.'
+                      : `Pelapor memilih ${categoryLabel(observation.kategori)}. Konfirmasi jenisnya, lalu isi risiko.`}
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block">
-                    <span className="mb-1 block text-xs font-medium text-slate-400">Category (HSE)</span>
+                    <span className="mb-1 block text-xs font-medium text-slate-400">Jenis pengamatan (konfirmasi HSE)</span>
                     <select
                       value={kategori}
                       onChange={(e) => setKategori(e.target.value)}
@@ -380,7 +352,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                       <option value="">— Unclassified —</option>
                       {KATEGORI_OPTIONS.map((opt) => (
                         <option key={opt} value={opt}>
-                          {opt}
+                          {categoryLabel(opt)}
                         </option>
                       ))}
                     </select>
@@ -403,36 +375,45 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                   </label>
                 </div>
 
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Follow-up department</span>
-                  <select value={pic} onChange={(e) => handleDepartmentChange(e.target.value)} className="admin-input">
-                    <option value="">— Not assigned —</option>
-                    {DEPARTMENT_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5 text-xs text-slate-300">
+                  <p className="font-medium text-slate-100">CAPA</p>
+                  <p className="mt-1 text-slate-400">{capaModeNote(kategori)}</p>
+                </div>
 
-                <label className="block">
-                  <span className="mb-1 block text-xs font-medium text-slate-400">Department email</span>
-                  <input
-                    type="email"
-                    value={followupEmail}
-                    onChange={(e) => setFollowupEmail(e.target.value)}
-                    className="admin-input"
-                    placeholder="it@example.com"
-                  />
-                  <span className="mt-1 block text-[10px] text-slate-500">
-                    The department gets a link, with no login, to set the deadline, action plan, photo evidence, and close the report.
-                  </span>
-                </label>
+                {mode !== 'none' && (
+                  heads.length === 0 ? (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
+                      Daftar kepala departemen belum resmi. Minta nama, jabatan, dan email ke Rano sebelum dropdown diisi. Jangan menebak dari catatan rapat. HSSE tidak dijadikan penanggung jawab perbaikan.
+                    </div>
+                  ) : (
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-medium text-slate-400">
+                        Kepala departemen {mode === 'required' ? '(wajib)' : '(boleh dikirim)'}
+                      </span>
+                      <select
+                        value={assigneeId}
+                        onChange={(e) => setAssigneeId(e.target.value)}
+                        className="admin-input"
+                      >
+                        <option value="">— Pilih satu nama —</option>
+                        {heads.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.name} · {person.department}
+                            {person.title ? ` · ${person.title}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="mt-1 block text-[10px] text-slate-500">
+                        Satu nama, bukan email bebas. Pengirimnya sistem. HSSE dapat salinan, bukan yang menutup pekerjaan.
+                      </span>
+                    </label>
+                  )
+                )}
 
                 {observation.followup_token && (
                   <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5 text-xs text-slate-300">
                     <p className="font-medium text-slate-100">
-                      Department status: {observation.followup_status || 'Link sent'}
+                      Department status: {observation.followup_status || 'Waiting for the department'}
                     </p>
                     {observation.followup_deadline && <p className="mt-1">Deadline: {observation.followup_deadline}</p>}
                     {observation.followup_action_plan && <p className="mt-1">{observation.followup_action_plan}</p>}
@@ -445,33 +426,21 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  disabled={saving || !canEdit}
-                  onClick={handleSendFollowUp}
-                  className="w-full rounded-xl border border-brand-500/40 px-4 py-2.5 text-sm font-medium text-brand-300 hover:bg-brand-500/10 disabled:opacity-50"
-                >
-                  {observation.followup_token ? 'Resend follow-up link' : 'Send follow-up link'}
-                </button>
+                {mode !== 'none' && heads.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={saving || !canEdit}
+                    onClick={handleSendFollowUp}
+                    className="w-full rounded-xl border border-brand-500/40 px-4 py-2.5 text-sm font-medium text-brand-300 hover:bg-brand-500/10 disabled:opacity-50"
+                  >
+                    {observation.followup_token ? 'Kirim ulang permintaan CAPA' : 'Kirim permintaan CAPA'}
+                  </button>
+                )}
                 {linkNote && <p className="text-xs text-emerald-300">{linkNote}</p>}
 
-                <label className="flex items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={requiresInvestigation}
-                    onChange={(e) => setRequiresInvestigation(e.target.checked)}
-                    className="mt-0.5"
-                  />
-                  <span className="text-xs text-slate-300">
-                    <span className="font-medium text-slate-100">Continue to investigation</span>
-                    <span className="mt-0.5 block text-slate-500">
-                      Ordinary follow-up does not need an investigation. The assigned department closes the report from the link.
-                      {suggestedInvestigate && !requiresInvestigation
-                        ? ' Check this only when a full investigation report is still required.'
-                        : ''}
-                    </span>
-                  </span>
-                </label>
+                <div className="rounded-xl border border-dashed border-slate-700 px-3 py-2 text-[11px] text-slate-500">
+                  Surat PDF opsional. Tidak menahan kartu, dan tidak wajib diisi sebelum CAPA jalan.
+                </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block">
@@ -512,7 +481,7 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
                     })}
                   />
                   <span className="mt-1 block text-[10px] text-slate-500">
-                    Reporter name is not in the subject — the PDF has a Reporter / Reported by column.
+                    Nama pelapor tidak masuk PDF. Hanya Super Admin yang melihat nama aslinya di dashboard.
                   </span>
                 </label>
 
@@ -611,30 +580,6 @@ export default function ObservationDetailPanel({ observation, onSave, allObserva
               </fieldset>
             </form>
           </div>
-        )}
-
-        {tab === 'Investigation' && (
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-3"
-          >
-            {!requiresInvestigation && (
-              <div className="rounded-xl border border-slate-700 bg-slate-800/40 px-3 py-2 text-xs text-slate-400">
-                This SOC is not marked for investigation. Check the box on the Detail tab if a full investigation
-                report is needed (daily cases usually only need the SOC PDF).
-              </div>
-            )}
-            {requiresInvestigation && suggestedInvestigate && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                HiPo / High — complete 5W+1H and 5 Whys so the investigation draft stays consistent.
-              </div>
-            )}
-            <InvestigationForm data={inv} onChange={setInv} disabled={!canEdit} />
-            {error && <p className="text-sm text-red-400">{error}</p>}
-            <button type="submit" disabled={saving || !canEdit} className="btn-primary w-full">
-              {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save investigation'}
-            </button>
-          </form>
         )}
 
         {tab === 'Recommendation' && (

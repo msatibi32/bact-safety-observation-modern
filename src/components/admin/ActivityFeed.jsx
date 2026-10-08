@@ -1,8 +1,11 @@
 import { categoryLabel, isUnclassifiedObservation } from '../../lib/constants'
+import { visibleReporterName } from '../../lib/roles'
+import { useUser } from '../RequireRole'
 import { LivePulse } from './TradingStatCard'
 import { HiPoBadge, RiskBadge, StatusBadge } from '../Badge'
 
 export default function ActivityFeed({ items, onSelect }) {
+  const user = useUser()
   if (!items.length) {
     return <p className="py-6 text-center text-sm text-slate-500">No report activity yet.</p>
   }
@@ -21,7 +24,7 @@ export default function ActivityFeed({ items, onSelect }) {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="truncate text-sm font-medium text-slate-100">{obs.nama_pelapor}</span>
+                <span className="truncate text-sm font-medium text-slate-100">{visibleReporterName(obs, user)}</span>
                 {obs.is_hipo && <HiPoBadge />}
                 <RiskBadge level={obs.tingkat_risiko} pending={isUnclassifiedObservation(obs)} />
               </div>

@@ -20,9 +20,12 @@ import {
   exportPeriodReportExcel,
   filterObservationsByRange,
 } from '../../lib/export'
+import { isSuperAdmin } from '../../lib/roles'
 import { useChartTheme } from '../../lib/theme'
+import { useUser } from '../RequireRole'
 
 export default function PeriodReportPanel({ observations }) {
+  const user = useUser()
   const chart = useChartTheme()
   const [chartPeriod, setChartPeriod] = useState('weekly')
   const [selectedMonth, setSelectedMonth] = useState(currentYearMonthKey)
@@ -61,7 +64,12 @@ export default function PeriodReportPanel({ observations }) {
       setMessage('No reports in this date range.')
       return
     }
-    exportPeriodReportExcel(filtered, { from: range.from, to: range.to, period: 'custom' })
+    exportPeriodReportExcel(filtered, {
+      from: range.from,
+      to: range.to,
+      period: 'custom',
+      includeReporter: isSuperAdmin(user),
+    })
   }
 
   return (

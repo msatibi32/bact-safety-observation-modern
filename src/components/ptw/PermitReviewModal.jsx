@@ -7,6 +7,13 @@ import { useUser } from '../RequireRole'
 import PermitEditor from './PermitEditor'
 import PtwPdfPreview from './PtwPdfPreview'
 
+function signerName(user) {
+  const meta = user?.user_metadata || {}
+  const named = String(meta.full_name || meta.name || '').trim()
+  if (named) return named
+  return String(user?.email || '').split('@')[0].replace(/[._-]+/g, ' ').trim()
+}
+
 export default function PermitReviewModal({ permit, onClose, onSaved }) {
   const user = useUser()
   const canSave = canApproveSpvStep(user) || canApproveHsseStep(user)
@@ -171,6 +178,9 @@ export default function PermitReviewModal({ permit, onClose, onSaved }) {
             onToggleType={onToggleType}
             onToggleOpen={onToggleOpen}
             onToggleList={onToggleList}
+            pasteArea={canApproveSpvStep(user)}
+            pasteHsse={canApproveHsseStep(user)}
+            signerName={signerName(user)}
           />
         </div>
         <div className="min-h-[70vh] bg-slate-800 p-3 lg:min-h-0">

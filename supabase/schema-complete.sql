@@ -76,6 +76,7 @@ alter table public.observations add constraint observations_category_check
     'Unsafe Condition',
     'Near Miss',
     'Positive Observation',
+    'Suggestion',
     'Belum diklasifikasi',
     'Observasi'
   ));
@@ -423,5 +424,97 @@ drop trigger if exists trg_observation_insert_rate on public.observations;
 create trigger trg_observation_insert_rate
 before insert on public.observations
 for each row execute function public.enforce_observation_insert_rate();
+
+-- ─── 10. Menu dashboard (sama dengan schema-v19-soc-oct.sql) ────────────────
+
+create table if not exists public.hse_module_records (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  module text not null,
+  title text not null default '',
+  status text not null default '',
+  data jsonb not null default '{}'::jsonb
+);
+
+create index if not exists hse_module_records_module_idx
+  on public.hse_module_records (module, created_at desc);
+
+create table if not exists public.hse_incidents (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  name text not null,
+  category text,
+  severity text,
+  description text,
+  lokasi text,
+  status text not null default 'Open',
+  occurred_at timestamptz,
+  pic text,
+  root_cause text,
+  corrective_action text
+);
+
+create index if not exists hse_incidents_occurred_idx
+  on public.hse_incidents (occurred_at desc);
+
+drop trigger if exists trg_hse_module_records_updated_at on public.hse_module_records;
+create trigger trg_hse_module_records_updated_at
+before update on public.hse_module_records
+for each row execute function public.set_updated_at();
+
+drop trigger if exists trg_hse_incidents_updated_at on public.hse_incidents;
+create trigger trg_hse_incidents_updated_at
+before update on public.hse_incidents
+for each row execute function public.set_updated_at();
+
+alter table public.hse_module_records enable row level security;
+alter table public.hse_incidents enable row level security;
+
+drop policy if exists "Staff can read hse modules" on public.hse_module_records;
+create policy "Staff can read hse modules"
+  on public.hse_module_records for select to authenticated
+  using (true);
+
+drop policy if exists "HSE can insert hse modules" on public.hse_module_records;
+create policy "HSE can insert hse modules"
+  on public.hse_module_records for insert to authenticated
+  with check (public.is_hse_staff());
+
+drop policy if exists "HSE can update hse modules" on public.hse_module_records;
+create policy "HSE can update hse modules"
+  on public.hse_module_records for update to authenticated
+  using (public.is_hse_staff())
+  with check (public.is_hse_staff());
+
+drop policy if exists "HSE can delete hse modules" on public.hse_module_records;
+create policy "HSE can delete hse modules"
+  on public.hse_module_records for delete to authenticated
+  using (public.is_hse_staff());
+
+drop policy if exists "Staff can read hse incidents" on public.hse_incidents;
+create policy "Staff can read hse incidents"
+  on public.hse_incidents for select to authenticated
+  using (true);
+
+drop policy if exists "HSE can insert hse incidents" on public.hse_incidents;
+create policy "HSE can insert hse incidents"
+  on public.hse_incidents for insert to authenticated
+  with check (public.is_hse_staff());
+
+drop policy if exists "HSE can update hse incidents" on public.hse_incidents;
+create policy "HSE can update hse incidents"
+  on public.hse_incidents for update to authenticated
+  using (public.is_hse_staff())
+  with check (public.is_hse_staff());
+
+drop policy if exists "HSE can delete hse incidents" on public.hse_incidents;
+create policy "HSE can delete hse incidents"
+  on public.hse_incidents for delete to authenticated
+  using (public.is_hse_staff());
+
+grant select, insert, update, delete on public.hse_module_records to authenticated;
+grant select, insert, update, delete on public.hse_incidents to authenticated;
 
 -- Selesai ✓

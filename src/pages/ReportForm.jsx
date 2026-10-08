@@ -4,7 +4,7 @@ import PublicModuleNav from '../components/PublicModuleNav'
 import SiteFooter from '../components/SiteFooter'
 import EmployeeNameField from '../components/EmployeeNameField'
 import { CameraIcon, CheckCircleIcon } from '../components/Icon'
-import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, LOCATION_OPTIONS } from '../lib/constants'
+import { COMPANY_OPTIONS, DEPARTMENT_OPTIONS, LOCATION_OPTIONS, OBSERVATION_TYPES } from '../lib/constants'
 import { isBactCompany } from '../lib/employees'
 import { FIELD_LIMITS, PHOTO_MAX_COUNT, validatePhotoFile } from '../lib/limits'
 import { addObservation } from '../lib/store'
@@ -19,7 +19,9 @@ const emptyForm = {
   tanggal_waktu: new Date().toISOString().slice(0, 16),
   lokasi_teks: '',
   lokasi_lainnya: '',
+  jenis_pengamatan: '',
   deskripsi: '',
+  saran: '',
   stop_work: false,
 }
 
@@ -141,6 +143,16 @@ export default function ReportForm() {
         setSubmitting(false)
         return
       }
+      if (!form.jenis_pengamatan) {
+        setSubmitError('Pilih jenis pengamatan. / Choose the observation type.')
+        setSubmitting(false)
+        return
+      }
+      if (!form.saran.trim()) {
+        setSubmitError('Isi saran. / Enter a suggestion.')
+        setSubmitting(false)
+        return
+      }
 
       if (Date.now() - mountedAtRef.current < 2500) {
         fakeSuccess()
@@ -152,6 +164,8 @@ export default function ReportForm() {
         nama_perusahaan:
           form.nama_perusahaan === 'Lainnya' ? form.nama_perusahaan_lainnya : form.nama_perusahaan,
         lokasi_teks: lokasiResolved,
+        kategori: form.jenis_pengamatan,
+        saran: form.saran.trim(),
         foto: photos.map((p) => p.file),
         is_anonymous: false,
         is_hipo: form.stop_work,
@@ -381,6 +395,30 @@ export default function ReportForm() {
               )}
             </Field>
 
+            <Field label="Jenis pengamatan" labelEn="Observation type" required>
+              <select
+                required
+                value={form.jenis_pengamatan}
+                onChange={(e) => update('jenis_pengamatan', e.target.value)}
+                className="input"
+              >
+                <option value="">— Pilih jenis / Select type —</option>
+                {OBSERVATION_TYPES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} / {opt.labelEn}
+                  </option>
+                ))}
+              </select>
+              {OBSERVATION_TYPES.find((opt) => opt.value === form.jenis_pengamatan) && (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  {OBSERVATION_TYPES.find((opt) => opt.value === form.jenis_pengamatan).hint}
+                  <span className="mt-0.5 block text-slate-400">
+                    {OBSERVATION_TYPES.find((opt) => opt.value === form.jenis_pengamatan).hintEn}
+                  </span>
+                </p>
+              )}
+            </Field>
+
             <Field label="Deskripsi kejadian" labelEn="Incident description" required>
               <textarea
                 required
@@ -389,7 +427,33 @@ export default function ReportForm() {
                 value={form.deskripsi}
                 onChange={(e) => update('deskripsi', e.target.value)}
                 className="input"
-                placeholder="Ceritakan apa yang terjadi… / Describe what happened…"
+                placeholder={
+                  form.jenis_pengamatan === 'Positive Observation'
+                    ? 'Ceritakan pekerjaan aman yang dilihat… / Describe the safe work you saw…'
+                    : 'Ceritakan apa yang terjadi… / Describe what happened…'
+                }
+              />
+            </Field>
+
+            <Field
+              label="Saran"
+              labelEn="Suggestion — not a corrective-action column"
+              required
+              hint="Ide dari yang melihat pekerjaan. Untuk tindakan aman, boleh usul apresiasi."
+              hintEn="An idea from the person who saw the job. For a safe action, an appreciation note is fine."
+            >
+              <textarea
+                required
+                rows={3}
+                maxLength={FIELD_LIMITS.suggestion}
+                value={form.saran}
+                onChange={(e) => update('saran', e.target.value)}
+                className="input"
+                placeholder={
+                  form.jenis_pengamatan === 'Positive Observation'
+                    ? 'Misalnya: ucapkan terima kasih, atau usul agar yang bekerja aman mendapat apresiasi.'
+                    : 'Tuliskan ide yang workable… / Write a workable idea…'
+                }
               />
             </Field>
 
@@ -423,6 +487,9 @@ export default function ReportForm() {
                 <span className="text-sm font-medium text-slate-600">Tap untuk ambil / pilih foto</span>
                 <span className="text-xs text-slate-400">
                   Tap to take or choose photos · JPG/PNG/WEBP/HEIC · max {PHOTO_MAX_COUNT} files · 10 MB each
+                  {form.jenis_pengamatan === 'Positive Observation'
+                    ? ' · foto orang yang bekerja aman boleh dilampirkan / a photo of safe work may be attached'
+                    : ''}
                 </span>
                 <input
                   type="file"

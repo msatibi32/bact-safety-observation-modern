@@ -3,7 +3,9 @@ import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import AdminLayout from '../components/AdminLayout'
+import { useUser } from '../components/RequireRole'
 import { categoryLabel } from '../lib/constants'
+import { visibleReporterName } from '../lib/roles'
 import { getObservations } from '../lib/store'
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -20,6 +22,7 @@ L.Icon.Default.mergeOptions({
 const DEFAULT_CENTER = [-1.0456, 104.0305]
 
 export default function AdminMap() {
+  const user = useUser()
   const [observations, setObservations] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -56,7 +59,7 @@ export default function AdminMap() {
               <Marker key={obs.id} position={[obs.lokasi_gps.lat, obs.lokasi_gps.lng]}>
                 <Popup>
                   <div className="text-sm">
-                    <p className="font-semibold">{obs.is_anonymous ? 'Anonymous' : obs.nama_pelapor}</p>
+                    <p className="font-semibold">{visibleReporterName(obs, user)}</p>
                     <p className="text-xs text-slate-600">{obs.lokasi_teks}</p>
                     <p className="mt-1 text-xs">{categoryLabel(obs.kategori)}</p>
                   </div>

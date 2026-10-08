@@ -107,9 +107,11 @@ export default function FollowUpForm() {
     <div className="min-h-screen bg-gradient-to-b from-brand-50 via-white to-white">
       <PublicModuleNav />
       <div className="mx-auto max-w-xl px-4 py-8">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">SOC follow-up</p>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900">Tindak lanjut departemen</h1>
-        <p className="mt-1 text-sm text-slate-500">Tanpa login. Departemen yang ditunjuk HSSE mengisi dan menutup laporan.</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-600">Permintaan CAPA</p>
+        <h1 className="mt-1 text-2xl font-bold text-slate-900">Tindakan korektif dan preventif</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Tanpa login. Isi tenggat sendiri, status, keterangan, dan foto. Tautan yang sama bisa dibuka lagi sampai pekerjaan selesai. Nama pelapor tidak ditampilkan.
+        </p>
 
         {loading && <p className="mt-6 text-sm text-slate-500">Memuat…</p>}
         {!loading && error && !record && <p className="mt-6 text-sm text-red-600">{error}</p>}
@@ -134,6 +136,12 @@ export default function FollowUpForm() {
               <p className="font-mono text-xs text-brand-700">{record.soc_number}</p>
               <p className="mt-1 font-medium">{record.location}</p>
               <p className="mt-1 text-slate-600">{record.description}</p>
+              {record.suggestion && (
+                <p className="mt-2 text-slate-600">
+                  <span className="font-medium">Saran pelapor: </span>
+                  {record.suggestion}
+                </p>
+              )}
               <p className="mt-2 text-xs text-slate-400">
                 {record.category} · risiko {record.risk_level} · {record.department || 'Departemen'} ·{' '}
                 {formatJakarta(record.incident_at)}

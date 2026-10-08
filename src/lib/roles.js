@@ -40,6 +40,19 @@ export function isSuperAdmin(user) {
   return role === ROLES.ADMIN || role === ROLES.SUPER_ADMIN
 }
 
+/** Nama pelapor di kartu yang keluar hanya terlihat Super Admin. */
+export const HIDDEN_REPORTER_LABEL = 'Disembunyikan'
+
+export function visibleReporterName(obs, user) {
+  if (isSuperAdmin(user)) return obs?.nama_pelapor || '—'
+  return HIDDEN_REPORTER_LABEL
+}
+
+export function visibleEmployeeId(obs, user) {
+  if (!isSuperAdmin(user)) return ''
+  return obs?.employee_id || ''
+}
+
 export function canEditObservations(user) {
   return hasMinRole(user, ROLES.HSE)
 }

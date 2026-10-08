@@ -172,22 +172,25 @@ export async function addObservation(data) {
     life_saving_rule: data.life_saving_rule || (data.kategori ? 'Tidak terkait' : 'Belum diklasifikasi'),
     stop_work: data.stop_work ?? false,
     photo_urls: photoUrls,
-    immediate_action: data.tindakan_langsung || null,
+    immediate_action: clipText(data.saran || data.tindakan_langsung || '', FIELD_LIMITS.suggestion) || null,
     recommendation: data.rekomendasi || null,
     status: data.is_hipo ? 'Under Review' : 'Open',
   }
 
   const { reporter_employee_id: _employeeCol, ...withoutEmployeeCol } = row
-  const attempts = [
-    row,
-    withoutEmployeeCol,
-    { ...row, risk_level: 'Low' },
-    { ...withoutEmployeeCol, risk_level: 'Low' },
-    { ...row, category: 'Unsafe Act' },
-    { ...withoutEmployeeCol, category: 'Unsafe Act' },
-    { ...row, category: 'Unsafe Act', risk_level: 'Low' },
-    { ...withoutEmployeeCol, category: 'Unsafe Act', risk_level: 'Low' },
-  ]
+  const keepChosenType = row.category === 'Suggestion'
+  const attempts = keepChosenType
+    ? [row, withoutEmployeeCol]
+    : [
+        row,
+        withoutEmployeeCol,
+        { ...row, risk_level: 'Low' },
+        { ...withoutEmployeeCol, risk_level: 'Low' },
+        { ...row, category: 'Unsafe Act' },
+        { ...withoutEmployeeCol, category: 'Unsafe Act' },
+        { ...row, category: 'Unsafe Act', risk_level: 'Low' },
+        { ...withoutEmployeeCol, category: 'Unsafe Act', risk_level: 'Low' },
+      ]
 
   let error = null
   for (const candidate of attempts) {
@@ -195,7 +198,15 @@ export async function addObservation(data) {
     error = result.error
     if (!error) break
   }
-  if (error) throw new Error(error.message)
+  if (error) {
+    const message = error.message || ''
+    if (keepChosenType && /check|category/i.test(message)) {
+      throw new Error(
+        'Jenis Saran belum aktif di database. Jalankan supabase/schema-v19-soc-oct.sql di Supabase SQL Editor, lalu kirim lagi.',
+      )
+    }
+    throw new Error(message)
+  }
 
   try {
     await supabase.from('audit_logs').insert({
